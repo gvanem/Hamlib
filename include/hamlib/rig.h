@@ -86,7 +86,7 @@
    representations (max 53 bits of precision) so makes a string
    constant from a constant number literal using ull */
 /* #define CONSTANT_64BIT_FLAG(BIT) (1 << (BIT)) */
-/* But this appears to have been fixed so we'll use the correct one now 
+/* But this appears to have been fixed so we'll use the correct one now
    If you have the older version of SWIG comment out this line and use
    the one above */
 #define CONSTANT_64BIT_FLAG(BIT) (1ull << (BIT))
@@ -700,6 +700,7 @@ typedef union {
  *
  * \sa rig_parse_level(), rig_strlevel()
  */
+#if defined(__GNUC__)    /* Using 64-bit enum values on a 32-bit target seems a GNU feature? */
 enum rig_level_e {
     RIG_LEVEL_NONE =        0,              /*!< '' -- No Level */
     RIG_LEVEL_PREAMP =      (1 << 0),       /*!< \c PREAMP -- Preamp, arg int (dB) */
@@ -746,6 +747,51 @@ enum rig_level_e {
     RIG_LEVEL_MONITOR_GAIN =  CONSTANT_64BIT_FLAG(37),      /*!< \c MONITOR_GAIN -- Monitor gain (level for monitoring of transmitted audio), arg float [0.0 ... 1.0] */
     RIG_LEVEL_NB =            CONSTANT_64BIT_FLAG(38),      /*!< \c NB -- Noise Blanker level, arg float [0.0 ... 1.0] */
 };
+
+#else
+  #define RIG_LEVEL_NONE           0
+  #define RIG_LEVEL_PREAMP         (1 << 0)
+  #define RIG_LEVEL_ATT            (1 << 1)
+  #define RIG_LEVEL_VOX            (1 << 2)
+  #define RIG_LEVEL_AF             (1 << 3)
+  #define RIG_LEVEL_RF             (1 << 4)
+  #define RIG_LEVEL_SQL            (1 << 5)
+  #define RIG_LEVEL_IF             (1 << 6)
+  #define RIG_LEVEL_APF            (1 << 7)
+  #define RIG_LEVEL_NR             (1 << 8)
+  #define RIG_LEVEL_PBT_IN         (1 << 9)
+  #define RIG_LEVEL_PBT_OUT        (1 << 10)
+  #define RIG_LEVEL_CWPITCH        (1 << 11)
+  #define RIG_LEVEL_RFPOWER        (1 << 12)
+  #define RIG_LEVEL_MICGAIN        (1 << 13)
+  #define RIG_LEVEL_KEYSPD         (1 << 14)
+  #define RIG_LEVEL_NOTCHF         (1 << 15)
+  #define RIG_LEVEL_COMP           (1 << 16)
+  #define RIG_LEVEL_AGC            (1 << 17)
+  #define RIG_LEVEL_BKINDL         (1 << 18)
+  #define RIG_LEVEL_BALANCE        (1 << 19)
+  #define RIG_LEVEL_METER          (1 << 20)
+  #define RIG_LEVEL_VOXGAIN        (1 << 21)
+  #define RIG_LEVEL_VOXDELAY       RIG_LEVEL_VOX
+  #define RIG_LEVEL_ANTIVOX        (1 << 22)
+  #define RIG_LEVEL_SLOPE_LOW      (1 << 23)
+  #define RIG_LEVEL_SLOPE_HIGH     (1 << 24)
+  #define RIG_LEVEL_BKIN_DLYMS     (1 << 25)
+  #define RIG_LEVEL_RAWSTR         (1 << 26)
+  #define RIG_LEVEL_SQLSTAT        (1 << 27)
+  #define RIG_LEVEL_SWR            (1 << 28)
+  #define RIG_LEVEL_ALC            (1 << 29)
+  #define RIG_LEVEL_STRENGTH       (1 << 30)
+//#define RIG_LEVEL_BWC            (1<<31)
+  #define RIG_LEVEL_RFPOWER_METER  CONSTANT_64BIT_FLAG(32)
+  #define RIG_LEVEL_COMP_METER     CONSTANT_64BIT_FLAG(33)
+  #define RIG_LEVEL_VD_METER       CONSTANT_64BIT_FLAG(34)
+  #define RIG_LEVEL_ID_METER       CONSTANT_64BIT_FLAG(35)
+  #define RIG_LEVEL_NOTCHF_RAW     CONSTANT_64BIT_FLAG(36)
+  #define RIG_LEVEL_MONITOR_GAIN   CONSTANT_64BIT_FLAG(37)
+  #define RIG_LEVEL_NB             CONSTANT_64BIT_FLAG(38)
+
+#endif
 
 #define RIG_LEVEL_FLOAT_LIST (RIG_LEVEL_AF|RIG_LEVEL_RF|RIG_LEVEL_SQL|RIG_LEVEL_APF|RIG_LEVEL_NR|RIG_LEVEL_PBT_IN|RIG_LEVEL_PBT_OUT|RIG_LEVEL_RFPOWER|RIG_LEVEL_MICGAIN|RIG_LEVEL_COMP|RIG_LEVEL_BALANCE|RIG_LEVEL_SWR|RIG_LEVEL_ALC|RIG_LEVEL_VOXGAIN|RIG_LEVEL_ANTIVOX|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_COMP_METER|RIG_LEVEL_VD_METER|RIG_LEVEL_ID_METER|RIG_LEVEL_NOTCHF_RAW|RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_NB)
 
@@ -2322,7 +2368,11 @@ rigerror HAMLIB_PARAMS((int errnum));
 extern HAMLIB_EXPORT(int)
 rig_setting2idx HAMLIB_PARAMS((setting_t s));
 
-extern setting_t rig_idx2setting(int i);
+/* Already in misc.h
+   extern HAMLIB_EXPORT(setting_t)
+   rig_idx2setting(int i);
+*/
+
 /*
  * Even if these functions are prefixed with "rig_", they are not rig specific
  * Maybe "hamlib_" would have been better. Let me know. --SF
