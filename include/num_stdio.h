@@ -33,31 +33,79 @@
  * Wrapper for sscanf to workaround some locales where the decimal
  * separator (float, ...) is not the dot.
  */
-#define num_sscanf(a...) \
-    ({ int __ret; char *__savedlocale; \
-       __savedlocale = setlocale(LC_NUMERIC, NULL); \
-       setlocale(LC_NUMERIC, "C"); \
-       __ret = sscanf(a); \
-       setlocale(LC_NUMERIC, __savedlocale); \
-       __ret; \
-     })
+#if defined(_MSC_VER) && !defined(__clang__)
+  /*
+   * MSVC have problem with the below 'num_sscanf()' macro in netrigctl.c.
+   * And also some issues with 'num_sprintf()'. So use inline functions
+   * for all of these instead.
+   */
+  static __inline int num_sscanf (const char *buf, const char *fmt, ...)
+  {
+    const char *savedlocale = setlocale (LC_NUMERIC, NULL);
+    int ret;
+    va_list args;
 
-#define num_sprintf(s, a...) \
-    ({ int __ret; char *__savedlocale; \
-       __savedlocale = setlocale(LC_NUMERIC, NULL); \
-       setlocale(LC_NUMERIC, "C"); \
-       __ret = sprintf(s, a); \
-       setlocale(LC_NUMERIC, __savedlocale); \
-       __ret; \
-     })
+    va_start (args, fmt);
+    setlocale (LC_NUMERIC, "C");
+    ret = vsscanf (buf, fmt, args);
+    va_end (args);
+    setlocale (LC_NUMERIC, savedlocale);
+    return (ret);
+  }
 
-#define num_snprintf(s, n, a...) \
-    ({ int __ret; char *__savedlocale; \
-       __savedlocale = setlocale(LC_NUMERIC, NULL); \
-       setlocale(LC_NUMERIC, "C"); \
-       __ret = snprintf(s, n, a); \
-       setlocale(LC_NUMERIC, __savedlocale); \
-       __ret; \
-     })
+  static __inline int num_sprintf (char *buf, const char *fmt, ...)
+  {
+    _locale_t loc = NULL; // GetLocaleForCP (CP_ACP);
+    int       ret;
+    va_list   args;
+
+    va_start (args, fmt);
+    ret = _vsprintf_l (buf, fmt, loc, args);
+    va_end (args);
+    return (ret);
+  }
+
+  static __inline int num_snprintf (char *buf, size_t max, const char *fmt, ...)
+  {
+    const char *savedlocale = setlocale (LC_NUMERIC, NULL);
+    int ret;
+    va_list args;
+
+    va_start (args, fmt);
+    setlocale (LC_NUMERIC, "C");
+    ret = vsnprintf (buf, max, fmt, args);
+    va_end (args);
+    setlocale (LC_NUMERIC, savedlocale);
+    return (ret);
+  }
+
+#else
+  #define num_sscanf(a...) \
+      ({ int __ret; char *__savedlocale; \
+         __savedlocale = setlocale(LC_NUMERIC, NULL); \
+         setlocale(LC_NUMERIC, "C"); \
+         __ret = sscanf(a); \
+         setlocale(LC_NUMERIC, __savedlocale); \
+         __ret; \
+       })
+
+  #define num_sprintf(s, a...) \
+      ({ int __ret; char *__savedlocale; \
+         __savedlocale = setlocale(LC_NUMERIC, NULL); \
+         setlocale(LC_NUMERIC, "C"); \
+         __ret = sprintf(s, a); \
+         setlocale(LC_NUMERIC, __savedlocale); \
+         __ret; \
+       })
+
+  #define num_snprintf(s, n, a...) \
+      ({ int __ret; char *__savedlocale; \
+         __savedlocale = setlocale(LC_NUMERIC, NULL); \
+         setlocale(LC_NUMERIC, "C"); \
+         __ret = snprintf(s, n, a); \
+         setlocale(LC_NUMERIC, __savedlocale); \
+         __ret; \
+       })
+#endif /* _MSC_VER) && !__clang__ */
 
 #endif  /* _NUM_STDIO_H */
