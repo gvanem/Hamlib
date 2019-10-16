@@ -141,8 +141,8 @@ const struct rig_caps k2_caps = {
 	.has_set_level =	RIG_LEVEL_SET(K2_LEVEL_ALL),
 	.has_get_parm =		RIG_PARM_NONE,
 	.has_set_parm =		RIG_PARM_NONE,	/* FIXME: parms */
-	.level_gran =		{},		/* FIXME: granularity */
-	.parm_gran =		{},
+	.level_gran =		{ 0 },		/* FIXME: granularity */
+	.parm_gran =		{ 0 },
 	.extlevels = 		elecraft_ext_levels,
 	.extparms =		kenwood_cfg_params,
 	.preamp =		{ 14, RIG_DBLST_END, },
@@ -341,7 +341,7 @@ int k2_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 			return -RIG_EINVAL;
 		}
 	}
-	
+
 	/* kenwood_set_mode() ignores width value for K2/K3/TS-570 */
 	err = kenwood_set_mode(rig, vfo, mode, width);
 	if (err != RIG_OK)

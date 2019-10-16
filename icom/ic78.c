@@ -97,7 +97,7 @@ const struct rig_caps ic78_caps = {
 .level_gran = {
 	[LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
 	},
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .preamp =   { 10, 20, RIG_DBLST_END, },
 .attenuator =   { 20, RIG_DBLST_END, },
 .max_rit =  Hz(0),

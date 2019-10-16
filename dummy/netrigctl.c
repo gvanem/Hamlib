@@ -250,7 +250,7 @@ static int netrigctl_open(RIG *rig)
                          &rs->rx_range_list[i].high_power,
                          &rs->rx_range_list[i].vfo,
                          &rs->rx_range_list[i].ant
-                        );
+                       );
 
         if (ret != 7)
         {
@@ -2063,16 +2063,16 @@ const struct rig_caps netrigctl_caps =
     .has_get_parm =    RIG_PARM_NONE,
     .has_set_parm =    RIG_PARM_NONE,
 
-    .level_gran =      { },
+    .level_gran =      { 0 },
     .ctcss_list =      NULL,
     .dcs_list =        NULL,
-    .chan_list =   { },
+    .chan_list =   { 0 },
     .transceive =     RIG_TRN_OFF,
-    .attenuator =     { },
-    .preamp =          { },
+    .attenuator =     { 0 },
+    .preamp =          { 0 },
     .rx_range_list2 =  { RIG_FRNG_END, },
     .tx_range_list2 =  { RIG_FRNG_END, },
-    .tuning_steps =  { },
+    .tuning_steps =  { 0 },
     .filters =  { RIG_FLT_END, },
     .max_rit = 0,
     .max_xit = 0,

@@ -140,7 +140,7 @@ const struct rig_caps thf7e_caps = {
         [LVL_SQL] = { .min = { .i = 0 }, .max = { .i = 5 } },
         [LVL_RFPOWER] = { .min = { .i = 2 }, .max = { .i = 0 } },
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  thf7_ctcss_list,
 .dcs_list =  common_dcs_list,
 .preamp =   { RIG_DBLST_END, },

@@ -127,7 +127,7 @@ const struct rig_caps tmd700_caps = {
         [LVL_RFPOWER] = { .min = { .i = 2 }, .max = { .i = 0 }, .step = { .f = 1./3. }  },
         [LVL_AF] = { .min = { .i = 0 }, .max = { .i = 0x3f }, .step = { .f = 1./0x3f } },
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  kenwood38_ctcss_list,
 .dcs_list =  common_dcs_list,
 .preamp =   { RIG_DBLST_END, },

@@ -127,7 +127,7 @@ const struct rig_caps nrd535_caps = {
 	[LVL_CWPITCH] = { .min = { .i = -5000 }, .max = { .i = 5000 } },
 	/*[LVL_BWC] = { .min = { .i = 500 }, .max = { .i = 5500 }, .step = { .i = 10} },*/
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  NULL,
 .dcs_list =  NULL,
 .preamp =   { RIG_DBLST_END },

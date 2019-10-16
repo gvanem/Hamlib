@@ -85,8 +85,8 @@ const struct rig_caps ts950sdx_caps = {
 .has_get_parm =  RIG_PARM_NONE,
 .has_set_parm =  RIG_PARM_NONE,
 
-.level_gran =  {},
-.parm_gran =  {},
+.level_gran =  { 0 },
+.parm_gran =  { 0 },
 .ctcss_list =  kenwood38_ctcss_list,
 .dcs_list =  NULL,
 .preamp =   { RIG_DBLST_END, },

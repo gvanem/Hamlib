@@ -206,7 +206,7 @@ const struct rig_caps ic746_caps = {
 	[LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
 	[LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  common_ctcss_list,
 .dcs_list =  NULL,
 .preamp =   { 10, 20, RIG_DBLST_END, },	/* FIXME: TBC */
@@ -421,7 +421,7 @@ const struct rig_caps ic746pro_caps = {
 .level_gran = {
 	[LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
 	},
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .extparms = ic746pro_ext_parms,
 .ctcss_list =  common_ctcss_list,
 .dcs_list =  full_dcs_list,

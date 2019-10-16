@@ -57,13 +57,13 @@ static struct kenwood_priv_caps ts450_priv_caps = {
 
 static const struct confparams ts450_ext_parms[] = {
 	{ TOK_FINE, "fine", "Fine", "Fine step mode",
-		NULL, RIG_CONF_CHECKBUTTON, { } },
+		NULL, RIG_CONF_CHECKBUTTON, { 0 } },
 	{ TOK_VOICE, "voice", "Voice", "Voice recall",
-		NULL, RIG_CONF_BUTTON, { } },
+		NULL, RIG_CONF_BUTTON, { 0 } },
 	{ TOK_XIT, "xit", "XIT", "XIT",
-		NULL, RIG_CONF_CHECKBUTTON, { } },
+		NULL, RIG_CONF_CHECKBUTTON, { 0 } },
 	{ TOK_RIT, "rit", "RIT", "RIT",
-		NULL, RIG_CONF_CHECKBUTTON, { } },
+		NULL, RIG_CONF_CHECKBUTTON, { 0 } },
 	{ RIG_CONF_END, NULL, }
 };
 
@@ -136,8 +136,8 @@ const struct rig_caps ts450s_caps = {
 	.has_set_level		= RIG_LEVEL_SET(TS450S_LEVEL_ALL),
 	.has_get_parm 		= 0,
 	.has_set_parm		= 0,
-	.level_gran		= {},     /* FIXME: granularity */
-	.parm_gran		= {},
+	.level_gran		= { 0 },     /* FIXME: granularity */
+	.parm_gran		= { 0 },
 	.extparms		= ts450_ext_parms,
 	.ctcss_list		= NULL, /* hw dip-switch */
 	.dcs_list		= NULL,

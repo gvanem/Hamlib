@@ -82,7 +82,7 @@ const struct rig_caps icrx7_caps = {
 .level_gran = {
 	[LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  NULL,
 .dcs_list =  NULL,
 .preamp =   { RIG_DBLST_END, },

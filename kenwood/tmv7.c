@@ -122,7 +122,7 @@ const struct rig_caps tmv7_caps = {
 	[LVL_AF] = { .min = { .i = 0 }, .max = { .i = 32 } },
 	[LVL_RFPOWER] = { .min = { .i = 0 }, .max = { .i = 2 } },
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  kenwood38_ctcss_list,
 .dcs_list =  NULL,
 .preamp =   { RIG_DBLST_END, },

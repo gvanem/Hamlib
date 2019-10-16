@@ -218,8 +218,8 @@ const struct rig_caps tt565_caps = {
 .has_get_parm =  TT565_PARMS,
 .has_set_parm =  TT565_PARMS,
 
-.level_gran = {},
-.parm_gran =  {},
+.level_gran = { 0 },
+.parm_gran =  { 0 },
 .ctcss_list =  NULL,
 .dcs_list =  NULL,
 .preamp =   { 20, RIG_DBLST_END },
@@ -435,8 +435,8 @@ const struct rig_caps tt599_caps = {
 .has_get_parm =  TT599_PARMS,
 .has_set_parm =  TT599_PARMS,
 
-.level_gran = {},
-.parm_gran =  {},
+.level_gran = { 0 },
+.parm_gran =  { 0 },
 .ctcss_list =  NULL,
 .dcs_list =  NULL,
 .preamp =   { 10, RIG_DBLST_END },

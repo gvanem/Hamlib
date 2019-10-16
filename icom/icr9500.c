@@ -102,7 +102,7 @@ const struct rig_caps icr9500_caps = {
 .level_gran = {
 	[LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  common_ctcss_list,
 .dcs_list =  common_dcs_list,
 .preamp =   { 10, 20, RIG_DBLST_END },  /* FIXME: TBC */

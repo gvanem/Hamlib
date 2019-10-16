@@ -50,7 +50,7 @@
 #define DELTAII_ALL_RX_MODES (DELTAII_OTHER_TX_MODES|RIG_MODE_AM)
 
 #define DELTAII_VFO_OPS (RIG_OP_FROM_VFO|RIG_OP_TO_VFO)
-#define DELTAII_STR_CAL { 0, { } }
+#define DELTAII_STR_CAL { 0, { 0 } }
 
 
 static const struct icom_priv_caps delta2_priv_caps = {
@@ -87,8 +87,8 @@ const struct rig_caps delta2_caps = {
 .has_set_level =  RIG_LEVEL_NONE,
 .has_get_parm =  RIG_PARM_NONE,
 .has_set_parm =  RIG_PARM_NONE,
-.level_gran =  {},
-.parm_gran =  {},
+.level_gran =  { 0 },
+.parm_gran =  { 0 },
 .preamp =   { RIG_DBLST_END, },
 .attenuator =   { RIG_DBLST_END, },
 .max_rit =  Hz(0),

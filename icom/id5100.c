@@ -30,7 +30,7 @@
 #include "icom.h"
 
 /*
- * Specs and protocol details comes from the chapter 13 of ID-5100_Full-Inst_Manual.pdf 
+ * Specs and protocol details comes from the chapter 13 of ID-5100_Full-Inst_Manual.pdf
  *
  * NB: while the port labeled "Data" is used for firmware upgrades,
  * you have to use the port labeled "SP2" for rig control.
@@ -111,7 +111,7 @@ const struct rig_caps id5100_caps = {
 .level_gran = {
 	[LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  common_ctcss_list,
 .dcs_list =  full_dcs_list,
 .preamp =   { RIG_DBLST_END, },

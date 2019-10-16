@@ -149,8 +149,8 @@ const struct rig_caps ts990s_caps = {
 .has_set_level =  RIG_LEVEL_SET(TS2000_LEVEL_ALL),
 .has_get_parm =  RIG_PARM_NONE,
 .has_set_parm =  RIG_PARM_NONE,    /* FIXME: parms */
-.level_gran =  {},                 /* FIXME: granularity */
-.parm_gran =  {},
+.level_gran =  { 0 },                 /* FIXME: granularity */
+.parm_gran =  { 0 },
 .vfo_ops =  TS990S_VFO_OP,
 .scan_ops =  TS990S_SCAN_OP,
 .ctcss_list = kenwood42_ctcss_list,
@@ -384,7 +384,7 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 			case RIG_VFO_MAIN:
 				val->i = '1' == lvlbuf[2] ? rig->state.preamp[0] : 0;
 				break;
-					
+
 			case RIG_VFO_SUB:
 				val->i = '1' == lvlbuf[3] ? rig->state.preamp[0] : 0;
 				break;

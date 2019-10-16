@@ -146,8 +146,8 @@ const struct rig_caps fifisdr_caps = {
 	.has_get_parm = RIG_PARM_NONE,
 	.has_set_parm = RIG_PARM_SET(RIG_PARM_NONE),
 
-	.level_gran = {},
-	.parm_gran = {},
+	.level_gran = { 0 },
+	.parm_gran = { 0 },
 
 	.extparms = NULL,
 	.extlevels = fifisdr_ext_levels,

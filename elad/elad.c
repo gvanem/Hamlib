@@ -120,13 +120,13 @@ const tone_t elad42_ctcss_list[] = {
  */
 const struct confparams elad_cfg_params[] = {
   { TOK_FINE, "fine", "Fine", "Fine step mode",
-    NULL, RIG_CONF_CHECKBUTTON, { } },
+    NULL, RIG_CONF_CHECKBUTTON, { 0 } },
   { TOK_VOICE, "voice", "Voice", "Voice recall",
-    NULL, RIG_CONF_BUTTON, { } },
+    NULL, RIG_CONF_BUTTON, { 0 } },
   { TOK_XIT, "xit", "XIT", "XIT",
-    NULL, RIG_CONF_CHECKBUTTON, { } },
+    NULL, RIG_CONF_CHECKBUTTON, { 0 } },
   { TOK_RIT, "rit", "RIT", "RIT",
-    NULL, RIG_CONF_CHECKBUTTON, { } },
+    NULL, RIG_CONF_CHECKBUTTON, { 0 } },
   { RIG_CONF_END, NULL, }
 };
 

@@ -105,7 +105,7 @@ const struct rig_caps icr8500_caps = {
 	[LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
 	[LVL_IF] = { .min = { .i = 0 }, .max = { .i = 255 }, .step = { .i = 1 } },
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  NULL,	/* FIXME: CTCSS/DCS list */
 .dcs_list =  NULL,
 .preamp =   { RIG_DBLST_END, },

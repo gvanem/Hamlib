@@ -43,14 +43,14 @@
 
 
 const struct confparams opto_ext_parms[] = {
-	{ TOK_TAPECNTL, "tapecntl", "Toggle Tape Switch", "Toggles built in tape switch", 0, RIG_CONF_CHECKBUTTON, {} },
-	{ TOK_5KHZWIN,  "5khzwin", "Toggle 5kHz Search Window", "Toggles 5kHz search window", 0, RIG_CONF_CHECKBUTTON, {} },
-	{ TOK_SPEAKER,  "speaker", "Toggle speaker audio", "Toggles speaker audio", 0, RIG_CONF_CHECKBUTTON, {} },
-	{ TOK_AUDIO, "audio", "Audio present", "Audio present", NULL, RIG_CONF_CHECKBUTTON, {} },
-	{ TOK_DTMFPEND, "dtmfpend", "DTMF Digit Pending", "DTMF Digit Pending", NULL, RIG_CONF_CHECKBUTTON, {} },
-	{ TOK_DTMFOVRR, "dtmfovrr", "DTMF Buffer Overflow", "DTMF Buffer Overflow", NULL, RIG_CONF_CHECKBUTTON, {} },
-	{ TOK_CTCSSACT, "ctcssact", "CTCSS Tone Active", "CTCSS Tone Active", NULL, RIG_CONF_CHECKBUTTON, {} },
-	{ TOK_DCSACT,   "dcsact", "DCS Code Active", "DCS Code Active", NULL, RIG_CONF_CHECKBUTTON, {} },
+	{ TOK_TAPECNTL, "tapecntl", "Toggle Tape Switch", "Toggles built in tape switch", 0, RIG_CONF_CHECKBUTTON, { 0 } },
+	{ TOK_5KHZWIN,  "5khzwin", "Toggle 5kHz Search Window", "Toggles 5kHz search window", 0, RIG_CONF_CHECKBUTTON, { 0 } },
+	{ TOK_SPEAKER,  "speaker", "Toggle speaker audio", "Toggles speaker audio", 0, RIG_CONF_CHECKBUTTON, { 0 } },
+	{ TOK_AUDIO, "audio", "Audio present", "Audio present", NULL, RIG_CONF_CHECKBUTTON, { 0 } },
+	{ TOK_DTMFPEND, "dtmfpend", "DTMF Digit Pending", "DTMF Digit Pending", NULL, RIG_CONF_CHECKBUTTON, { 0 } },
+	{ TOK_DTMFOVRR, "dtmfovrr", "DTMF Buffer Overflow", "DTMF Buffer Overflow", NULL, RIG_CONF_CHECKBUTTON, { 0 } },
+	{ TOK_CTCSSACT, "ctcssact", "CTCSS Tone Active", "CTCSS Tone Active", NULL, RIG_CONF_CHECKBUTTON, { 0 } },
+	{ TOK_DCSACT,   "dcsact", "DCS Code Active", "DCS Code Active", NULL, RIG_CONF_CHECKBUTTON, { 0 } },
 	{ RIG_CONF_END, NULL, }
 };
 

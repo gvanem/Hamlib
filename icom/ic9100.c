@@ -132,7 +132,7 @@ const struct rig_caps ic9100_caps = {
 	[LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
 	[LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  common_ctcss_list,
 .dcs_list =  common_dcs_list,
 .preamp =   {20, RIG_DBLST_END, },

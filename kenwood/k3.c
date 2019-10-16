@@ -73,19 +73,19 @@ const struct confparams k3_ext_levels[] = {
         NULL, RIG_CONF_NUMERIC, { .n = { 0, 9990, 10 } }
     },
     { TOK_TX_STAT, "txst", "TX status", "TX status",
-        NULL, RIG_CONF_CHECKBUTTON, { { } },
+        NULL, RIG_CONF_CHECKBUTTON, { { 0 } },
     },
     { TOK_RIT_CLR, "ritclr", "RIT clear", "RIT clear",
-        NULL, RIG_CONF_BUTTON, { { } },
+        NULL, RIG_CONF_BUTTON, { { 0 } },
     },
     { TOK_ESSB, "essb", "ESSB", "Extended SSB frequency response",
-        NULL, RIG_CONF_CHECKBUTTON, { { } },
+        NULL, RIG_CONF_CHECKBUTTON, { { 0 } },
     },
     { TOK_RX_ANT, "rx_ant", "RX ANT", "RX antenna",
-        NULL, RIG_CONF_CHECKBUTTON, { { } },
+        NULL, RIG_CONF_CHECKBUTTON, { { 0 } },
     },
     { TOK_LINK_VFOS, "link_vfos", "Link VFOs", "Link VFOs",
-        NULL, RIG_CONF_CHECKBUTTON, { { } },
+        NULL, RIG_CONF_CHECKBUTTON, { { 0 } },
     },
     { TOK_TX_METER, "tx_meter", "TX meter", "Transmit meter mode",
         NULL, RIG_CONF_COMBO, { .c = { .combostr = { "SWR", "ALC", NULL } } }
@@ -104,13 +104,13 @@ const struct confparams k3_ext_levels[] = {
  */
 const struct confparams kx3_ext_levels[] = {
     { TOK_TX_STAT, "txst", "TX status", "TX status",
-        NULL, RIG_CONF_CHECKBUTTON, { { } },
+        NULL, RIG_CONF_CHECKBUTTON, { { 0 } },
     },
     { TOK_RIT_CLR, "ritclr", "RIT clear", "RIT clear",
-        NULL, RIG_CONF_BUTTON, { { } },
+        NULL, RIG_CONF_BUTTON, { { 0 } },
     },
     { TOK_ESSB, "essb", "ESSB", "Extended SSB frequency response",
-        NULL, RIG_CONF_CHECKBUTTON, { { } },
+        NULL, RIG_CONF_CHECKBUTTON, { { 0 } },
     },
     { RIG_CONF_END, NULL, }
 };
@@ -189,7 +189,7 @@ const struct rig_caps k3_caps = {
 	.level_gran = {
 		[LVL_KEYSPD] = { .min = { .i = 8 }, .max = { .i = 50 }, .step = { .i = 1 } },
 	},
-	.parm_gran =		{},
+	.parm_gran =		{ 0 },
 	.extlevels = 		k3_ext_levels,
 	.extparms =		kenwood_cfg_params,
 	.preamp =		{ 1, RIG_DBLST_END, },
@@ -337,7 +337,7 @@ const struct rig_caps k3s_caps = {
     .level_gran = {
         [LVL_KEYSPD] = { .min = { .i = 8 }, .max = { .i = 50 }, .step = { .i = 1 } },
     },
-    .parm_gran =		{},
+    .parm_gran =		{ 0 },
     .extlevels = 		k3_ext_levels,
     .extparms =		kenwood_cfg_params,
     .preamp =		{ 1, RIG_DBLST_END, },
@@ -485,7 +485,7 @@ const struct rig_caps kx3_caps = {
     .level_gran = {
         [LVL_KEYSPD] = { .min = { .i = 8 }, .max = { .i = 50 }, .step = { .i = 1 } },
     },
-    .parm_gran =		{},
+    .parm_gran =		{ 0 },
     .extlevels = 		kx3_ext_levels,
     .extparms =		kenwood_cfg_params,
     .preamp =		{ 1, RIG_DBLST_END, },
@@ -633,7 +633,7 @@ const struct rig_caps kx2_caps = {
     .level_gran = {
         [LVL_KEYSPD] = { .min = { .i = 8 }, .max = { .i = 50 }, .step = { .i = 1 } },
     },
-    .parm_gran =		{},
+    .parm_gran =		{ 0 },
     .extlevels = 		kx3_ext_levels,
     .extparms =		kenwood_cfg_params,
     .preamp =		{ 1, RIG_DBLST_END, },

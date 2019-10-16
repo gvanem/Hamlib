@@ -162,7 +162,7 @@ const struct rig_caps ic756_caps = {
 .level_gran = {
 	[LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
 	},
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  common_ctcss_list,
 .dcs_list =  NULL,
 .preamp =   { 10, RIG_DBLST_END, },	/* FIXME: TBC */
@@ -314,7 +314,7 @@ const struct rig_caps ic756pro_caps = {
 	[LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
 	[LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  common_ctcss_list,
 .dcs_list =  NULL,
 .preamp =   { 10, 20, RIG_DBLST_END, },	/* FIXME: TBC */
@@ -452,13 +452,13 @@ static const struct confparams ic756pro2_ext_parms[] = {
 		NULL, RIG_CONF_NUMERIC, { .n = { 0, 10, 1 } }
 	},
 	{ TOK_MEMNAME, "showmem", "Show mem name", "Show memory name",
-		NULL, RIG_CONF_CHECKBUTTON, { }
+		NULL, RIG_CONF_CHECKBUTTON, { 0 }
 	},
 	{ TOK_SQLCTRL, "sqlctrl", "RF/Sql control", "set RF/Squelch control",
 		NULL, RIG_CONF_COMBO, { .c = {{ "Auto", "Sql", "RF+Sql", NULL }} }
 	},
 	{ TOK_MYCALL, "mycall", "Callsign", "My call sign",
-		NULL, RIG_CONF_STRING, { }
+		NULL, RIG_CONF_STRING, { 0 }
 	},
 	{ TOK_RTTY_FLTR, "rttyfltr", "RTTY Fltr Width preset", "Set/Read RTTY preset filter width",
 		"350", RIG_CONF_COMBO, { .c = {{"250", "300", "350", "500", "1000", NULL }} }
@@ -534,7 +534,7 @@ const struct rig_caps ic756pro2_caps = {
 	[LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
 	[LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .extparms =  ic756pro2_ext_parms,
 .ctcss_list =  common_ctcss_list,
 .dcs_list =  NULL,
@@ -907,7 +907,7 @@ const struct rig_caps ic756pro3_caps = {
 	[LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
 	[LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .extparms =  ic756pro2_ext_parms,
 .ctcss_list =  common_ctcss_list,
 .dcs_list =  NULL,

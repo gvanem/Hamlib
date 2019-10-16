@@ -148,8 +148,8 @@ const struct rig_caps ts2000_caps = {
 .has_set_level =  RIG_LEVEL_SET(TS2000_LEVEL_ALL),
 .has_get_parm =  RIG_PARM_NONE,
 .has_set_parm =  RIG_PARM_NONE,    /* FIXME: parms */
-.level_gran =  {},                 /* FIXME: granularity */
-.parm_gran =  {},
+.level_gran =  { 0 },                 /* FIXME: granularity */
+.parm_gran =  { 0 },
 .vfo_ops =  TS2000_VFO_OP,
 .scan_ops =  TS2000_SCAN_OP,
 .ctcss_list =  ts2000_ctcss_list,
@@ -164,9 +164,9 @@ const struct rig_caps ts2000_caps = {
 .bank_qty =   0,
 .chan_desc_sz =  7,
 
-.chan_list =  { 
+.chan_list =  {
 		{ 0, 299, RIG_MTYPE_MEM, TS2000_MEM_CAP  },
-		RIG_CHAN_END, 
+		RIG_CHAN_END,
 },
 
 .rx_range_list1 =  {
@@ -261,7 +261,7 @@ const struct rig_caps ts2000_caps = {
 	 {TS2000_ALL_MODES,0},	/* any tuning step */
 	 RIG_TS_END,
 	},
- 
+
         /* mode/filter list, remember: order matters! */
 .filters =  {
 		{RIG_MODE_SSB, kHz(2.2)},
@@ -334,7 +334,7 @@ const struct rig_caps ts2000_caps = {
    P2 - bank number
         allowed values: <space>, 0, 1 or 2
    P3 - channel number 00-99
-   
+
    Returned value:
     M | R |P1 |P2 |P3 |P3 |P4 |P4 |P4 |P4 |
    P4 |P4 |P4 |P4 |P4 |P4 |P4 |P5 |P6 |P7 |
@@ -351,13 +351,13 @@ const struct rig_caps ts2000_caps = {
   P10: DCS code. Allowed values  000 (023 DCS code) to 103 (754 DCS code).
   P11: REVERSE status.
   P12: SHIFT status. 0: Simplex, 1: +, 2: –, 3: = (All E-types)
-  P13: Offset frequency in Hz (9-digit). 
+  P13: Offset frequency in Hz (9-digit).
       Allowed values 000000000 - 059950000 in steps of 50000. Unused digits must be 0.
   P14: Step size. Allowed values:
       for SSB, CW, FSK mode: 00 - 03
 	  00: 1 kHz, 01: 2.5 kHz, 02: 5 kHz, 03: 10 kHz
       for AM, FM mode: 00 - 09
-	  00: 5 kHz, 01: 6.25 kHz, 02: 10 kHz, 03: 12.5 kHz, 04: 15 kHz, 
+	  00: 5 kHz, 01: 6.25 kHz, 02: 10 kHz, 03: 12.5 kHz, 04: 15 kHz,
 	  05: 20 kHz, 06: 25 kHz, 07: 30 kHz,  08: 50 kHz, 09: 100 kHz
   P15: Memory Group number (0 ~ 9).
   P16: Memory name. A maximum of 8 characters.
@@ -402,7 +402,7 @@ int ts2000_get_channel(RIG *rig, channel_t *chan)
     /* Memory group no */
     chan->scan_group = buf[ 40 ] - '0';
     /* Fileds 38-39 contain tuning step as a number 00 - 09.
-       Tuning step depends on this number and the mode, 
+       Tuning step depends on this number and the mode,
        just save it for now */
     buf[ 40 ] = '\0';
     int tmp;
@@ -410,7 +410,7 @@ int ts2000_get_channel(RIG *rig, channel_t *chan)
 	/* Offset frequency */
 	buf[ 38 ] = '\0';
 	chan->rptr_offs = atoi( &buf[ 29 ] );
-	/* Shift type 
+	/* Shift type
 	   WARNING: '=' shift type not programmed */
 	if( buf[ 28 ] == '1' ){
 	  chan->rptr_shift = RIG_RPT_SHIFT_PLUS;
@@ -438,7 +438,7 @@ int ts2000_get_channel(RIG *rig, channel_t *chan)
 	}else{
 	  chan->dcs_code = 0;
 	  chan->dcs_sql = 0;
-	  /* CTCSS code 
+	  /* CTCSS code
 	     Caution, CTCSS codes, unlike DCS codes, are numbered from 1! */
           buf[ 24 ] = '\0';
 	  if( buf[ 19 ] == '2' ){
@@ -460,7 +460,7 @@ int ts2000_get_channel(RIG *rig, channel_t *chan)
 	    }
 	  }
 	}
-	
+
 
 	/* memory lockout */
 	if (buf[18] == '1')
@@ -468,7 +468,7 @@ int ts2000_get_channel(RIG *rig, channel_t *chan)
 
 	/* mode */
 	chan->mode = kenwood2rmode(buf[17] - '0', caps->mode_table);
-    
+
     /* Now we have the mode, let's finish the tuning step */
     if(  (chan->mode == RIG_MODE_AM) || (chan->mode == RIG_MODE_FM) ){
        switch (tmp){
@@ -537,7 +537,7 @@ int ts2000_set_channel(RIG *rig, const channel_t *chan)
 	char mode, tx_mode = 0;
 	int err;
 	int tone = 0;
-	
+
 
 	struct kenwood_priv_caps *caps = kenwood_caps(rig);
 
@@ -593,7 +593,7 @@ int ts2000_set_channel(RIG *rig, const channel_t *chan)
 	}else{
 	  dcscode = 0;
 	}
-	
+
 	char shift = '0';
 	if( chan->rptr_shift == RIG_RPT_SHIFT_PLUS ){
 	  shift = '1';
@@ -625,7 +625,7 @@ int ts2000_set_channel(RIG *rig, const channel_t *chan)
     }
 
     /* P-number       2-3    4 5 6 7   8   9  101112  13 141516  */
-	snprintf(buf, sizeof(buf), "MW0%03d%011u%c%c%c%02d%02d%03d%c%c%09d0%c%c%s;", 
+	snprintf(buf, sizeof(buf), "MW0%03d%011u%c%c%c%02d%02d%03d%c%c%09d0%c%c%s;",
 		chan->channel_num,
 		(unsigned) chan->freq,		/*  4 - frequency */
 		'0' + mode,					/*  5 - mode */
@@ -646,9 +646,9 @@ int ts2000_set_channel(RIG *rig, const channel_t *chan)
 	err = kenwood_transaction(rig, buf, NULL, 0);
 	if (err != RIG_OK)
 		return err;
-	
+
     if( chan->split == RIG_SPLIT_ON ){
-	  sprintf(buf, "MW1%03d%011u%c%c%c%02d%02d%03d%c%c%09d0%c%c%s;\n", 
+	  sprintf(buf, "MW1%03d%011u%c%c%c%02d%02d%03d%c%c%09d0%c%c%s;\n",
 		chan->channel_num,
 		(unsigned) chan->tx_freq, 		/*  4 - frequency */
 		'0' + tx_mode,     				/*  5 - mode */
@@ -665,7 +665,7 @@ int ts2000_set_channel(RIG *rig, const channel_t *chan)
 		chan->channel_desc 				/* 16 - description */
 		);
 	  rig_debug( RIG_DEBUG_VERBOSE, "Split, the command will be: %s\n", buf );
-	
+
 	  err = kenwood_transaction(rig, buf, NULL, 0);
 	}
 	return err;

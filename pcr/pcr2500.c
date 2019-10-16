@@ -96,7 +96,7 @@ const struct rig_caps pcr2500_caps = {
 		/* XXX check this */
 		[LVL_IF] = { .min = { .i = -1270 }, .max = { .i = 1270 }, .step = { .i = 10 } },
 	},
-	.parm_gran		= {},
+	.parm_gran		= { 0 },
 
 	.ctcss_list		= pcr_ctcss_list,
 	.dcs_list		= pcr_dcs_list,

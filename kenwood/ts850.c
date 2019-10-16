@@ -76,13 +76,13 @@ static int ts850_set_channel (RIG * rig, const channel_t * chan);
 
 static const struct confparams ts850_ext_parms[] = {
 	{ TOK_FINE, "fine", "Fine", "Fine step mode",
-		NULL, RIG_CONF_CHECKBUTTON, { } },
+		NULL, RIG_CONF_CHECKBUTTON, { 0 } },
 	{ TOK_VOICE, "voice", "Voice", "Voice recall",
-		NULL, RIG_CONF_BUTTON, { } },
+		NULL, RIG_CONF_BUTTON, { 0 } },
 	{ TOK_XIT, "xit", "XIT", "XIT",
-		NULL, RIG_CONF_CHECKBUTTON, { } },
+		NULL, RIG_CONF_CHECKBUTTON, { 0 } },
 	{ TOK_RIT, "rit", "RIT", "RIT",
-		NULL, RIG_CONF_CHECKBUTTON, { } },
+		NULL, RIG_CONF_CHECKBUTTON, {0  } },
   	{ RIG_CONF_END, NULL, }
 };
 
@@ -119,8 +119,8 @@ const struct rig_caps ts850_caps = {
 	.has_set_level =  TS850_LEVEL_SET,
 	.has_get_parm =  RIG_PARM_NONE,
 	.has_set_parm =  RIG_PARM_NONE,
-	.level_gran =  {},
-	.parm_gran =  {},
+	.level_gran =  { 0 },
+	.parm_gran =  { 0 },
 	.extparms = ts850_ext_parms,
   	.ctcss_list =  kenwood38_ctcss_list,
 	.dcs_list =  NULL,

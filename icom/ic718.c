@@ -105,7 +105,7 @@ const struct rig_caps ic718_caps = {
 .level_gran = {
 	[LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
 	},
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .str_cal = IC718_STR_CAL,
 .ctcss_list =  NULL,
 .dcs_list =  NULL,

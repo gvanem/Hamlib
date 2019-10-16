@@ -184,7 +184,7 @@ const struct rig_caps ic7600_caps = {
 	[LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
 	[LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .extlevels = ic7600_ext_levels,
 .ctcss_list =  common_ctcss_list,
 .dcs_list =  NULL,

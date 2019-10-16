@@ -84,7 +84,7 @@ const struct rig_caps icm802_caps = {
 .level_gran = {
 	[LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 8 } },
 	},
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .str_cal = ICM802_STR_CAL,
 .ctcss_list =  NULL,
 .dcs_list =  NULL,

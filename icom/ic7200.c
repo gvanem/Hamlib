@@ -146,7 +146,7 @@ const struct rig_caps ic7200_caps = {
 	[LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
 	[LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  NULL,
 .dcs_list =  NULL,
 .preamp =   { 10, RIG_DBLST_END, },	/* FIXME: TBC it's a guess*/

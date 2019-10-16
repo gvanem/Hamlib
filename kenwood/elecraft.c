@@ -61,10 +61,10 @@ const struct confparams elecraft_ext_levels[] = {
 		NULL, RIG_CONF_NUMERIC, { .n = { 0, 9990, 10 } }
 	},
 	{ TOK_TX_STAT, "txst", "TX status", "TX status",
-		NULL, RIG_CONF_CHECKBUTTON, { { } },
+		NULL, RIG_CONF_CHECKBUTTON, { { 0 } },
 	},
 	{ TOK_RIT_CLR, "ritclr", "RIT clear", "RIT clear",
-		NULL, RIG_CONF_BUTTON, { { } },
+		NULL, RIG_CONF_BUTTON, { { 0 } },
 	},
 	{ RIG_CONF_END, NULL, }
 };

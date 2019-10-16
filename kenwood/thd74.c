@@ -1649,7 +1649,7 @@ const struct rig_caps thd74_caps =
         [LVL_SQL] = { .min = { .i = 0 }, .max = { .i = 5 } },
         [LVL_RFPOWER] = { .min = { .i = 2 }, .max = { .i = 0 } },
     },
-    .parm_gran =  {},
+    .parm_gran =  { 0 },
     .ctcss_list =  kenwood38_ctcss_list,
     .dcs_list =  NULL,
     .preamp =   { RIG_DBLST_END, },

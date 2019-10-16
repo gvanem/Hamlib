@@ -173,13 +173,13 @@ const tone_t kenwood42_ctcss_list[] = {
  */
 const struct confparams kenwood_cfg_params[] = {
   { TOK_FINE, "fine", "Fine", "Fine step mode",
-    NULL, RIG_CONF_CHECKBUTTON, { } },
+    NULL, RIG_CONF_CHECKBUTTON, { 0 } },
   { TOK_VOICE, "voice", "Voice", "Voice recall",
-    NULL, RIG_CONF_BUTTON, { } },
+    NULL, RIG_CONF_BUTTON, { 0 } },
   { TOK_XIT, "xit", "XIT", "XIT",
-    NULL, RIG_CONF_CHECKBUTTON, { } },
+    NULL, RIG_CONF_CHECKBUTTON, { 0 } },
   { TOK_RIT, "rit", "RIT", "RIT",
-    NULL, RIG_CONF_CHECKBUTTON, { } },
+    NULL, RIG_CONF_CHECKBUTTON, { 0 } },
   { RIG_CONF_END, NULL, }
 };
 
@@ -2146,7 +2146,7 @@ int get_kenwood_func(RIG *rig, const char *cmd, int *status)
   char buf[10];
 
   int offset=2;
-  if (strlen(cmd)==3) offset=3; // some commands are 3 letters 
+  if (strlen(cmd)==3) offset=3; // some commands are 3 letters
 
   retval = kenwood_safe_transaction(rig, cmd, buf, sizeof(buf), offset+1);
   if (retval != RIG_OK)
@@ -2213,14 +2213,14 @@ int kenwood_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
   case RIG_FUNC_BC: // Most will return BC1 or BC0, if BC2 then BC1 is off
     retval = get_kenwood_func(rig, "BC", status);
     if (retval == RIG_OK) {
-      *status = *status == '1' ? 1: 0; 
+      *status = *status == '1' ? 1: 0;
     }
     return retval;
 
   case RIG_FUNC_BC2: // TS-890 check Beat Cancel 2 we return boolean true/false
     retval = get_kenwood_func(rig, "BC", status);
     if (retval == RIG_OK) {
-      *status = *status == '2' ? 1: 0; 
+      *status = *status == '2' ? 1: 0;
     }
     return retval;
 
@@ -2811,7 +2811,7 @@ int kenwood_set_powerstat(RIG *rig, powerstat_t status)
   int retry=3/rig->state.rigport.retry;
   if (status==RIG_POWER_ON) { // wait for wakeup only
     for(i=0;i<retry;++i) { // up to 10 seconds
-       sleep(1);  
+       sleep(1);
        freq_t freq;
        retval = rig_get_freq(rig, RIG_VFO_A, &freq);
        if (retval == RIG_OK) return retval;
@@ -2822,7 +2822,7 @@ int kenwood_set_powerstat(RIG *rig, powerstat_t status)
        rig_debug(RIG_DEBUG_TRACE,"%s: timeout waiting for powerup\n",__func__,i+1);
        retval = -RIG_ETIMEOUT;
   }
-  return retval; 
+  return retval;
 }
 
 /*

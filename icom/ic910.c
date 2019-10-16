@@ -408,7 +408,7 @@ const struct rig_caps ic910_caps = {
     [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
   },
-  .parm_gran =    {},
+  .parm_gran =    { 0 },
   .ctcss_list =   NULL,
   .dcs_list =   NULL,
   .preamp =   { 20, RIG_DBLST_END, },

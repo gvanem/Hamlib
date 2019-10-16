@@ -118,7 +118,7 @@ const struct rig_caps icr30_caps = {
 .level_gran = {
 	[LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  common_ctcss_list,
 .dcs_list =  common_dcs_list,
 .preamp =   { RIG_DBLST_END, },

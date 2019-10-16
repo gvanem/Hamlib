@@ -113,7 +113,7 @@ const struct rig_caps ic703_caps = {
 .level_gran = {
 	[LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
 	},
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  common_ctcss_list,
 .dcs_list =  NULL,
 .preamp =   { 10, 20, RIG_DBLST_END, },	/* FIXME: 2 levels */

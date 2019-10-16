@@ -91,16 +91,16 @@ static int rotorez_flush_buffer(ROT *rot);
  */
 static const struct confparams rotorez_cfg_params[] = {
 	{ TOK_ENDPT, "endpt", "Endpoint option", "Endpoint option",
-		NULL, RIG_CONF_CHECKBUTTON, { }
+		NULL, RIG_CONF_CHECKBUTTON, { 0 }
 	},
 	{ TOK_JAM, "jam", "Jam protection", "Jam protection",
-		NULL, RIG_CONF_CHECKBUTTON, { }
+		NULL, RIG_CONF_CHECKBUTTON, { 0 }
 	},
 	{ TOK_OVRSHT, "oversht", "Overshoot option", "Overshoot option",
-		NULL, RIG_CONF_CHECKBUTTON, { }
+		NULL, RIG_CONF_CHECKBUTTON, { 0 }
 	},
 	{ TOK_UNSTICK, "unstick", "Unstick option", "Unstick option",
-		NULL, RIG_CONF_CHECKBUTTON, { }
+		NULL, RIG_CONF_CHECKBUTTON, { 0 }
 	},
 	{ RIG_CONF_END, NULL, }
 };

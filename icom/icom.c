@@ -434,7 +434,7 @@ static const struct icom_addr icom_addr_list[] = {
 	{ RIG_MODEL_IC7610, 0x98 },
 	{ RIG_MODEL_IC7700, 0x74 },
 	{ RIG_MODEL_PERSEUS, 0xE1 },
-	{ RIG_MODEL_X108G, 0x70 }, 
+	{ RIG_MODEL_X108G, 0x70 },
 	{ RIG_MODEL_ICR8600, 0x96 },
 	{ RIG_MODEL_ICR30, 0x9c },
 	{ RIG_MODEL_NONE, 0 },
@@ -443,7 +443,7 @@ static const struct icom_addr icom_addr_list[] = {
 /*
  * This is a generic icom_init function.
  * You might want to define yours, so you can customize it for your rig
- * 
+ *
  * Basically, it sets up *priv
  * REM: serial port is already open (rig->state.rigport.fd)
  */
@@ -630,13 +630,13 @@ int icom_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
   unsigned char data;
   int datalen = 0;
   switch(vfo) {
-    case RIG_VFO_MAIN: 
+    case RIG_VFO_MAIN:
       cmd = C_SET_VFO;
       subcmd = S_SUB_SEL;
       data = 0;
       datalen = 1;
       break;
-    case RIG_VFO_SUB: 
+    case RIG_VFO_SUB:
       cmd = C_SET_VFO;
       subcmd = S_SUB_SEL;
       data = 1;
@@ -803,7 +803,7 @@ pbwidth_t icom_get_dsp_flt(RIG *rig, rmode_t mode) {
 				return rtty_fil[rfwidth.i];
 		}
 	}
-	if (RIG_MODEL_X108G == rig->caps->rig_model) priv->no_1a_03_cmd = 1; 
+	if (RIG_MODEL_X108G == rig->caps->rig_model) priv->no_1a_03_cmd = 1;
 	if (priv->no_1a_03_cmd) return 0;
 	retval = icom_transaction (rig, C_CTL_MEM, fw_sub_cmd, 0, 0,
 														 resbuf, &res_len);

@@ -93,10 +93,10 @@ static const struct confparams dummy_ext_parms[] = {
 /* cfgparams are configuration item generally used by the backend's open() method */
 static const struct confparams dummy_cfg_params[] = {
 	{ TOK_CFG_MAGICCONF, "mcfg", "Magic conf", "Magic parameter, as an example",
-		"DX", RIG_CONF_STRING, { }
+		"DX", RIG_CONF_STRING, { 0 }
 	},
 	{ TOK_CFG_STATIC_DATA, "static_data", "Static data", "Output only static data, no randomization of meter values",
-		"0", RIG_CONF_CHECKBUTTON, { }
+		"0", RIG_CONF_CHECKBUTTON, { 0 }
 	},
 	{ RIG_CONF_END, NULL, }
 };

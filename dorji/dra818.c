@@ -38,7 +38,7 @@
 #include "dra818.h"
 #include "dorji.h"
 
-static const char *dra818_handshake_cmd = "AT+DMOCONNECT\r\n"; 
+static const char *dra818_handshake_cmd = "AT+DMOCONNECT\r\n";
 static const char *dra818_handshake_res = "+DMOCONNECT:0\r\n";
 static const char *dra818_setgroup_res = "+DMOSETGROUP:0\r\n";
 static const char *dra818_setvolume_res = "+DMOSETVOLUME:0\r\n";
@@ -79,7 +79,7 @@ static void dra818_subaudio(RIG *rig, char *subaudio, tone_t tone, tone_t code)
 		return;
 	} else if (tone) {
 		int i;
-		
+
 		for (i = 0; rig->caps->ctcss_list[i]; i++) {
 			if (rig->caps->ctcss_list[i] == tone) {
 				sprintf(subaudio, "%04d", i+1);
@@ -99,10 +99,10 @@ static int dra818_setgroup(RIG *rig)
 	char cmd[80];
 	char subtx[5] = { 0 };
 	char subrx[5] = { 0 };
-	
+
 	dra818_subaudio(rig, subtx, priv->ctcss_tone, priv->dcs_code);
 	dra818_subaudio(rig, subrx, priv->ctcss_sql, priv->dcs_sql);
-	
+
 	sprintf(cmd, "AT+DMOSETGROUP=%1d,%03d.%04d,%03d.%04d,%4s,%1d,%4s\r\n",
 	    priv->bw == 12500 ? 0 : 1,
 	    (int)(priv->tx_freq / 1000000), (int)((priv->tx_freq % 1000000) / 100),
@@ -117,7 +117,7 @@ static int dra818_setvolume(RIG *rig)
 {
 	struct dra818_priv *priv = rig->state.priv;
 	char cmd[80];
-	
+
 	sprintf(cmd, "AT+DMOSETVOLUME=%1d\r\n",
 	    priv->vol);
 	write_block(&rig->state.rigport, cmd, strlen(cmd));
@@ -133,7 +133,7 @@ int dra818_init(RIG *rig)
 	if (!priv)
 		return -RIG_ENOMEM;
 	rig->state.priv = priv;
-	
+
 	switch (rig->caps->rig_model) {
 		case RIG_MODEL_DORJI_DRA818V:
 			priv->rx_freq = 145000000;
@@ -143,7 +143,7 @@ int dra818_init(RIG *rig)
 			break;
 	}
 	priv->tx_freq = priv->rx_freq;
-	
+
 	priv->bw = 12500;
 	priv->split = RIG_SPLIT_OFF;
 	priv->ctcss_tone = 0;
@@ -152,14 +152,14 @@ int dra818_init(RIG *rig)
 	priv->dcs_sql = 0;
 	priv->sql = 4;
 	priv->vol = 6;
-	
+
 	return RIG_OK;
 }
 
 int dra818_cleanup(RIG *rig)
 {
 	rig_debug(RIG_DEBUG_VERBOSE, "dra818: dra818_cleanup called\n");
-	
+
 	free(rig->state.priv);
 
 	return RIG_OK;
@@ -189,12 +189,12 @@ int dra818_open(RIG *rig)
 int dra818_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
 	struct dra818_priv *priv = rig->state.priv;
-	
+
 	/* Nearest channel */
 	shortfreq_t sfreq = ((freq + priv->bw/2)/priv->bw);
 	sfreq *= priv->bw;
-	
-	rig_debug(RIG_DEBUG_VERBOSE, 
+
+	rig_debug(RIG_DEBUG_VERBOSE,
 	    "dra818: requested freq = %"PRIfreq" Hz, set freq = %d Hz\n",
 	    freq, sfreq);
 
@@ -215,20 +215,20 @@ int dra818_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 int dra818_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
 	struct dra818_priv *priv = rig->state.priv;
-	
+
 	if (width > 12500)
 		priv->bw = 25000;
 	else
 		priv->bw = 12500;
 	rig_debug(RIG_DEBUG_VERBOSE, "dra818: bandwidth: %d\n", priv->bw);
-	
+
 	return dra818_setgroup(rig);
 }
 
 int dra818_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
 	struct dra818_priv *priv = rig->state.priv;
-	
+
 	*mode = RIG_MODE_FM;
 	*width = priv->bw;
 
@@ -239,7 +239,7 @@ int dra818_get_dcd(RIG *rig, vfo_t vfo, dcd_t *dcd)
 {
 	struct dra818_priv *priv = rig->state.priv;
 	char cmd[80];
-	
+
 	sprintf(cmd, "S+%03d.%04d\r\n",
 	    (int)(priv->rx_freq / 1000000), (int)((priv->rx_freq % 1000000) / 100));
 	write_block(&rig->state.rigport, cmd, strlen(cmd));
@@ -254,7 +254,7 @@ int dra818_get_dcd(RIG *rig, vfo_t vfo, dcd_t *dcd)
 	else
 		*dcd = RIG_DCD_ON;
 
-	return RIG_OK;	
+	return RIG_OK;
 }
 
 int dra818_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
@@ -271,7 +271,7 @@ int dra818_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 		default:
 			return -RIG_EINVAL;
 	}
-			
+
 	return RIG_OK;
 }
 
@@ -282,22 +282,22 @@ int dra818_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
 	priv->split = split;
 	if (split == RIG_SPLIT_OFF)
 		priv->tx_freq = priv->rx_freq;
-	
+
 	return dra818_setgroup(rig);
 }
 
 int dra818_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
 {
 	struct dra818_priv *priv = rig->state.priv;
-	
+
 	*split = priv->split;
-	
+
 	if (priv->split == RIG_SPLIT_ON) {
 		*tx_vfo = RIG_VFO_TX;
 	} else {
 		*tx_vfo = RIG_VFO_RX;
 	}
-	
+
 	return RIG_OK;
 }
 
@@ -350,51 +350,51 @@ int dra818_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 int dra818_set_dcs_code(RIG *rig, vfo_t vfo, tone_t code)
 {
 	struct dra818_priv *priv = rig->state.priv;
-	
+
 	priv->dcs_code = code;
 	if (code)
 		priv->ctcss_tone = 0;
-	
+
 	return dra818_setgroup(rig);
 }
 
 int dra818_set_ctcss_tone (RIG *rig, vfo_t vfo, tone_t tone)
 {
 	struct dra818_priv *priv = rig->state.priv;
-	
+
 	priv->ctcss_tone = tone;
 	if (tone)
 		priv->dcs_code = 0;
-	
+
 	return dra818_setgroup(rig);
 }
 
 int dra818_set_dcs_sql (RIG *rig, vfo_t vfo, tone_t code)
 {
 	struct dra818_priv *priv = rig->state.priv;
-	
+
 	priv->dcs_sql = code;
 	if (code)
 		priv->ctcss_sql = 0;
-	
+
 	return dra818_setgroup(rig);
 }
 
 int dra818_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
 {
 	struct dra818_priv *priv = rig->state.priv;
-	
+
 	priv->ctcss_sql = tone;
 	if (tone)
 		priv->dcs_sql = 0;
-	
+
 	return dra818_setgroup(rig);
 }
 
 int dra818_get_ctcss_sql(RIG *rig, vfo_t vfo, tone_t *tone)
 {
 	struct dra818_priv *priv = rig->state.priv;
-	
+
 	*tone = priv->ctcss_sql;
 	return RIG_OK;
 }
@@ -402,7 +402,7 @@ int dra818_get_ctcss_sql(RIG *rig, vfo_t vfo, tone_t *tone)
 int dra818_get_dcs_sql (RIG *rig, vfo_t vfo, tone_t *code)
 {
 	struct dra818_priv *priv = rig->state.priv;
-	
+
 	*code = priv->dcs_sql;
 	return RIG_OK;
 }
@@ -410,7 +410,7 @@ int dra818_get_dcs_sql (RIG *rig, vfo_t vfo, tone_t *code)
 int dra818_get_dcs_code(RIG *rig, vfo_t vfo, tone_t *code)
 {
 	struct dra818_priv *priv = rig->state.priv;
-	
+
 	*code = priv->dcs_code;
 	return RIG_OK;
 }
@@ -418,7 +418,7 @@ int dra818_get_dcs_code(RIG *rig, vfo_t vfo, tone_t *code)
 int dra818_get_ctcss_tone (RIG *rig, vfo_t vfo, tone_t *tone)
 {
 	struct dra818_priv *priv = rig->state.priv;
-	
+
 	*tone = priv->ctcss_tone;
 	return RIG_OK;
 }
@@ -451,8 +451,8 @@ const struct rig_caps dra818u_caps = {
 	.has_set_level =	RIG_LEVEL_AF | RIG_LEVEL_SQL,
 	.has_get_parm =		RIG_PARM_NONE,
 	.has_set_parm =		RIG_PARM_NONE,
-	.level_gran =		{},
-	.parm_gran =		{},
+	.level_gran =		{ 0 },
+	.parm_gran =		{ 0 },
 	.ctcss_list =		/* 38 according to doc, are they all correct? */
 	                        (tone_t[])
 				{  670,  719,  744,  770,  797,  825,  854,
@@ -551,8 +551,8 @@ const struct rig_caps dra818v_caps = {
 	.has_set_level =	RIG_LEVEL_AF | RIG_LEVEL_SQL,
 	.has_get_parm =		RIG_PARM_NONE,
 	.has_set_parm =		RIG_PARM_NONE,
-	.level_gran =		{},
-	.parm_gran =		{},
+	.level_gran =		{ 0 },
+	.parm_gran =		{ 0 },
 	.ctcss_list =		/* 38 according to doc, are they all correct? */
 	                        (tone_t[])
 	                        {  670,  719,  744,  770,  797,  825,  854,

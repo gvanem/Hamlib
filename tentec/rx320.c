@@ -108,7 +108,7 @@ const struct rig_caps rx320_caps = {
     [LVL_IF] = { .min = { .i = -2000 }, .max = { .i = 2000 }, .step = { .i = 10} },
     [LVL_CWPITCH] = { .min = { .i = 0}, .max = { .i = 2000 }, .step = { .i = 100} }
 },
-.parm_gran =  {},
+.parm_gran =  { 0 },
 .ctcss_list =  NULL,
 .dcs_list =  NULL,
 .preamp =   { RIG_DBLST_END },

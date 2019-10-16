@@ -127,8 +127,8 @@ const struct rig_caps xg3_caps = {
     .has_set_level = RIG_LEVEL_SET(XG3_LEVEL_ALL),
     .has_get_parm = XG3_PARM_ALL,
     .has_set_parm = XG3_PARM_ALL,
-    .level_gran = {},           /* FIXME: granularity */
-    .parm_gran = {},
+    .level_gran = { 0 },           /* FIXME: granularity */
+    .parm_gran = { 0 },
     .extparms = kenwood_cfg_params,
     .max_ifshift = Hz(0),
     .targetable_vfo = RIG_TARGETABLE_FREQ,
@@ -615,7 +615,7 @@ int xg3_set_parm(RIG *rig, setting_t parm, value_t val)
     char cmdbuf[16];
     int retval=-RIG_EINVAL;
 
-    switch (parm) 
+    switch (parm)
     {
         case RIG_PARM_BACKLIGHT:
             ival = 3-(int)(val.f*3); // gives us 0-3 bright-to-dim
@@ -641,7 +641,7 @@ int xg3_get_parm(RIG *rig, setting_t parm, value_t *val)
     char replybuf[6];
     int retval=-RIG_EINVAL;
 
-    switch (parm) 
+    switch (parm)
     {
         case RIG_PARM_BACKLIGHT:
             retval = kenwood_safe_transaction(rig, "G", replybuf, 6, 4);
