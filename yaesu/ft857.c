@@ -173,8 +173,8 @@ const struct rig_caps ft857_caps = {
   .has_set_level = 	RIG_LEVEL_NONE,
   .has_get_parm = 	RIG_PARM_NONE,
   .has_set_parm = 	RIG_PARM_NONE,
-  .level_gran = 	{},                     /* granularity */
-  .parm_gran = 		{},
+  .level_gran = 	{ 0 },                     /* granularity */
+  .parm_gran = 		{ 0 },
   .ctcss_list = 	common_ctcss_list,
   .dcs_list = 		common_dcs_list,   /* only 104 supported */
   .preamp = 		{ RIG_DBLST_END, },
@@ -515,7 +515,7 @@ int ft857_set_vfo(RIG *rig, vfo_t vfo)
   int retval =  ft857_get_vfo(rig,&curvfo);
   if (retval != RIG_OK) {
     rig_debug(RIG_DEBUG_ERR,"%s: error get_vfo '%s'\n",__func__,rigerror(retval));
-    return retval; 
+    return retval;
   }
   if (curvfo == vfo) {
     return RIG_OK;

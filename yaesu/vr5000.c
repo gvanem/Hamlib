@@ -159,7 +159,7 @@ const struct rig_caps vr5000_caps = {
   .transceive =         RIG_TRN_OFF,
   .bank_qty =           0,
   .chan_desc_sz =       0,
-  .chan_list =          { },
+  .chan_list =          { 0 },
   .rx_range_list1 =     {
     {kHz(101)+500, GHz(2.6)-1000, VR5000_MODES, -1, -1, RIG_VFO_A, VR5000_ANTS },
     RIG_FRNG_END,

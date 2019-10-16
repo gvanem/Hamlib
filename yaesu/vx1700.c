@@ -128,7 +128,7 @@ const struct rig_caps vx1700_caps = {
     .level_gran =  {
 	[LVL_RFPOWER] = { .min = { .i = 0 }, .max = { .i = 2 } },
     },
-    .parm_gran =  {},
+    .parm_gran =  { 0 },
     .preamp =   { RIG_DBLST_END },
     .attenuator =   { RIG_DBLST_END },
     .max_rit =  Hz(0),

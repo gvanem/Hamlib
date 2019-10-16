@@ -2,7 +2,7 @@
  * hamlib - (C) Frank Singleton 2000-2003
  *          (C) Stephane Fillod 2000-2010
  *
- * ft600.c -(C) Kārlis Millers YL3ALK 2019
+ * ft600.c -(C) Karlis Millers YL3ALK 2019
  *
  * This shared library provides an API for communicating
  * via serial interface to an FT-600 using the "CAT" interface.
@@ -157,8 +157,8 @@ const struct rig_caps ft600_caps = {
   .has_set_level = 	RIG_LEVEL_NONE,
   .has_get_parm = 	RIG_PARM_NONE,
   .has_set_parm = 	RIG_PARM_NONE,	/* FIXME: parms */
-  .level_gran =		{},		/* granularity */
-  .parm_gran = 		{},
+  .level_gran =		{ 0 },		/* granularity */
+  .parm_gran = 		{ 0 },
   .ctcss_list = 	RIG_FUNC_NONE,
   .dcs_list = 		RIG_FUNC_NONE,
   .preamp = 		{ RIG_DBLST_END, },
@@ -185,7 +185,7 @@ const struct rig_caps ft600_caps = {
     {FT600_ALL_RX_MODES,1000},
     RIG_TS_END,
   },
-  .filters =  {},
+  .filters =  { 0 },
   .str_cal = FT600_STR_CAL,
   .priv = 		NULL,
   .rig_init = 		ft600_init,
