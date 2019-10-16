@@ -589,14 +589,6 @@ static int next_word(char *buffer, int argc, char *argv[], int newline)
 }
 
 
-#define fprintf_flush(f, a...)                  \
-    ({ int __ret;                               \
-        __ret = fprintf((f), a);                \
-        fflush((f));                            \
-        __ret;                                  \
-    })
-
-
 int rigctl_parse(RIG *my_rig, FILE *fin, FILE *fout, char *argv[], int argc, sync_cb_t sync_cb,
                  int interactive, int prompt, int vfo_mode, char send_cmd_term,
                  int * ext_resp_ptr, char * resp_sep_ptr)
@@ -1100,7 +1092,7 @@ int rigctl_parse(RIG *my_rig, FILE *fin, FILE *fout, char *argv[], int argc, syn
 
 #endif
             /* The starting position of the source string is the first
-             * character past the initial '\'.  
+             * character past the initial '\'.
              */
             snprintf(cmd_name, sizeof(cmd_name), "%s", parsed_input[0] + 1);
 
