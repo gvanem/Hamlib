@@ -79,7 +79,7 @@ const struct rig_caps gr_caps = {
   .transceive =     RIG_TRN_OFF,
   .attenuator =     { RIG_DBLST_END, },
   .preamp = 	 { RIG_DBLST_END, },
-  .rx_range_list2 =  { {.start=kHz(150),.end=MHz(1500),.modes=GR_MODES,
+  .rx_range_list2 =  { {.startf=kHz(150),.endf=MHz(1500),.modes=GR_MODES,
 		    .low_power=-1,.high_power=-1,GR_VFO},
 		    RIG_FRNG_END, },
   .tx_range_list2 =  { RIG_FRNG_END, },
