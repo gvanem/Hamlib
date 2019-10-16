@@ -36,7 +36,7 @@
 #if defined (HAVE_ALLOCA_H) || (defined(sparc) && (defined(sun) || (!defined(USG) && !defined(SVR4) && !defined(__svr4__))))
 #include <alloca.h>
 #else
-#ifndef _AIX
+#if !defined(_AIX) && !defined(_WIN32)
 char *alloca ();
 #endif
 #endif /* alloca.h */
