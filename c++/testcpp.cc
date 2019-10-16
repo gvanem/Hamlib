@@ -1,5 +1,5 @@
 
-/* 
+/*
  * Hamlib sample C++ program
  */
 
@@ -9,6 +9,11 @@
 int main(int argc, char* argv[])
 {
 	Rig myRig = Rig(RIG_MODEL_DUMMY);
+
+	if (argc == 2 && std::string(argv[1]) == "-v")
+	   rig_set_debug (RIG_DEBUG_TRACE);
+	else
+	   rig_set_debug (RIG_DEBUG_NONE);
 
 	try {
 		myRig.setConf("rig_pathname", "/dev/ttyS1");
