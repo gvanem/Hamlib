@@ -126,7 +126,11 @@ extern HAMLIB_EXPORT(setting_t) rig_idx2setting(int i);
 #  endif
 #endif
 
-
+#define fprintf_flush(f, ...)      \
+        do {                       \
+          fprintf(f, __VA_ARGS__); \
+          fflush(f);               \
+        } while (0)
 
 __END_DECLS
 
