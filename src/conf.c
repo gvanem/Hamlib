@@ -73,9 +73,14 @@ static const struct confparams frontend_cfg_params[] =
         "0", RIG_CONF_NUMERIC, { .n = { 0, 10, 1 } }
     },
     {
-        TOK_ITU_REGION, "itu_region", "ITU region",
-        "ITU region this rig has been manufactured for (freq. band plan)",
-        "0", RIG_CONF_NUMERIC, { .n = { 1, 3, 1 } }
+        TOK_RANGE_SELECTED, "Selected range list", "Range list#",
+        "The tx/rx range list in use",
+        "0", RIG_CONF_NUMERIC, { .n = { 1, 5, 1 } }
+    },
+    {
+        TOK_RANGE_NAME, "Selected range list", "Range list name",
+        "The tx/rx range list name",
+        "Default", RIG_CONF_STRING
     },
 
     {
@@ -114,9 +119,24 @@ static const struct confparams frontend_cfg_params[] =
         "/dev/rig", RIG_CONF_STRING,
     },
     {
-	TOK_LO_FREQ, "lo_freq", "LO Frequency",
-	"Frequency to add to the VFO frequency for use with a transverter",
-	"0", RIG_CONF_NUMERIC, { .n = {0.0, 1e9, .1}}
+        TOK_LO_FREQ, "lo_freq", "LO Frequency",
+        "Frequency to add to the VFO frequency for use with a transverter",
+        "0", RIG_CONF_NUMERIC, { .n = {0.0, 1e9, .1}}
+    },
+    {
+        TOK_CACHE_TIMEOUT, "cache_timeout", "Cache timeout value in ms",
+        "Cache timeout, value of 0 disables caching",
+        "500", RIG_CONF_NUMERIC, { .n = {0, 5000, 1}}
+    },
+    {
+        TOK_AUTO_POWER_ON, "auto_power_on", "Auto power on",
+        "True enables compatible rigs to be powered up on open",
+        "0", RIG_CONF_CHECKBUTTON, { 0 }
+    },
+    {
+        TOK_AUTO_DISABLE_SCREENSAVER, "auto_disable_screensaver", "Auto disable screen saver",
+        "True enables compatible rigs to have their screen saver disabled on open",
+        "0", RIG_CONF_CHECKBUTTON, { 0 }
     },
 
     { RIG_CONF_END, NULL, }
@@ -371,7 +391,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
 
         break;
 
-    case TOK_ITU_REGION:
+    case TOK_RANGE_SELECTED:
         if (1 != sscanf(val, "%d", &val_i))
         {
             return -RIG_EINVAL;//value format error
@@ -379,20 +399,38 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
 
         switch (val_i)
         {
-        case RIG_ITU_REGION1:
-            rs->itu_region = val_i;
+        case 1:
             memcpy(rs->tx_range_list, caps->tx_range_list1,
                    sizeof(struct freq_range_list)*FRQRANGESIZ);
             memcpy(rs->rx_range_list, caps->rx_range_list1,
                    sizeof(struct freq_range_list)*FRQRANGESIZ);
             break;
 
-        case RIG_ITU_REGION2:
-        case RIG_ITU_REGION3:
-            rs->itu_region = val_i;
+        case 2:
             memcpy(rs->tx_range_list, caps->tx_range_list2,
                    sizeof(struct freq_range_list)*FRQRANGESIZ);
             memcpy(rs->rx_range_list, caps->rx_range_list2,
+                   sizeof(struct freq_range_list)*FRQRANGESIZ);
+            break;
+
+        case 3:
+            memcpy(rs->tx_range_list, caps->tx_range_list3,
+                   sizeof(struct freq_range_list)*FRQRANGESIZ);
+            memcpy(rs->rx_range_list, caps->rx_range_list3,
+                   sizeof(struct freq_range_list)*FRQRANGESIZ);
+            break;
+
+        case 4:
+            memcpy(rs->tx_range_list, caps->tx_range_list4,
+                   sizeof(struct freq_range_list)*FRQRANGESIZ);
+            memcpy(rs->rx_range_list, caps->rx_range_list4,
+                   sizeof(struct freq_range_list)*FRQRANGESIZ);
+            break;
+
+        case 5:
+            memcpy(rs->tx_range_list, caps->tx_range_list5,
+                   sizeof(struct freq_range_list)*FRQRANGESIZ);
+            memcpy(rs->rx_range_list, caps->rx_range_list5,
                    sizeof(struct freq_range_list)*FRQRANGESIZ);
             break;
 
@@ -515,10 +553,32 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
     case TOK_POLL_INTERVAL:
         rs->poll_interval = atof(val);
         break;
-    case TOK_LO_FREQ:
-	rs->lo_freq = atof(val);
-	break;
 
+    case TOK_LO_FREQ:
+        rs->lo_freq = atof(val);
+        break;
+
+    case TOK_CACHE_TIMEOUT:
+        rig_set_cache_timeout_ms(rig, HAMLIB_CACHE_ALL, atol(val));
+        break;
+
+    case TOK_AUTO_POWER_ON:
+        if (1 != sscanf(val, "%d", &val_i))
+        {
+            return -RIG_EINVAL; //value format error
+        }
+
+        rs->auto_power_on = val_i ? 1 : 0;
+        break;
+
+    case TOK_AUTO_DISABLE_SCREENSAVER:
+        if (1 != sscanf(val, "%d", &val_i))
+        {
+            return -RIG_EINVAL; //value format error
+        }
+
+        rs->auto_disable_screensaver = val_i ? 1 : 0;
+        break;
 
     default:
         return -RIG_EINVAL;
@@ -561,10 +621,13 @@ static int frontend_get_conf(RIG *rig, token_t token, char *val)
         sprintf(val, "%d", rs->rigport.retry);
         break;
 
+#if 0 // needs to be replace?
+
     case TOK_ITU_REGION:
         sprintf(val, "%d",
                 rs->itu_region == 1 ? RIG_ITU_REGION1 : RIG_ITU_REGION2);
         break;
+#endif
 
     case TOK_SERIAL_SPEED:
         if (rs->rigport.type.rig != RIG_PORT_SERIAL)
@@ -821,6 +884,22 @@ static int frontend_get_conf(RIG *rig, token_t token, char *val)
         strcpy(val, rs->dcdport.pathname);
         break;
 
+    case TOK_LO_FREQ:
+        sprintf(val, "%g", rs->lo_freq);
+        break;
+
+    case TOK_CACHE_TIMEOUT:
+        sprintf(val, "%d", rig_get_cache_timeout_ms(rig, HAMLIB_CACHE_ALL));
+        break;
+
+    case TOK_AUTO_POWER_ON:
+        sprintf(val, "%d", rs->auto_power_on);
+        break;
+
+    case TOK_AUTO_DISABLE_SCREENSAVER:
+        sprintf(val, "%d", rs->auto_disable_screensaver);
+        break;
+
     default:
         return -RIG_EINVAL;
     }
@@ -845,7 +924,7 @@ static int frontend_get_conf(RIG *rig, token_t token, char *val)
  */
 int HAMLIB_API rig_token_foreach(RIG *rig,
                                  int (*cfunc)(const struct confparams *,
-                                              rig_ptr_t),
+                                         rig_ptr_t),
                                  rig_ptr_t data)
 {
     const struct confparams *cfp;
@@ -897,8 +976,8 @@ int HAMLIB_API rig_token_foreach(RIG *rig,
  *
  * \return a pointer to the confparams struct if found, otherwise NULL.
  */
-const struct confparams * HAMLIB_API rig_confparam_lookup(RIG *rig,
-                                                          const char *name)
+const struct confparams *HAMLIB_API rig_confparam_lookup(RIG *rig,
+        const char *name)
 {
     const struct confparams *cfp;
     token_t token;

@@ -194,12 +194,11 @@ int foreach_opened_rot(int (*cfunc)(ROT *, rig_ptr_t), rig_ptr_t data)
  *
  * \sa rot_cleanup(), rot_open()
  */
-ROT * HAMLIB_API rot_init(rot_model_t rot_model)
+ROT *HAMLIB_API rot_init(rot_model_t rot_model)
 {
     ROT *rot;
     const struct rot_caps *caps;
     struct rot_state *rs;
-    int retcode;
 
     rot_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -283,7 +282,7 @@ ROT * HAMLIB_API rot_init(rot_model_t rot_model)
      */
     if (caps->rot_init != NULL)
     {
-        retcode = caps->rot_init(rot);
+        int retcode = caps->rot_init(rot);
 
         if (retcode != RIG_OK)
         {
@@ -321,6 +320,7 @@ int HAMLIB_API rot_open(ROT *rot)
     const struct rot_caps *caps;
     struct rot_state *rs;
     int status;
+    int net1, net2, net3, net4, port;
 
     rot_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -338,6 +338,15 @@ int HAMLIB_API rot_open(ROT *rot)
     }
 
     rs->rotport.fd = -1;
+
+    // determine if we have a network address
+    if (sscanf(rs->rotport.pathname, "%d.%d.%d.%d:%d", &net1, &net2, &net3, &net4,
+               &port) == 5)
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s: using network address %s\n", __func__,
+                  rs->rotport.pathname);
+        rs->rotport.type.rig = RIG_PORT_NETWORK;
+    }
 
     switch (rs->rotport.type.rig)
     {
@@ -569,7 +578,8 @@ int HAMLIB_API rot_set_position(ROT *rot,
     const struct rot_caps *caps;
     const struct rot_state *rs;
 
-    rot_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    rot_debug(RIG_DEBUG_VERBOSE, "%s called az=%.02f el=%.02f\n", __func__, azimuth,
+              elevation);
 
     if (CHECK_ROT_ARG(rot))
     {
@@ -579,11 +589,22 @@ int HAMLIB_API rot_set_position(ROT *rot,
     caps = rot->caps;
     rs = &rot->state;
 
-    if (azimuth < rs->min_az
-        || azimuth > rs->max_az
-        || elevation < rs->min_el
-        || elevation > rs->max_el)
+    rot_debug(RIG_DEBUG_VERBOSE, "%s: south_zero=%d \n", __func__, rs->south_zero);
+
+    if (rs->south_zero)
     {
+        azimuth += azimuth >= 180 ? -180 : 180;
+        rot_debug(RIG_DEBUG_TRACE, "%s: south adj to az=%.2f\n", __func__, azimuth);
+    }
+
+    if (azimuth < rs->min_az
+            || azimuth > rs->max_az
+            || elevation < rs->min_el
+            || elevation > rs->max_el)
+    {
+        rot_debug(RIG_DEBUG_TRACE,
+                  "%s: range problem az=%.02f(min=%.02f,max=%.02f), el=%02f(min=%.02f,max=%02f)\n",
+                  __func__, azimuth, rs->min_az, rs->max_az, elevation, rs->min_el, rs->max_el);
         return -RIG_EINVAL;
     }
 
@@ -615,6 +636,8 @@ int HAMLIB_API rot_get_position(ROT *rot,
                                 elevation_t *elevation)
 {
     const struct rot_caps *caps;
+    const struct rot_state *rs;
+    int retval;
 
     rot_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -624,13 +647,27 @@ int HAMLIB_API rot_get_position(ROT *rot,
     }
 
     caps = rot->caps;
+    rs = &rot->state;
 
     if (caps->get_position == NULL)
     {
         return -RIG_ENAVAIL;
     }
 
-    return caps->get_position(rot, azimuth, elevation);
+    retval = caps->get_position(rot, azimuth, elevation);
+
+    if (retval != RIG_OK) { return retval; }
+
+    rot_debug(RIG_DEBUG_VERBOSE, "%s: got az=%.2f, el=%.2f\n", __func__, *azimuth,
+              *elevation);
+
+    if (rs->south_zero)
+    {
+        *azimuth += *azimuth >= 180 ? -180 : 180;
+        rot_debug(RIG_DEBUG_VERBOSE, "%s: south adj to az=%.2f\n", __func__, *azimuth);
+    }
+
+    return RIG_OK;
 }
 
 
@@ -776,7 +813,7 @@ int HAMLIB_API rot_move(ROT *rot, int direction, int speed)
  * if the operation has been sucessful, otherwise NULL if an error occured
  * or get_info not part of capabilities.
  */
-const char * HAMLIB_API rot_get_info(ROT *rot)
+const char *HAMLIB_API rot_get_info(ROT *rot)
 {
     rot_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 

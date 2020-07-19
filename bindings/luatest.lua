@@ -54,19 +54,19 @@ function doStartup()
     print(string.format("Backend license:\t%s", my_rig.caps.copyright))
     print(string.format("Rig info:\t\t%s", my_rig:get_info()))
 
-    my_rig:set_level("VOX", 1)
+    my_rig:set_level("VOXDELAY", 1)
     print(string.format("status:\t\t\t%s - %s", my_rig.error_status, Hamlib.rigerror(my_rig.error_status)))
-    print(string.format("VOX level:\t\t%d", my_rig:get_level_i("VOX")))
-    my_rig:set_level(Hamlib.RIG_LEVEL_VOX, 5)
+    print(string.format("VOX delay:\t\t%d", my_rig:get_level_i("VOXDELAY")))
+    my_rig:set_level(Hamlib.RIG_LEVEL_VOXDELAY, 5)
     print(string.format("status:\t\t\t%s - %s", my_rig.error_status, Hamlib.rigerror(my_rig.error_status)))
     -- see the func name (get_level_i) and format (%d)
-    print(string.format("VOX level:\t\t%d", my_rig:get_level_i(Hamlib.RIG_LEVEL_VOX)))
+    print(string.format("VOX delay:\t\t%d", my_rig:get_level_i(Hamlib.RIG_LEVEL_VOXDELAY)))
 
     af = 12.34
     print(string.format("Setting AF to %f...", af))
     my_rig:set_level(Hamlib.RIG_LEVEL_AF, af)
     print(string.format("status:\t\t\t%s - %s", my_rig.error_status, Hamlib.rigerror(my_rig.error_status)))
-    -- see the different of func name and format related to RIG_LEVEL_VOX!
+    -- see the different of func name and format related to RIG_LEVEL_VOXDELAY!
     print(string.format("AF level:\t\t%f", my_rig:get_level_f("AF")))
 
     print(string.format("strength:\t\t%d", my_rig:get_level_i(Hamlib.RIG_LEVEL_STRENGTH)))
@@ -75,7 +75,7 @@ function doStartup()
 
     chan = Hamlib.channel(Hamlib.RIG_VFO_B)
 
-    my_rig:get_channel(chan)
+    my_rig:get_channel(chan,1)
     print(string.format("get_channel status:\t%d", my_rig.error_status))
 
     print(string.format("VFO:\t\t\t%s, %s", Hamlib.rig_strvfo(chan.vfo), chan.freq))
@@ -112,6 +112,9 @@ function doStartup()
 
     if sw2 > 0 then D = 'S' else D = 'N' end
     print(string.format("Latitude:\t%4.4f, %4.0f° %.0f' %2.0f\" %1s\trecoded: %9.4f", lat1, deg2, mins2, sec2, D, lat3))
+    print(string.format("The next two lines should show 0x8000000000000000"));
+    print(string.format("RIG_MODE_TESTS_MAX: 0x%08x", Hamlib.RIG_MODE_TESTS_MAX));
+    print(string.format("RIG_FUNC_BIT63: 0x%08x", Hamlib.RIG_FUNC_BIT63));
 
 end
 

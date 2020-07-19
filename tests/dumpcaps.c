@@ -51,6 +51,8 @@ int dumpcaps(RIG *rig, FILE *fout)
     char freqbuf[20];
     int backend_warnings = 0;
     static char prntbuf[1024];  /* a malloc would be better.. */
+    char *label1, *label2, *label3, *label4, *label5;
+    char *labelrx1; // , *labelrx2, *labelrx3, *labelrx4, *labelrx5;
 
     if (!rig || !rig->caps)
     {
@@ -59,7 +61,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     caps = rig->caps;
 
-    fprintf(fout, "Caps dump for model: %d\n", caps->rig_model);
+    fprintf(fout, "Caps dump for model: %u\n", caps->rig_model);
     fprintf(fout, "Model name:\t%s\n", caps->model_name);
     fprintf(fout, "Mfg name:\t%s\n", caps->mfg_name);
     fprintf(fout, "Backend version:\t%s\n", caps->version);
@@ -293,7 +295,7 @@ int dumpcaps(RIG *rig, FILE *fout)
     for (i = 0; caps->ctcss_list && i < 60 && caps->ctcss_list[i] != 0; i++)
     {
         fprintf(fout,
-                " %d.%1d",
+                " %u.%1u",
                 caps->ctcss_list[i] / 10, caps->ctcss_list[i] % 10);
     }
 
@@ -312,7 +314,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     for (i = 0; caps->dcs_list && i < 128 && caps->dcs_list[i] != 0; i++)
     {
-        fprintf(fout, " %d", caps->dcs_list[i]);
+        fprintf(fout, " %u", caps->dcs_list[i]);
     }
 
     if (i == 0)
@@ -342,8 +344,8 @@ int dumpcaps(RIG *rig, FILE *fout)
     }
 
     if ((caps->has_get_level & RIG_LEVEL_RAWSTR)
-        && caps->str_cal.size == 0
-        && !(caps->has_get_level & RIG_LEVEL_STRENGTH))
+            && caps->str_cal.size == 0
+            && !(caps->has_get_level & RIG_LEVEL_STRENGTH))
     {
 
         fprintf(fout,
@@ -432,21 +434,59 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     fprintf(fout, "\n");
 
-    fprintf(fout, "TX ranges, region 1:\n");
+    label1 = caps->tx_range_list1->label;
+    label1 = label1 == NULL ? "TBD" : label1;
+    fprintf(fout, "TX ranges #1 for %s:\n", label1);
     range_print(fout, caps->tx_range_list1, 0);
 
-    fprintf(fout, "RX ranges, region 1:\n");
+    labelrx1 = caps->rx_range_list1->label;
+    labelrx1 = labelrx1 == NULL ? "TBD" : labelrx1;
+    fprintf(fout, "RX ranges #1 for %s:\n", labelrx1);
     range_print(fout, caps->rx_range_list1, 1);
 
-    fprintf(fout, "TX ranges, region 2:\n");
+    label2 = caps->rx_range_list2->label;
+    label2 = label2 == NULL ? "TBD" : label2;
+    fprintf(fout, "TX ranges #2 for %s:\n", label2);
     range_print(fout, caps->tx_range_list2, 0);
 
-    fprintf(fout, "RX ranges, region 2:\n");
+    label2 = caps->rx_range_list2->label;
+    label2 = label2 == NULL ? "TBD" : label2;
+    fprintf(fout, "RX ranges #2 for %s:\n", label2);
     range_print(fout, caps->rx_range_list2, 1);
+
+    label3 = caps->rx_range_list3->label;
+    label3 = label3 == NULL ? "TBD" : label3;
+    fprintf(fout, "TX ranges #3 for %s:\n", label3);
+    range_print(fout, caps->tx_range_list3, 0);
+
+    label3 = caps->rx_range_list3->label;
+    label3 = label3 == NULL ? "TBD" : label3;
+    fprintf(fout, "RX ranges #3 for %s:\n", label3);
+    range_print(fout, caps->rx_range_list3, 1);
+
+    label4 = caps->rx_range_list4->label;
+    label4 = label4 == NULL ? "TBD" : label4;
+    fprintf(fout, "TX ranges #4 for %s:\n", label4);
+    range_print(fout, caps->tx_range_list5, 0);
+
+    label4 = caps->rx_range_list4->label;
+    label4 = label4 == NULL ? "TBD" : label4;
+    fprintf(fout, "RX ranges #4 for %s:\n", label4);
+    range_print(fout, caps->rx_range_list5, 1);
+
+    label5 = caps->rx_range_list5->label;
+    label5 = label5 == NULL ? "TBD" : label5;
+    fprintf(fout, "TX ranges #5 for %s:\n", label5);
+    range_print(fout, caps->tx_range_list5, 0);
+
+    label5 = caps->rx_range_list5->label;
+    label5 = label5 == NULL ? "TBD" : label5;
+    fprintf(fout, "RX ranges #5 for %s:\n", label5);
+    range_print(fout, caps->rx_range_list5, 1);
 
     status = range_sanity_check(caps->tx_range_list1, 0);
     fprintf(fout,
-            "TX ranges status, region 1:\t%s (%d)\n",
+            "TX ranges #1 status for:%s \t%s (%d)\n", label1,
             status ? "Bad" : "OK",
             status);
 
@@ -457,7 +497,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     status = range_sanity_check(caps->rx_range_list1, 1);
     fprintf(fout,
-            "RX ranges status, region 1:\t%s (%d)\n",
+            "RX ranges #1 status for %s:\t%s (%d)\n", labelrx1,
             status ? "Bad" : "OK",
             status);
 
@@ -468,7 +508,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     status = range_sanity_check(caps->tx_range_list2, 0);
     fprintf(fout,
-            "TX ranges status, region 2:\t%s (%d)\n",
+            "TX ranges #2 status for %s:\t%s (%d)\n", label2,
             status ? "Bad" : "OK",
             status);
 
@@ -479,7 +519,73 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     status = range_sanity_check(caps->rx_range_list2, 1);
     fprintf(fout,
-            "RX ranges status, region 2:\t%s (%d)\n",
+            "RX ranges #2 status for %s:\t%s (%d)\n", label2,
+            status ? "Bad" : "OK",
+            status);
+
+    if (status)
+    {
+        backend_warnings++;
+    }
+
+    status = range_sanity_check(caps->tx_range_list3, 0);
+    fprintf(fout,
+            "TX ranges #3 status for %s:\t%s (%d)\n", label3,
+            status ? "Bad" : "OK",
+            status);
+
+    if (status)
+    {
+        backend_warnings++;
+    }
+
+    status = range_sanity_check(caps->rx_range_list3, 1);
+    fprintf(fout,
+            "RX ranges #3 status for %s:\t%s (%d)\n", label3,
+            status ? "Bad" : "OK",
+            status);
+
+    if (status)
+    {
+        backend_warnings++;
+    }
+
+    status = range_sanity_check(caps->tx_range_list4, 0);
+    fprintf(fout,
+            "TX ranges #4 status for %s:\t%s (%d)\n", label4,
+            status ? "Bad" : "OK",
+            status);
+
+    if (status)
+    {
+        backend_warnings++;
+    }
+
+    status = range_sanity_check(caps->rx_range_list4, 1);
+    fprintf(fout,
+            "RX ranges #4 status for %s:\t%s (%d)\n", label4,
+            status ? "Bad" : "OK",
+            status);
+
+    if (status)
+    {
+        backend_warnings++;
+    }
+
+    status = range_sanity_check(caps->tx_range_list5, 0);
+    fprintf(fout,
+            "TX ranges #5 status for %s:\t%s (%d)\n", label5,
+            status ? "Bad" : "OK",
+            status);
+
+    if (status)
+    {
+        backend_warnings++;
+    }
+
+    status = range_sanity_check(caps->rx_range_list5, 1);
+    fprintf(fout,
+            "RX ranges #5 status for %s:\t%s (%d)\n", label5,
             status ? "Bad" : "OK",
             status);
 
@@ -609,22 +715,22 @@ int dumpcaps(RIG *rig, FILE *fout)
     fprintf(fout,
             "Can set Split Freq:\t%c\n",
             caps->set_split_freq != NULL ? 'Y' : (can_esplit
-                                                  && caps->set_freq ? 'E' : 'N'));
+                    && caps->set_freq ? 'E' : 'N'));
 
     fprintf(fout,
             "Can get Split Freq:\t%c\n",
             caps->get_split_freq != NULL ? 'Y' : (can_esplit
-                                                  && caps->get_freq ? 'E' : 'N'));
+                    && caps->get_freq ? 'E' : 'N'));
 
     fprintf(fout,
             "Can set Split Mode:\t%c\n",
             caps->set_split_mode != NULL ? 'Y' : (can_esplit
-                                                  && caps->set_mode ? 'E' : 'N'));
+                    && caps->set_mode ? 'E' : 'N'));
 
     fprintf(fout,
             "Can get Split Mode:\t%c\n",
             caps->get_split_mode != NULL ? 'Y' : (can_esplit
-                                                  && caps->get_mode ? 'E' : 'N'));
+                    && caps->get_mode ? 'E' : 'N'));
 
     fprintf(fout,
             "Can set Split VFO:\t%c\n",
@@ -687,6 +793,8 @@ int dumpcaps(RIG *rig, FILE *fout)
     fprintf(fout, "Can send DTMF:\t%c\n", caps->send_dtmf != NULL ? 'Y' : 'N');
     fprintf(fout, "Can recv DTMF:\t%c\n", caps->recv_dtmf != NULL ? 'Y' : 'N');
     fprintf(fout, "Can send Morse:\t%c\n", caps->send_morse != NULL ? 'Y' : 'N');
+    fprintf(fout, "Can send Voice:\t%c\n",
+            caps->send_voice_mem != NULL ? 'Y' : 'N');
 
     fprintf(fout,
             "Can decode Events:\t%c\n",
@@ -728,20 +836,28 @@ static int print_ext(RIG *rig, const struct confparams *cfp, rig_ptr_t ptr)
     fprintf((FILE *)ptr, "\t\tType: %s\n", get_rig_conf_type(cfp->type));
     fprintf((FILE *)ptr, "\t\tDefault: %s\n", cfp->dflt != NULL ? cfp->dflt : "");
     fprintf((FILE *)ptr, "\t\tLabel: %s\n", cfp->label != NULL ? cfp->label : "");
-    fprintf((FILE *)ptr, "\t\tTooltip: %s\n", cfp->tooltip != NULL ? cfp->tooltip : "");
+    fprintf((FILE *)ptr, "\t\tTooltip: %s\n",
+            cfp->tooltip != NULL ? cfp->tooltip : "");
 
-    switch (cfp->type) {
-      case RIG_CONF_NUMERIC:
-        fprintf((FILE *)ptr, "\t\tRange: %g..%g/%g\n", cfp->u.n.min, cfp->u.n.max, cfp->u.n.step);
+    switch (cfp->type)
+    {
+    case RIG_CONF_NUMERIC:
+        fprintf((FILE *)ptr, "\t\tRange: %g..%g/%g\n", cfp->u.n.min, cfp->u.n.max,
+                cfp->u.n.step);
         break;
-      case RIG_CONF_COMBO:
+
+    case RIG_CONF_COMBO:
         fprintf((FILE *)ptr, "\t\tValues:");
-        for (i = 0; i < RIG_COMBO_MAX && cfp->u.c.combostr[i] != NULL; i++) {
-          fprintf((FILE *)ptr, " %d=\"%s\"", i, cfp->u.c.combostr[i]);
+
+        for (i = 0; i < RIG_COMBO_MAX && cfp->u.c.combostr[i] != NULL; i++)
+        {
+            fprintf((FILE *)ptr, " %d=\"%s\"", i, cfp->u.c.combostr[i]);
         }
+
         fprintf((FILE *)ptr, "\n");
         break;
-      default:
+
+    default:
         break;
     }
 
@@ -750,36 +866,69 @@ static int print_ext(RIG *rig, const struct confparams *cfp, rig_ptr_t ptr)
 
 void range_print(FILE *fout, const struct freq_range_list range_list[], int rx)
 {
-  int i;
-  char prntbuf[1024];  /* a malloc would be better.. */
+    int i;
+    char prntbuf[1024];  /* a malloc would be better.. */
 
-  for (i = 0; i < FRQRANGESIZ; i++) {
-    if (range_list[i].startf == 0 && range_list[i].endf == 0) {
-      break;
+    for (i = 0; i < FRQRANGESIZ; i++)
+    {
+        if (range_list[i].startf == 0 && range_list[i].endf == 0)
+        {
+            break;
+        }
+
+        fprintf(fout, "\t%.0f Hz - %.0f Hz\n", range_list[i].startf,
+                range_list[i].endf);
+
+        fprintf(fout, "\t\tVFO list: ");
+        sprintf_vfo(prntbuf, range_list[i].vfo);
+        fprintf(fout, "%s", prntbuf);
+        fprintf(fout, "\n");
+
+        fprintf(fout, "\t\tMode list: ");
+        sprintf_mode(prntbuf, range_list[i].modes);
+        fprintf(fout, "%s", prntbuf);
+        fprintf(fout, "\n");
+
+        fprintf(fout, "\t\tAntenna list: ");
+        sprintf_ant(prntbuf, range_list[i].ant);
+        fprintf(fout, "%s", prntbuf);
+        fprintf(fout, "\n");
+
+        if (!rx)
+        {
+            char *label_lo = "W";
+            char *label_hi = "W";
+            double low = range_list[i].low_power / 1000.0f;
+            double hi = range_list[i].high_power / 1000.0f;
+
+            if (low < 0)
+            {
+                label_lo = "mW";
+                low *= 1000;
+            }
+
+            if (low < 0)
+            {
+                label_lo = "uW";
+                low *= 1000;
+            }
+
+            if (hi < 0)
+            {
+                label_hi = "mW";
+                hi *= 1000;
+            }
+
+            if (hi < 0)
+            {
+                label_hi = "uW";
+                hi *= 1000;
+            }
+
+            fprintf(fout, "\t\tLow power: %g %s, High power: %g %s\n", low, label_lo, hi,
+                    label_hi);
+        }
     }
-
-    fprintf(fout, "\t%.0f Hz - %.0f Hz\n", range_list[i].startf, range_list[i].endf);
-
-    fprintf(fout, "\t\tVFO list: ");
-    sprintf_vfo(prntbuf, range_list[i].vfo);
-    fprintf(fout, "%s", prntbuf);
-    fprintf(fout, "\n");
-
-    fprintf(fout, "\t\tMode list: ");
-    sprintf_mode(prntbuf, range_list[i].modes);
-    fprintf(fout, "%s", prntbuf);
-    fprintf(fout, "\n");
-
-    fprintf(fout, "\t\tAntenna list: ");
-    sprintf_ant(prntbuf, range_list[i].ant);
-    fprintf(fout, "%s", prntbuf);
-    fprintf(fout, "\n");
-
-    if (!rx) {
-      fprintf(fout, "\t\tLow power: %.0f W, High power: %.0f W\n",
-          range_list[i].low_power / 1000.0f, range_list[i].high_power / 1000.0f);
-    }
-  }
 }
 
 /*
@@ -869,8 +1018,8 @@ int ts_sanity_check(const struct tuning_step_list tuning_step[])
         }
 
         if (tuning_step[i].ts != RIG_TS_ANY
-            && tuning_step[i].ts < last_ts
-            && last_modes == tuning_step[i].modes)
+                && tuning_step[i].ts < last_ts
+                && last_modes == tuning_step[i].modes)
         {
 
             return -1;

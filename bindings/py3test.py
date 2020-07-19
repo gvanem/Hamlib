@@ -22,7 +22,7 @@ def StartUp(verbose):
     if 0 and verbose:
       Hamlib.rig_set_debug_callback (color_print, None)
 
-    Hamlib.rig_set_debug([Hamlib.RIG_DEBUG_NONE, Hamlib.RIG_DEBUG_VERBOSE][verbose])
+    Hamlib.rig_set_debug(Hamlib.RIG_DEBUG_NONE)
 
     # Init RIG_MODEL_DUMMY
     my_rig = Hamlib.Rig(Hamlib.RIG_MODEL_DUMMY)
@@ -64,13 +64,13 @@ def StartUp(verbose):
     print("Backend status:\t\t%s" % Hamlib.rig_strstatus(my_rig.caps.status))
     print("Rig info:\t\t%s" % my_rig.get_info())
 
-    my_rig.set_level("VOX",  1)
+    my_rig.set_level("VOXDELAY",  1)
 
-    print("VOX level:\t\t%s" % my_rig.get_level_i("VOX"))
+    print("VOX delay:\t\t%s" % my_rig.get_level_i("VOXDELAY"))
 
-    my_rig.set_level(Hamlib.RIG_LEVEL_VOX, 5)
+    my_rig.set_level(Hamlib.RIG_LEVEL_VOXDELAY, 5)
 
-    print("VOX level:\t\t%s" % my_rig.get_level_i(Hamlib.RIG_LEVEL_VOX))
+    print("VOX delay:\t\t%s" % my_rig.get_level_i(Hamlib.RIG_LEVEL_VOXDELAY))
 
     af = 12.34
 
@@ -87,7 +87,7 @@ def StartUp(verbose):
     print("status(str):\t\t%s" % Hamlib.rigerror(my_rig.error_status))
 
     chan = Hamlib.channel(Hamlib.RIG_VFO_B)
-    my_rig.get_channel(chan)
+    my_rig.get_channel(chan,1)
 
     print("get_channel status:\t%s" % my_rig.error_status)
     print("VFO:\t\t\t%s, %s" % (Hamlib.rig_strvfo(chan.vfo), chan.freq))

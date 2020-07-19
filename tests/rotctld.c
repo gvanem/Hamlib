@@ -74,7 +74,7 @@ struct handle_data
     socklen_t clilen;
 };
 
-void * handle_socket(void *arg);
+void *handle_socket(void *arg);
 
 void usage();
 
@@ -84,7 +84,7 @@ void usage();
  * NB: do NOT use -W since it's reserved by POSIX.
  * TODO: add an option to read from a file
  */
-#define SHORT_OPTIONS "m:r:s:C:t:T:LuvhVlZ"
+#define SHORT_OPTIONS "m:r:s:C:o:O:t:T:LuvhVlZ"
 static struct option long_options[] =
 {
     {"model",           1, 0, 'm'},
@@ -94,9 +94,11 @@ static struct option long_options[] =
     {"listen-addr",     1, 0, 'T'},
     {"list",            0, 0, 'l'},
     {"set-conf",        1, 0, 'C'},
+    {"set-azoffset",    1, 0, 'o'},
+    {"set-eloffset",    1, 0, 'O'},
     {"show-conf",       0, 0, 'L'},
     {"dump-caps",       0, 0, 'u'},
-    {"debug-time-stamps",0, 0, 'Z'},
+    {"debug-time-stamps", 0, 0, 'Z'},
     {"verbose",         0, 0, 'v'},
     {"help",            0, 0, 'h'},
     {"version",         0, 0, 'V'},
@@ -105,8 +107,10 @@ static struct option long_options[] =
 
 const char *portno = "4533";
 const char *src_addr = NULL;    /* INADDR_ANY */
+azimuth_t az_offset;
+elevation_t el_offset;
 
-#define MAXCONFLEN 128
+#define MAXCONFLEN 1024
 
 
 static void handle_error(enum rig_debug_level_e lvl, const char *msg)
@@ -130,7 +134,7 @@ static void handle_error(enum rig_debug_level_e lvl, const char *msg)
                       NULL))
     {
 
-        rig_debug(lvl, "%s: Network error %d: %s\n", msg, e, lpMsgBuf);
+        rig_debug(lvl, "%s: Network error %d: %s\n", msg, e, (char *)lpMsgBuf);
         LocalFree(lpMsgBuf);
     }
     else
@@ -162,7 +166,6 @@ int main(int argc, char *argv[])
     struct addrinfo hints, *result, *saved_result;
     int sock_listen;
     int reuseaddr = 1;
-    int sockopt;
     char host[NI_MAXHOST];
     char serv[NI_MAXSERV];
 
@@ -176,6 +179,7 @@ int main(int argc, char *argv[])
     {
         int c;
         int option_index = 0;
+        char dummy[2];
 
         c = getopt_long(argc, argv, SHORT_OPTIONS, long_options, &option_index);
 
@@ -221,7 +225,12 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-            serial_rate = atoi(optarg);
+            if (sscanf(optarg, "%d%1s", &serial_rate, dummy) != 1)
+            {
+                fprintf(stderr, "Invalid baud rate of %s\n", optarg);
+                exit(1);
+            }
+
             break;
 
         case 'C':
@@ -234,6 +243,13 @@ int main(int argc, char *argv[])
             if (*conf_parms != '\0')
             {
                 strcat(conf_parms, ",");
+            }
+
+            if (strlen(conf_parms) + strlen(optarg) > MAXCONFLEN - 24)
+            {
+                printf("Length of conf_parms exceeds internal maximum of %d\n",
+                       MAXCONFLEN - 24);
+                return 1;
             }
 
             strncat(conf_parms, optarg, MAXCONFLEN - strlen(conf_parms));
@@ -258,6 +274,25 @@ int main(int argc, char *argv[])
 
             src_addr = optarg;
             break;
+
+        case 'o':
+            if (!optarg)
+            {
+                usage();    /* wrong arg count */
+                exit(1);
+            }
+
+            az_offset = atof(optarg);
+            break;
+
+        case 'O':
+            if (!optarg)
+            {
+                usage();    /* wrong arg count */
+                exit(1);
+            }
+
+            el_offset = atof(optarg);
 
         case 'v':
             verbose++;
@@ -288,7 +323,7 @@ int main(int argc, char *argv[])
     rig_set_debug(verbose);
 
     rig_debug(RIG_DEBUG_VERBOSE, "rotctld, %s\n", hamlib_version);
-    rig_debug(RIG_DEBUG_VERBOSE,
+    rig_debug(RIG_DEBUG_VERBOSE, "%s",
               "Report bugs to <hamlib-developer@lists.sourceforge.net>\n\n");
 
     my_rot = rot_init(my_model);
@@ -349,6 +384,9 @@ int main(int argc, char *argv[])
         exit(2);
     }
 
+    my_rot->state.az_offset = az_offset;
+    my_rot->state.el_offset = el_offset;
+
     if (verbose > 0)
     {
         printf("Opened rot model %d, '%s'\n",
@@ -380,12 +418,16 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    sockopt = SO_SYNCHRONOUS_NONALERT;
-    setsockopt(INVALID_SOCKET,
-               SOL_SOCKET,
-               SO_OPENTYPE,
-               (char *)&sockopt,
-               sizeof(sockopt));
+    {
+        // braced to prevent cppcheck warning
+        int sockopt = SO_SYNCHRONOUS_NONALERT;
+        setsockopt(INVALID_SOCKET,
+                   SOL_SOCKET,
+                   SO_OPENTYPE,
+                   (char *)&sockopt,
+                   sizeof(sockopt));
+    }
+
 #endif
 
     /*
@@ -435,14 +477,14 @@ int main(int argc, char *argv[])
         {
             /* allow IPv4 mapped to IPv6 clients, MS & BSD default this
                to 1 i.e. disallowed */
-            sockopt = 0;
+            int sockopt = 0;
 
             if (setsockopt(sock_listen,
                            IPPROTO_IPV6,
                            IPV6_V6ONLY,
                            (char *)&sockopt,
                            sizeof(sockopt))
-                < 0)
+                    < 0)
             {
 
                 handle_error(RIG_DEBUG_ERR, "setsockopt");
@@ -471,7 +513,7 @@ int main(int argc, char *argv[])
 
     if (NULL == result)
     {
-        rig_debug(RIG_DEBUG_ERR, "bind error - no available interface\n");
+        rig_debug(RIG_DEBUG_ERR, "%s: bind error - no available interface\n", __func__);
         exit(1);
     }
 
@@ -486,14 +528,16 @@ int main(int argc, char *argv[])
        that will consequently fail with EPIPE. All child threads will
        inherit this disposition which is what we want. */
 #if HAVE_SIGACTION
-    struct sigaction act;
-    memset(&act, 0, sizeof act);
-    act.sa_handler = SIG_IGN;
-    act.sa_flags = SA_RESTART;
-
-    if (sigaction(SIGPIPE, &act, NULL))
     {
-        handle_error(RIG_DEBUG_ERR, "sigaction");
+        struct sigaction act;
+        memset(&act, 0, sizeof act);
+        act.sa_handler = SIG_IGN;
+        act.sa_flags = SA_RESTART;
+
+        if (sigaction(SIGPIPE, &act, NULL))
+        {
+            handle_error(RIG_DEBUG_ERR, "sigaction");
+        }
     }
 
 #elif HAVE_SIGNAL
@@ -538,7 +582,7 @@ int main(int argc, char *argv[])
                                    serv,
                                    sizeof(serv),
                                    NI_NOFQDN))
-            < 0)
+                < 0)
         {
 
             rig_debug(RIG_DEBUG_WARN,
@@ -567,6 +611,7 @@ int main(int argc, char *argv[])
         handle_socket(arg);
 #endif
     }
+    // cppcheck-suppress *
     while (retcode == 0);
 
     rot_close(my_rot); /* close port */
@@ -583,7 +628,7 @@ int main(int argc, char *argv[])
 /*
  * This is the function run by the threads
  */
-void * handle_socket(void *arg)
+void *handle_socket(void *arg)
 {
     struct handle_data *handle_data_arg = (struct handle_data *)arg;
     FILE *fsockin;
@@ -627,7 +672,8 @@ void * handle_socket(void *arg)
 
     do
     {
-      retcode = rotctl_parse(handle_data_arg->rot, fsockin, fsockout, NULL, 0, 1, 0, '\r');
+        retcode = rotctl_parse(handle_data_arg->rot, fsockin, fsockout, NULL, 0, 1, 0,
+                               '\r');
 
         if (ferror(fsockin) || ferror(fsockout))
         {
@@ -643,7 +689,7 @@ void * handle_socket(void *arg)
                                serv,
                                sizeof(serv),
                                NI_NOFQDN))
-        < 0)
+            < 0)
     {
 
         rig_debug(RIG_DEBUG_WARN,
@@ -688,6 +734,8 @@ void usage()
         "  -t, --port=NUM                set TCP listening port, default %s\n"
         "  -T, --listen-addr=IPADDR      set listening IP address, default ANY\n"
         "  -C, --set-conf=PARM=VAL       set config parameters\n"
+        "  -o, --set-azoffset==VAL       set offset for azimuth\n"
+        "  -O, --set-eloffset==VAL       set offset for elevation\n"
         "  -L, --show-conf               list all config parameters\n"
         "  -l, --list                    list all model numbers and exit\n"
         "  -u, --dump-caps               dump capabilities and exit\n"

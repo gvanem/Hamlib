@@ -1,7 +1,7 @@
 #
 # GNU Makefile for Hamlib (MSVC / clang-cl / MinGW).
 #
-# G. Vanem <gvanem@yahoo.no> 2019
+# G. Vanem <gvanem@yahoo.no> 2019.
 #
 THIS_FILE = Makefile.Windows
 
@@ -28,7 +28,7 @@ USE_LUAJIT      ?= 1
 
 #
 # Add support for a 'GnuRadio' device.
-# Impossible as it is not up-to-date with current GnuRadio API.
+# Impossible as it is not up-to-date with current GnuRadio 3.8 (?) API.
 #
 USE_GNURADIO ?= 1
 
@@ -46,6 +46,11 @@ USE_STATIC ?= 0
 USE_PY_BINDING ?= 3
 
 #
+# Use 'clang-format' in the "%.i: %.c" rules below.
+#
+USE_CLANG_FORMAT ?= 1
+
+#
 # Change these as needed:
 # (or create env-vars like 'LIBXML2_ROOT=c:/whatever/xml2').
 #
@@ -56,7 +61,10 @@ LUAJIT_ROOT      ?= f:/MinGW32/src/LUA/LuaJIT
 LUA5_ROOT        ?= f:/MinGW32/src/LUA/Lua-5.1
 LIBUSB_ROOT      ?= f:/MinGW32/src/USB/libusb
 LIBUSRP_ROOT     ?= f:/gv/dx-radio/Bor-IP/src/libusrp
-GNURADIO_ROOT    ?= f:/gv/dx-radio/GnuRadio/MSVC-build
+GNURADIO_ROOT    ?= f:/gv/dx-radio/GnuRadio/gv-build
+ZLIB_ROOT        ?= f:/MinGW32/src/Compression/zlib-1.2.8
+
+PYTHON ?= py -3
 
 ifeq ($(USE_LUAJIT),1)
   LUA_ROOT = $(realpath $(LUAJIT_ROOT))
@@ -72,9 +80,15 @@ RMDIR = rmdir --parents
 MOVE  = mv --force
 COPY  = cp --preserve=timestamps --update
 
+#
+# 'clang-cl' may not like stuff in '%CL'.
+# Just remove it.
+#
+export CL=
+
 define Usage
 
-  Usage: "$(MAKE) -f $(THIS_FILE) CC=[cl | clang-cl | gcc] [all | clean | vclean | realclean | depend | doxy_docs | doc/Hamlib.pdf | py_module | lua_module]"
+  Usage: "$(MAKE) -f $(THIS_FILE) CC=[cl | clang-cl | gcc] [all | clean | vclean | realclean | depend | doxy_docs | py_module | lua_module]"
   Specify CC=cl       - use MSVC
   Specify CC=clang-cl - use clang-cl
   Specify CC=gcc      - use MinGW
@@ -82,10 +96,13 @@ endef
 
 ifeq ($(CC),clang-cl)
   OBJ_DIR = clang_obj
+
 else ifeq ($(CC),cl)
   OBJ_DIR = MSVC_obj
+
 else ifeq ($(CC),gcc)
   OBJ_DIR = MinGW_obj
+
 else
   $(error $(Usage))
 endif
@@ -96,7 +113,7 @@ endif
 
 ifeq ($(CC),gcc)
   select  = $(1)
-  CFLAGS  = -m32 -Wall -O2 -g -include $(OBJ_DIR)/config.h
+  CFLAGS  = -m32 -Wall -O2 -g --include $(OBJ_DIR)/config.h
   LDFLAGS = -m32 -Wl,--print-map,--sort-common,--cref
   O       = o
 
@@ -107,27 +124,7 @@ else
   O       = obj
 
   ifeq ($(CC),clang-cl)
-    CFLAGS += -fms-compatibility                 \
-              -ferror-limit=5                    \
-              -Wno-unused-function               \
-              -Wno-unused-variable               \
-              -Wno-visibility                    \
-              -Wno-unknown-pragmas               \
-              -Wno-ignored-attributes            \
-              -Wno-implicit-function-declaration \
-            # -Wno-dll-attribute-on-redeclaration
-
-    #
-    # This warning is kinda important:
-    #
-    #   dummy/dummy.h(46,5):  warning: 'netrigctl_get_vfo_mode' redeclared without 'dllimport' attribute: previous
-    #   'dllimport' ignored [-Winconsistent-dllimport]
-    #    int netrigctl_get_vfo_mode(RIG *);
-    #        ^
-    # So do not add a '-Wno-inconsistent-dllimport'.
-    #
-  else
-    CFLAGS += -wd4018 -wd4101 -wd4244 -wd4251 -wd4305 -wd4700 -wd4800
+    CFLAGS += -fms-compatibility -ferror-limit=5
   endif
 endif
 
@@ -139,6 +136,38 @@ else
   else
     WS2_32_LIB = ws2_32.lib
   endif
+endif
+
+#
+# Warning control:
+#
+ifeq ($(CC),gcc)
+
+else ifeq ($(CC),clang-cl)
+  CFLAGS += -Wno-unused-function               \
+            -Wno-unused-variable               \
+            -Wno-visibility                    \
+            -Wno-unknown-pragmas               \
+            -Wno-ignored-attributes            \
+            -Wno-implicit-function-declaration \
+          # -Wno-dll-attribute-on-redeclaration
+
+  #
+  # Empty initializers are not handled by MSVC. So let 'clang-cl' warn on that.
+  #
+  CFLAGS += -Wgnu-empty-initializer
+
+  #
+  # This warning is kinda important:
+  #
+  #   dummy/dummy.h(46,5):  warning: 'netrigctl_get_vfo_mode' redeclared without 'dllimport' attribute: previous
+  #   'dllimport' ignored [-Winconsistent-dllimport]
+  #    int netrigctl_get_vfo_mode(RIG *);
+  #        ^
+  # So do not add a '-Wno-inconsistent-dllimport'.
+  #
+else
+  CFLAGS += -wd4018 -wd4101 -wd4244 -wd4251 -wd4305 -wd4700 -wd4800
 endif
 
 #
@@ -245,56 +274,59 @@ c_to_obj = $(addprefix $(OBJ_DIR)/, \
 cc_to_obj = $(addprefix $(OBJ_DIR)/, \
               $(notdir $(1:.cc=.$(O))))
 
+c_to_i  = $(notdir $(1:.c=.i))
 cc_to_i = $(notdir $(1:.cc=.i))
 
-VPATH = adat                \
-        alinco              \
-        amplifiers/elecraft \
-        amsat               \
-        aor                 \
-        ars                 \
-        barrett             \
-        celestron           \
-        cnctrk              \
-        dorji               \
-        drake               \
-        dummy               \
-        easycomm            \
-        elad                \
-        ether6              \
-        flexradio           \
-        fodtrack            \
-        gs232a              \
-        heathkit            \
-        icmarine            \
-        icom                \
-        ioptron             \
-        jrc                 \
-        kachina             \
-        kenwood             \
-        kit                 \
-        lowe                \
-        m2                  \
-        meade               \
-        pcr                 \
-        prm80               \
-        prosistel           \
-        racal               \
-        rft                 \
-        rotorez             \
-        rs                  \
-        sartek              \
-        skanti              \
-        spid                \
-        src                 \
-        tapr                \
-        tentec              \
-        ts7400              \
-        tuner               \
-        uniden              \
-        winradio            \
-        wj                  \
-        yaesu
+VPATH = dummy src
+
+VPATH += $(addprefix rigs/, \
+           adat             \
+           alinco           \
+           aor              \
+           barrett          \
+           dorji            \
+           drake            \
+           elad             \
+           flexradio        \
+           icmarine         \
+           icom             \
+           jrc              \
+           kachina          \
+           kenwood          \
+           kit              \
+           lowe             \
+           pcr              \
+           prm80            \
+           racal            \
+           rft              \
+           rs               \
+           skanti           \
+           tapr             \
+           tentec           \
+           tuner            \
+           uniden           \
+           winradio         \
+           wj               \
+           yaesu)
+
+VPATH += $(addprefix rotators/, \
+           amsat                \
+           ars                  \
+           celestron            \
+           cnctrk               \
+           easycomm             \
+           ether6               \
+           fodtrack             \
+           gs232a               \
+           heathkit             \
+           ioptron              \
+           m2                   \
+           meade                \
+           prosistel            \
+           rotorez              \
+           sartek               \
+           spid                 \
+           ts7400)
 
 #
 # All of these use '$(Hamlib_DLL)':
@@ -322,15 +354,22 @@ ifeq ($(USE_LIBXML2),1)
   TESTS_PROGS += rigmem.exe
   PROG_CFLAGS += -I$(LIBXML2_ROOT)/include \
                  -DHAVE_XML2               \
-                 -DLIBXML_STATIC
+               # -DLIBXML_STATIC
 
-  XML2_LIB = $(call select, $(LIBXML2_ROOT)/libxml2.a, \
-                            $(LIBXML2_ROOT)/xml2.lib)
+  XML2_LIB = $(call select, $(LIBXML2_ROOT)/libxml2.dll.a, \
+                            $(LIBXML2_ROOT)/xml2_imp.lib)
+
+  #
+  # Since a static 'xml2.lib' could depend on Zlib
+  #
+  # XML2_LIB += $(call select, $(ZLIB_ROOT)/lib/$(CPU)/libz.a, \
+  #                           $(ZLIB_ROOT)/lib/$(CPU)/zlib.lib)
 endif
 
 ifeq ($(USE_LIBGD),1)
   TESTS_PROGS += rigmatrix.exe
   PROG_CFLAGS += -I$(LIBGD_ROOT)/src
+
   rigmatrix.exe: LDFLAGS += $(LIBGD_ROOT)/src/libgd.dll.a
 endif
 
@@ -342,7 +381,7 @@ TESTS_PROGS += testcpp.exe
 #
 # All .c-files for $(Hamlib_DLL).
 # Except for those in '$(hamlib_misc_SRC)' which do not need to be exported
-# (i.e. no '-DIN_HAMLIB' in CFLAGS).
+# (i.e. they have no '-DIN_HAMLIB' in CFLAGS).
 #
 hamlib_SRC = $(addprefix src/,                 \
                amp_conf.c                      \
@@ -370,373 +409,379 @@ hamlib_SRC = $(addprefix src/,                 \
                rotator.c                       \
                serial.c                        \
                settings.c                      \
+               sleep.c                         \
                tones.c                         \
-               usb_port.c)                     \
-                                               \
-             $(addprefix adat/,                \
-               adat.c                          \
-               adt_200a.c)                     \
-                                               \
-             $(addprefix alinco/,              \
-               alinco.c                        \
-               dx77.c)                         \
-                                               \
-             $(addprefix amplifiers/elecraft/, \
-               kpa.c                           \
-               kpa1500.c)                      \
-                                               \
-             $(addprefix aor/,                 \
-               aor.c                           \
-               ar2700.c                        \
-               ar3000.c                        \
-               ar3030.c                        \
-               ar5000.c                        \
-               ar7030.c                        \
-               ar7030p.c                       \
-               ar7030p_utils.c                 \
-               ar8000.c                        \
-               ar8200.c                        \
-               ar8600.c                        \
-               sr2200.c)                       \
-                                               \
-             $(addprefix dorji/,               \
-               dorji.c                         \
-               dra818.c)                       \
-                                               \
-             $(addprefix drake/,               \
-               drake.c                         \
-               r8a.c                           \
-               r8b.c)                          \
-                                               \
-             $(addprefix dummy/,               \
-               amp_dummy.c                     \
-               dummy.c                         \
-               flrig.c                         \
-               netampctl.c                     \
-               netrigctl.c                     \
-               netrotctl.c                     \
-               rot_dummy.c                     \
-               trxmanager.c)                   \
-                                               \
-             $(addprefix elad/,                \
-               elad.c                          \
-               fdm_duo.c)                      \
-                                               \
-             $(addprefix flexradio/,           \
-               dttsp.c                         \
-               flexradio.c                     \
-               sdr1k.c)                        \
-                                               \
-             $(addprefix gs232a/,              \
-               gs232.c                         \
-               gs232a.c                        \
-               gs232b.c)                       \
-                                               \
-             $(addprefix icmarine/,            \
-               icm700pro.c                     \
-               icm710.c                        \
-               icm802.c                        \
-               icmarine.c)                     \
-                                               \
-             $(addprefix icom/,                \
-               delta2.c                        \
-               frame.c                         \
-               ic78.c                          \
-               ic92d.c                         \
-               ic271.c                         \
-               ic275.c                         \
-               ic471.c                         \
-               ic475.c                         \
-               ic703.c                         \
-               ic706.c                         \
-               ic707.c                         \
-               ic718.c                         \
-               ic725.c                         \
-               ic726.c                         \
-               ic728.c                         \
-               ic735.c                         \
-               ic736.c                         \
-               ic737.c                         \
-               ic738.c                         \
-               ic746.c                         \
-               ic751.c                         \
-               ic756.c                         \
-               ic761.c                         \
-               ic765.c                         \
-               ic775.c                         \
-               ic781.c                         \
-               ic785x.c                        \
-               ic820h.c                        \
-               ic821h.c                        \
-               ic910.c                         \
-               ic970.c                         \
-               ic1275.c                        \
-               ic2730.c                        \
-               ic7000.c                        \
-               ic7100.c                        \
-               ic7200.c                        \
-               ic7300.c                        \
-               ic7410.c                        \
-               ic7600.c                        \
-               ic7610.c                        \
-               ic7700.c                        \
-               ic7800.c                        \
-               ic9100.c                        \
-               icom.c                          \
-               icr6.c                          \
-               icr10.c                         \
-               icr20.c                         \
-               icr30.c                         \
-               icr71.c                         \
-               icr72.c                         \
-               icr75.c                         \
-               icr7000.c                       \
-               icr8500.c                       \
-               icr8600.c                       \
-               icr9000.c                       \
-               icr9500.c                       \
-               icrx7.c                         \
-               id1.c                           \
-               id5100.c                        \
-               omni.c                          \
-               optoscan.c                      \
-               os456.c                         \
-               os535.c                         \
-               perseus.c                       \
-               x108g.c)                        \
-                                               \
-             $(addprefix jrc/,                 \
-               jrc.c                           \
-               nrd525.c                        \
-               nrd535.c                        \
-               nrd545.c)                       \
-                                               \
-             $(addprefix kachina/,             \
-               505dsp.c                        \
-               kachina.c)                      \
-                                               \
-                                               \
-             $(addprefix kenwood/,             \
-               elecraft.c                      \
-               flex.c                          \
-               flex6xxx.c                      \
-               ic10.c                          \
-               k2.c                            \
-               k3.c                            \
-               kenwood.c                       \
-               pihpsdr.c                       \
-               r5000.c                         \
-               th.c                            \
-               thd7.c                          \
-               thd72.c                         \
-               thd74.c                         \
-               thf6a.c                         \
-               thf7.c                          \
-               thg71.c                         \
-               tmd700.c                        \
-               tmd710.c                        \
-               tmv7.c                          \
-               transfox.c                      \
-               trc80.c                         \
-               ts50s.c                         \
-               ts140.c                         \
-               ts440.c                         \
-               ts450s.c                        \
-               ts480.c                         \
-               ts570.c                         \
-               ts590.c                         \
-               ts680.c                         \
-               ts690.c                         \
-               ts711.c                         \
-               ts790.c                         \
-               ts811.c                         \
-               ts850.c                         \
-               ts870s.c                        \
-               ts930.c                         \
-               ts940.c                         \
-               ts950.c                         \
-               ts990s.c                        \
-               ts2000.c                        \
-               xg3.c)                          \
-                                               \
-             $(addprefix kit/,                 \
-               dds60.c                         \
-               drt1.c                          \
-               dwt.c                           \
-               elektor304.c                    \
-               elektor507.c                    \
-               fifisdr.c                       \
-               funcube.c                       \
-               hiqsdr.c                        \
-               kit.c                           \
-               miniVNA.c                       \
-               pcrotor.c                       \
-               rs_hfiq.c                       \
-               si570avrusb.c                   \
-               usrp.c)                         \
-                                               \
-             $(addprefix lowe/,                \
-               hf235.c                         \
-               lowe.c)                         \
-                                               \
-             $(addprefix pcr/,                 \
-               pcr.c                           \
-               pcr100.c                        \
-               pcr1000.c                       \
-               pcr1500.c                       \
-               pcr2500.c)                      \
-                                               \
-             $(addprefix prm80/,               \
-               prm80.c                         \
-               prm8060.c)                      \
-                                               \
-             $(addprefix racal/,               \
-               ra37xx.c                        \
-               ra3702.c                        \
-               ra6790.c                        \
-               racal.c)                        \
-                                               \
-             $(addprefix rft/,                 \
-               ekd500.c                        \
-               rft.c)                          \
-                                               \
-             $(addprefix rs/,                  \
-               eb200.c                         \
-               esmc.c                          \
-               gp2000.c                        \
-               rs.c                            \
-               xk2100.c)                       \
-                                               \
-             $(addprefix skanti/,              \
-               skanti.c                        \
-               trp8000.c                       \
-               trp8255.c)                      \
-                                               \
-             $(addprefix tapr/,                \
-               dsp10.c                         \
-               tapr.c)                         \
-                                               \
-             $(addprefix tentec/,              \
-               argonaut.c                      \
-               jupiter.c                       \
-               omnivii.c                       \
-               orion.c                         \
-               paragon.c                       \
-               pegasus.c                       \
-               rx320.c                         \
-               rx331.c                         \
-               rx340.c                         \
-               rx350.c                         \
-               tentec.c                        \
-               tentec2.c                       \
-               tt550.c)                        \
-                                               \
-             $(addprefix tuner/,               \
-               tuner.c                         \
-               v4l.c                           \
-               v4l2.c)                         \
-                                               \
-             $(addprefix uniden/,              \
-               bc245.c                         \
-               bc250.c                         \
-               bc780.c                         \
-               bc895.c                         \
-               bc898.c                         \
-               bcd396t.c                       \
-               bcd996t.c                       \
-               pro2052.c                       \
-               uniden.c                        \
-               uniden_digital.c)               \
-                                               \
-             $(addprefix winradio/,            \
-               g303.c                          \
-               g305.c                          \
-               g313-win.c                      \
-               winradio.c                      \
-               wr1000.c                        \
-               wr1500.c                        \
-               wr1550.c                        \
-               wr3100.c                        \
-               wr3150.c                        \
-               wr3500.c                        \
-               wr3700.c)                       \
-                                               \
-             $(addprefix wj/,                  \
-               wj.c                            \
-               wj8888.c)                       \
-                                               \
-             $(addprefix yaesu/,               \
-               frg100.c                        \
-               frg8800.c                       \
-               frg9600.c                       \
-               ft100.c                         \
-               ft450.c                         \
-               ft600.c                         \
-               ft736.c                         \
-               ft747.c                         \
-               ft757gx.c                       \
-               ft767gx.c                       \
-               ft817.c                         \
-               ft840.c                         \
-               ft847.c                         \
-               ft857.c                         \
-               ft890.c                         \
-               ft891.c                         \
-               ft897.c                         \
-               ft900.c                         \
-               ft920.c                         \
-               ft950.c                         \
-               ft980.c                         \
-               ft990.c                         \
-               ft991.c                         \
-               ft1000d.c                       \
-               ft1000mp.c                      \
-               ft1200.c                        \
-               ft2000.c                        \
-               ft5000.c                        \
-               ft9000.c                        \
-               newcat.c                        \
-               vr5000.c                        \
-               vx1700.c                        \
-               yaesu.c)                        \
-                                               \
-             barrett/barrett.c                 \
-             easycomm/easycomm.c               \
-             fodtrack/fodtrack.c               \
-             sartek/sartek.c                   \
-             heathkit/hd1780.c                 \
-             ioptron/rot_ioptron.c             \
-             spid/spid.c                       \
-             m2/rc2800.c                       \
-             meade/meade.c                     \
-             ars/ars.c                         \
-             amsat/if100.c                     \
-             ts7400/ts7400.c                   \
-             celestron/celestron.c             \
-             ether6/ether6.c                   \
-             cnctrk/cnctrk.c                   \
-             prosistel/prosistel.c             \
-             rotorez/rotorez.c
+               usb_port.c)
+
+hamlib_SRC += $(addprefix rigs/adat/, \
+                adat.c                \
+                adt_200a.c)
+
+hamlib_SRC += $(addprefix rigs/alinco/, \
+                alinco.c                \
+                dx77.c                  \
+                dxsr8.c)
+
+hamlib_SRC += $(addprefix rigs/aor/, \
+               aor.c                 \
+               ar2700.c              \
+               ar3000.c              \
+               ar3030.c              \
+               ar5000.c              \
+               ar7030.c              \
+               ar7030p.c             \
+               ar7030p_utils.c       \
+               ar8000.c              \
+               ar8200.c              \
+               ar8600.c              \
+               sr2200.c)
+
+hamlib_SRC += $(addprefix rigs/dorji/, \
+               dorji.c                 \
+               dra818.c)
+
+hamlib_SRC += $(addprefix rigs/drake/, \
+               drake.c                 \
+               r8a.c                   \
+               r8b.c)
+
+hamlib_SRC += $(addprefix dummy/, \
+               amp_dummy.c        \
+               dummy.c            \
+               flrig.c            \
+               netampctl.c        \
+               netrigctl.c        \
+               netrotctl.c        \
+               rot_dummy.c        \
+               trxmanager.c)
+
+hamlib_SRC += $(addprefix rigs/elad/, \
+               elad.c                 \
+               fdm_duo.c)
+
+hamlib_SRC += $(addprefix rigs/flexradio/, \
+               dttsp.c                     \
+               flexradio.c                 \
+               sdr1k.c)
+
+hamlib_SRC += $(addprefix rotators/gs232a/, \
+               gs232.c                      \
+               gs232a.c                     \
+               gs232b.c)
+
+hamlib_SRC += $(addprefix rotators/,  \
+                amsat/if100.c         \
+                ts7400/ts7400.c       \
+                celestron/celestron.c \
+                ether6/ether6.c       \
+                cnctrk/cnctrk.c       \
+                prosistel/prosistel.c \
+                rotorez/rotorez.c)
+
+hamlib_SRC += $(addprefix rigs/icmarine/, \
+               icm700pro.c                \
+               icm710.c                   \
+               icm802.c                   \
+               icm803.c                   \
+               icmarine.c)
+
+hamlib_SRC += $(addprefix rigs/icom/, \
+               delta2.c               \
+               frame.c                \
+               ic78.c                 \
+               ic92d.c                \
+               ic271.c                \
+               ic275.c                \
+               ic471.c                \
+               ic475.c                \
+               ic703.c                \
+               ic706.c                \
+               ic707.c                \
+               ic718.c                \
+               ic725.c                \
+               ic726.c                \
+               ic728.c                \
+               ic735.c                \
+               ic736.c                \
+               ic737.c                \
+               ic738.c                \
+               ic746.c                \
+               ic751.c                \
+               ic756.c                \
+               ic761.c                \
+               ic765.c                \
+               ic775.c                \
+               ic781.c                \
+               ic785x.c               \
+               ic820h.c               \
+               ic821h.c               \
+               ic910.c                \
+               ic970.c                \
+               ic1275.c               \
+               ic2730.c               \
+               ic7000.c               \
+               ic7100.c               \
+               ic7200.c               \
+               ic7300.c               \
+               ic7410.c               \
+               ic7600.c               \
+               ic7610.c               \
+               ic7700.c               \
+               ic7800.c               \
+               ic9100.c               \
+               icom.c                 \
+               icr6.c                 \
+               icr10.c                \
+               icr20.c                \
+               icr30.c                \
+               icr71.c                \
+               icr72.c                \
+               icr75.c                \
+               icr7000.c              \
+               icr8500.c              \
+               icr8600.c              \
+               icr9000.c              \
+               icr9500.c              \
+               icrx7.c                \
+               id1.c                  \
+               id31.c                 \
+               id4100.c               \
+               id51.c                 \
+               id5100.c               \
+               omni.c                 \
+               optoscan.c             \
+               os456.c                \
+               os535.c                \
+               perseus.c              \
+               x108g.c)
+
+hamlib_SRC += $(addprefix rigs/jrc/, \
+               jrc.c                 \
+               nrd525.c              \
+               nrd535.c              \
+               nrd545.c)
+
+hamlib_SRC += $(addprefix rigs/kachina/, \
+               505dsp.c                  \
+               kachina.c)
+
+hamlib_SRC += $(addprefix rigs/kenwood/, \
+               elecraft.c                \
+               flex.c                    \
+               flex6xxx.c                \
+               ic10.c                    \
+               k2.c                      \
+               k3.c                      \
+               kenwood.c                 \
+               pihpsdr.c                 \
+               r5000.c                   \
+               th.c                      \
+               thd7.c                    \
+               thd72.c                   \
+               thd74.c                   \
+               thf6a.c                   \
+               thf7.c                    \
+               thg71.c                   \
+               tmd700.c                  \
+               tmd710.c                  \
+               tmv7.c                    \
+               transfox.c                \
+               trc80.c                   \
+               ts50s.c                   \
+               ts140.c                   \
+               ts440.c                   \
+               ts450s.c                  \
+               ts480.c                   \
+               ts570.c                   \
+               ts590.c                   \
+               ts680.c                   \
+               ts690.c                   \
+               ts711.c                   \
+               ts790.c                   \
+               ts811.c                   \
+               ts850.c                   \
+               ts870s.c                  \
+               ts930.c                   \
+               ts940.c                   \
+               ts950.c                   \
+               ts990s.c                  \
+               ts2000.c                  \
+               xg3.c)
+
+hamlib_SRC += $(addprefix rigs/kit/, \
+               dds60.c               \
+               drt1.c                \
+               dwt.c                 \
+               elektor304.c          \
+               elektor507.c          \
+               fifisdr.c             \
+               funcube.c             \
+               hiqsdr.c              \
+               kit.c                 \
+               miniVNA.c             \
+               pcrotor.c             \
+               rs_hfiq.c             \
+               si570avrusb.c         \
+               usrp.c)
+
+hamlib_SRC += $(addprefix rigs/lowe/, \
+               hf235.c                \
+               lowe.c)
+
+hamlib_SRC += $(addprefix rigs/pcr/, \
+               pcr.c                 \
+               pcr100.c              \
+               pcr1000.c             \
+               pcr1500.c             \
+               pcr2500.c)
+
+hamlib_SRC += $(addprefix rigs/prm80/, \
+               prm80.c                 \
+               prm8060.c)
+
+hamlib_SRC += $(addprefix rigs/racal/, \
+               ra37xx.c                \
+               ra3702.c                \
+               ra6790.c                \
+               racal.c)
+
+hamlib_SRC += $(addprefix rigs/rft/, \
+               ekd500.c              \
+               rft.c)
+
+hamlib_SRC += $(addprefix rigs/rs/, \
+               eb200.c              \
+               esmc.c               \
+               gp2000.c             \
+               rs.c                 \
+               xk2100.c)
+
+hamlib_SRC += $(addprefix rigs/skanti/, \
+               skanti.c                 \
+               trp8000.c                \
+               trp8255.c)
+
+hamlib_SRC += $(addprefix rigs/tapr/, \
+               dsp10.c                \
+               tapr.c)
+
+hamlib_SRC += $(addprefix rigs/tentec/, \
+               argonaut.c               \
+               jupiter.c                \
+               omnivii.c                \
+               orion.c                  \
+               paragon.c                \
+               pegasus.c                \
+               rx320.c                  \
+               rx331.c                  \
+               rx340.c                  \
+               rx350.c                  \
+               tentec.c                 \
+               tentec2.c                \
+               tt550.c)
+
+hamlib_SRC += $(addprefix rigs/tuner/, \
+               tuner.c                 \
+               v4l.c                   \
+               v4l2.c)
+
+hamlib_SRC += $(addprefix rigs/uniden/, \
+               bc245.c                  \
+               bc250.c                  \
+               bc780.c                  \
+               bc895.c                  \
+               bc898.c                  \
+               bcd396t.c                \
+               bcd996t.c                \
+               pro2052.c                \
+               uniden.c                 \
+               uniden_digital.c)
+
+hamlib_SRC += $(addprefix rigs/winradio/, \
+               g303.c                     \
+               g305.c                     \
+               g313-win.c                 \
+               winradio.c                 \
+               wr1000.c                   \
+               wr1500.c                   \
+               wr1550.c                   \
+               wr3100.c                   \
+               wr3150.c                   \
+               wr3500.c                   \
+               wr3700.c)
+
+hamlib_SRC += $(addprefix rigs/wj/, \
+               wj.c                 \
+               wj8888.c)
+
+hamlib_SRC += $(addprefix rigs/yaesu/, \
+               frg100.c                \
+               frg8800.c               \
+               frg9600.c               \
+               ft100.c                 \
+               ft450.c                 \
+               ft600.c                 \
+               ft736.c                 \
+               ft747.c                 \
+               ft757gx.c               \
+               ft767gx.c               \
+               ft817.c                 \
+               ft840.c                 \
+               ft847.c                 \
+               ft857.c                 \
+               ft890.c                 \
+               ft891.c                 \
+               ft897.c                 \
+               ft900.c                 \
+               ft920.c                 \
+               ft950.c                 \
+               ft980.c                 \
+               ft990.c                 \
+               ft991.c                 \
+               ft1000d.c               \
+               ft1000mp.c              \
+               ft1200.c                \
+               ft2000.c                \
+               ft5000.c                \
+               ft9000.c                \
+               newcat.c                \
+               vr5000.c                \
+               vx1700.c                \
+               yaesu.c)
+
+hamlib_SRC += $(addprefix rigs/,      \
+                barrett/barrett.c     \
+                easycomm/easycomm.c   \
+                fodtrack/fodtrack.c   \
+                sartek/sartek.c       \
+                heathkit/hd1780.c     \
+                ioptron/rot_ioptron.c \
+                spid/spid.c           \
+                m2/rc2800.c           \
+                meade/meade.c         \
+                ars/ars.c)
 
 ifeq ($(USE_GNURADIO),0)
-  VPATH  += gnuradio
-  CFLAGS += -I./gnuradio -I$(GNURADIO_ROOT)/include
+  VPATH  += extra/gnuradio
+  CFLAGS += -I./extra/gnuradio -I$(GNURADIO_ROOT)/include
 
-  hamlib_SRC += $(addprefix gnuradio/, \
-                  gr.c                 \
-                  graudio.c            \
+  hamlib_SRC += $(addprefix extra/gnuradio/, \
+                  gr.c                       \
+                  graudio.c                  \
                   mc4020.c)
 
   hamlib_CC_SRC += gnuradio/gnuradio.cc
 endif
 
 
-hamlib_misc_SRC = lib/termios.c
+hamlib_misc_SRC = lib/termios.c \
+                  tests/sprintflst.c
 
 ifneq ($(CC),gcc)
   hamlib_misc_SRC += $(addprefix lib/, \
                        getopt_long.c   \
                        gettimeofday.c  \
+                       win-misc.c      \
                        usleep.c)
 endif
 
@@ -800,9 +845,14 @@ rotctld_SRC = $(addprefix tests/, \
                 dumpcaps_rot.c    \
                 sprintflst.c)
 
+hamlib_OBJ      = $(call c_to_obj, $(hamlib_SRC)) \
+                  $(OBJ_DIR)/amp_kpa.obj          \
+                  $(OBJ_DIR)/amp_kpa1500.obj
+
 hamlib_CC_OBJ   = $(call cc_to_obj, $(hamlib_CC_SRC))
 hamlibPP_OBJ    = $(call cc_to_obj, $(hamlibPP_SRC))
-hamlib_OBJ      = $(call c_to_obj, $(hamlib_SRC))
+
+
 hamlib_misc_OBJ = $(call c_to_obj, $(hamlib_misc_SRC))
 ampctl_OBJ      = $(call c_to_obj, $(ampctl_SRC))
 ampctld_OBJ     = $(call c_to_obj, $(ampctld_SRC))
@@ -814,35 +864,33 @@ rigmem_OBJ      = $(call c_to_obj, $(rigmem_SRC))
 rotctl_OBJ      = $(call c_to_obj, $(rotctl_SRC))
 rotctld_OBJ     = $(call c_to_obj, $(rotctld_SRC))
 
+hamlib_i = $(call c_to_i, $(hamlib_SRC))
+
+$(hamlib_i): CFLAGS += -DIN_HAMLIB
+
+
 GENERATED = $(addprefix $(OBJ_DIR)/, \
               config.h               \
+              hamlibdatetime.h       \
               unistd.h               \
               termios.h              \
               sys/time.h             \
               sys/ioctl.h)
-
-GENERATED += mv_empty_problematic_c_files
 
 Hamlib_DEF = $(OBJ_DIR)/Hamlib-$(ABI_VER).def
 
 all: $(OBJ_DIR) $(OBJ_DIR)/sys $(GENERATED) $(TARGETS) programs epilogue
 
 $(OBJ_DIR) $(OBJ_DIR)/sys:
-	- mkdir $@
+	- $(MKDIR) $@
+
+lib/gcc lib/msvc:
+	- $(MKDIR) --parents $@
 
 epilogue:
-	$(call white_message,Welcome to $(Hamlib_DLL) and $(HamlibPP_DLL).)
-	@echo 'You could also do a "make -f $(THIS_FILE) [doxy_docs | doc/Hamlib.pdf | py_module | lua_module]".'
+	$(call white_message, Welcome to $(Hamlib_DLL) and $(HamlibPP_DLL).)
+	$(call green_message, You could also do a 'make -f $(THIS_FILE) [doxy_docs | py_module | lua_module]'.)
 	@echo
-
-#
-# Get these problems out of the way.
-#
-mv_empty_problematic_c_files::
-	 $(call green_message, mv lib/dummy.c lib/orig-dummy.c)
-	- @$(MOVE) lib/dummy.c lib/orig-dummy.c
-	 $(call green_message, mv amplifiers/elecraft/elecraft.c amplifiers/elecraft/orig-elecraft.c)
-	- @$(MOVE) amplifiers/elecraft/elecraft.c amplifiers/elecraft/orig-elecraft.c
 
 programs: $(GENERATED) $(TESTS_PROGS)
 
@@ -939,11 +987,13 @@ $(OBJ_DIR)/testcpp.$(O): c++/testcpp.cc | $(CC).args
 
 $(OBJ_DIR)/%.$(O): c++/%.cc | $(CC).args
 	$(call Compile, -DIN_HAMLIB -DDLL_EXPORT $<, $@)
-#	$(call Compile, -DIN_HAMLIB -DDLL_EXPORT $<, $@)
 
 #
 # For $(hamlib_SRC) and $(hamlib_CC_SRC):
 #
+$(OBJ_DIR)/amp_%.obj: amplifiers/elecraft/%.c
+	$(call Compile, -DIN_HAMLIB $<, $@)
+
 $(OBJ_DIR)/%.$(O): %.c | $(CC).args
 	$(call Compile, -DIN_HAMLIB $<, $@)
 
@@ -974,7 +1024,7 @@ vclean realclean: clean doc_clean py_clean lua_clean
 	      $(TESTS_PROGS) bgd.dll .depend.Windows
 
 #
-# Create a 'doc/Hamlib.pdf' and API documentation in 'doc/html/index.html':
+# Create API documentation in 'doc/html/index.html':
 #
 doxy_docs: doc/Hamlib.cfg
 	cd doc ; \
@@ -987,30 +1037,9 @@ doc/Hamlib.cfg: doc/hamlib.cfg.in
 	$(call Generate, $@, #)
 	sed $(hamlib_CFG_REPLACE) < $< >> $@
 
-doc/version.texi: $(THIS_FILE)
-	$(call Generate, $@, @c)
-	$(file >> $@, @set VERSION $(VERSION))
-	$(file >> $@, @set UPDATED $(DATE))
-
-#
-# '/bin/texi2any' is a Cygwin perl script.
-# It must be run twice to get the 'Table of Content' (doc/hamlib.toc)
-# correctly inserted at the start.
-#
-doc/Hamlib.pdf: doc/hamlib.texi doc/version.texi
-	cd doc ; \
-	/bin/perl /bin/texi2any --pdf hamlib.texi ; \
-	/bin/perl /bin/texi2any --pdf hamlib.texi
-
 doc_JUNK = $(addprefix doc/, \
              doxygen.log     \
-             hamlib.cfg      \
-             hamlib.cp       \
-             hamlib.log      \
-             hamlib.aux      \
-             hamlib.toc      \
-             hamlib.pdf      \
-             version.texi)
+             hamlib.cfg)
 
 doc_clean:
 	rm -f $(doc_JUNK)
@@ -1052,7 +1081,7 @@ endif
 Hamlib.py: $(PY_WRAPPER).c
 
 $(PY_WRAPPER).c: bindings/Hamlib.swg
-	$(call green_message,Generating $@ and Hamlib.py)
+	$(call green_message, Generating $@ and Hamlib.py)
 	swig -python -I./include -I./bindings -o $@ $<
 
 $(OBJ_DIR)/$(PY_WRAPPER).$(O): $(PY_WRAPPER).c | $(CC).args
@@ -1088,8 +1117,8 @@ lua_module: $(HamlibLua_DLL)
 	$(call green_message, Remember to update your 'LUA_CPATH' for '$(HamlibLua_DLL)'. And your 'PATH' for the needed '$(Hamlib_DLL)')
 #	$(COPY) $^ $(some_where_on_PATH_and_LUA_CPATH)
 
-hamliblua_wrap.c: bindings/Hamlib.swg
-	$(call green_message,Generating $@)
+$(OBJ_DIR)/hamliblua_wrap.c: bindings/Hamlib.swg
+	$(call green_message, Generating $@)
 	swig -lua -I./include -I./bindings -o $@ $<
 
 HamlibLua_DLL_deps = $(OBJ_DIR)/HamlibLua_wrap.$(O) \
@@ -1105,7 +1134,7 @@ else
   LUA_CFLAGS         += -DDLL_EXPORT
 endif
 
-$(OBJ_DIR)/HamlibLua_wrap.$(O): HamlibLua_wrap.c | $(CC).args
+$(OBJ_DIR)/HamlibLua_wrap.$(O): $(OBJ_DIR)/HamlibLua_wrap.c | $(CC).args
 	$(call Compile, $(LUA_CFLAGS) $<, $@)
 
 #
@@ -1126,14 +1155,15 @@ lua_JUNK = $(HamlibLua_DLL)           \
            $(HamlibLua_DLL:.dll=.map) \
            $(HamlibLua_DLL:.dll=.pdb) \
            $(HamlibLua_DLL:.dll=.exp) \
-           HamlibLua_wrap.c
+           $(OBJ_DIR)/HamlibLua_wrap.c
 
 lua_clean:
 	rm -f $(lua_JUNK)
 
 #
-# GNU-make macros:
-# (not all may be needed)
+# GNU-make macros.
+#
+# This asumes you have a Cygwin/Msys 'echo' with colour support.
 #
 green_message = @echo -e "\e[1;32m$(strip $(1))\e[0m"
 white_message = @echo -e "\e[1;37m$(strip $(1))\e[0m"
@@ -1155,7 +1185,7 @@ endif
 #   arg2, $(2): The .obj file(s), extra args and libs.
 #
 define link_EXE
-  $(call green_message, Linking $(strip $(1)))
+  $(call green_message, Linking $(1))
   $(call link_EXE_$(CC), $(1), $(2))
   @echo
 endef
@@ -1176,7 +1206,7 @@ link_EXE_gcc      = $(CC) $(LDFLAGS) -o $(1) $(2) > $(1:.exe=.map)
 #   arg3, $(3): The .obj file(s), extra args and libs.
 #
 define link_DLL
-  $(call green_message,Linking $(strip $(1)))
+  $(call green_message, Linking $(1))
   $(call link_DLL_$(CC), $(1), $(2), $(3))
   @echo
 endef
@@ -1197,7 +1227,7 @@ link_DLL_gcc      = $(CC) -shared $(LDFLAGS) -o $(1) -Wl,--out-implib,$(strip $(
 #   arg3, $(3): The .obj file(s), extra args and libs.
 #
 define link_PYD
-  $(call green_message,Linking $(strip $(1)))
+  $(call green_message, Linking $(1))
   $(call link_PYD_$(CC), $(1), $(2), $(3))
   @echo
 endef
@@ -1212,7 +1242,7 @@ link_PYD_clang-cl = $(call link_PYD_cl, $(1), $(2), $(3))
 link_PYD_gcc      = $(CC) -shared $(LDFLAGS) -o $(1) $(3) > $(1:.pyd=.map)
 
 define make_res
-  $(call green_message, Creating $(strip $(2)))
+  $(call green_message, Creating $(2))
   $(call make_res_$(CC), $(1), $(2))
   @echo
 endef
@@ -1227,7 +1257,7 @@ make_res_gcc      = windres -O COFF -I. --target=pe-i386 -o $(2) -i $(1)
 #   arg2: $(2): the .obj files to put in it.
 #
 define create_lib
-  $(call green_message,Creating $(strip $(1)))
+  $(call green_message, Creating $(1))
   $(call create_lib_$(CC), $(1), $(2))
   @echo
 endef
@@ -1241,7 +1271,7 @@ create_lib_gcc      = ar rs $(1) $(2)
 # One word from $(2) per line.
 #
 define create_rsp_file
-  $(call green_message, Creating $(strip $(1)))
+  $(call green_message, Creating $(1))
   $(file > $(1))
   $(foreach f, $(2), $(file >> $(1),$(strip $(f))) )
 endef
@@ -1255,15 +1285,9 @@ define Warning
 endef
 
 define Generate
-  $(call green_message, Generating $(strip $(1)))
+  $(call green_message, Generating $(1))
   $(file > $(1),$(call Warning,$(strip $(2))))
 endef
-
-#
-# 'clang-cl' may not like stuff in '%CL'.
-# Just remove it.
-#
-export CL=
 
 define CONFIG_H
   #define ABI_VERSION   $(ABI_VER)
@@ -1286,7 +1310,7 @@ define CONFIG_H
   #if !defined(RC_INVOKED)
     /*
      * MSVC/clang-cl:
-     *   Except for .cc code (the 'LIBUSP_ROOT' code that needs Boost), and
+     *   Except for .cc code (the 'LIBUSB_ROOT' code that needs Boost), and
      *   while doing 'make depend', pretend we are MinGW.
      */
     #if defined(_MSC_VER)
@@ -1352,7 +1376,7 @@ define CONFIG_H
 
     /* Since 'WIN32_LEAN_AND_MEAN' is defined, this header is
      * not included in <windows.h>. So do it explicitly, but it is
-     * only needed in 'winradio/g313-win.c'.
+     * only needed in 'rigs/winradio/g313-win.c'.
      */
     #include <mmsystem.h>
 
@@ -1390,6 +1414,11 @@ define CONFIG_H
 
     #define PACKAGE_VERSION    "$(VERSION)"
 
+    #if defined(IN_HAMLIB) && defined(_MSC_VER)
+      #define CLOCK_REALTIME  0
+      extern int clock_gettime (int clock_id, struct timespec *ts);
+    #endif
+
   #else /* !defined(RC_INVOKED) */
     #include <winver.h>
 
@@ -1423,6 +1452,10 @@ $(OBJ_DIR)/config.h: $(THIS_FILE)
 	$(file >> $@,#define _CONFIG_H)
 	$(file >> $@,$(CONFIG_H))
 	$(file >> $@,#endif /* _CONFIG_H */)
+
+$(OBJ_DIR)/hamlibdatetime.h: tests/hamlibdatetime.h.in
+	$(call Generate, $@, //)
+	cat $< >> $@
 
 $(OBJ_DIR)/unistd.h: $(THIS_FILE)
 	$(call Generate, $@, //)
@@ -1505,16 +1538,26 @@ $(OBJ_DIR)/HamlibLua.rc: $(THIS_FILE)
 $(OBJ_DIR)/%.res: $(OBJ_DIR)/%.rc $(OBJ_DIR)/config.h
 	$(call make_res, $<, $@)
 
+preprocess_filter = $(PYTHON) cpp_filter.py
+
+ifeq ($(USE_CLANG_FORMAT),1)
+  preprocess_filter += | clang-format --assume-filename=$(strip $(1))
+endif
+
 %.i: %.c FORCE $(GENERATED) cpp_filter.py
-	$(CC) -E $(CFLAGS) $< | py -3 cpp_filter.py > $@
+	$(CC) -E $(CFLAGS) $< | $(call preprocess_filter,c) > $@
 	@echo
 
 %.i: lib/%.c FORCE $(GENERATED) cpp_filter.py
-	$(CC) -E $(CFLAGS) $< | py -3 cpp_filter.py > $@
+	$(CC) -E $(CFLAGS) $< | $(call preprocess_filter,c) > $@
+	@echo
+
+%.i: $(OBJ_DIR)/%.c FORCE $(GENERATED) cpp_filter.py
+	$(CC) -E $(CFLAGS) $(LUA_CFLAGS) $< | $(call preprocess_filter,c) > $@
 	@echo
 
 %.i: %.cc FORCE $(GENERATED) cpp_filter.py
-	$(CC) -E $(CFLAGS) $< | py -3 cpp_filter.py > $@
+	$(CC) -E $(CFLAGS) $< | $(call preprocess_filter,cpp) > $@
 	@echo
 
 FORCE:

@@ -42,6 +42,7 @@
 
 #include "register.h"
 
+//! @cond Doxygen_Suppress
 #ifndef PATH_MAX
 # define PATH_MAX       1024
 #endif
@@ -66,9 +67,10 @@
 
 DEFINE_INITAMP_BACKEND(dummy);
 DEFINE_INITAMP_BACKEND(kpa1500);
+//! @endcond
 
 /**
- *  \def AMP_BACKEND_LIST
+ *  \def amp_backend_list
  *  \brief Static list of amplifier models.
  *
  *  This is a NULL terminated list of available amplifier backends. Each entry
@@ -79,15 +81,15 @@ DEFINE_INITAMP_BACKEND(kpa1500);
  */
 static struct
 {
-  int be_num;
-  const char *be_name;
-  int (*be_init)(void *);
-  amp_model_t (*be_probe)(hamlib_port_t *);
+    int be_num;
+    const char *be_name;
+    int (*be_init)(void *);
+    amp_model_t (*be_probe)(hamlib_port_t *);
 } amp_backend_list[AMP_BACKEND_MAX] =
 {
-  { AMP_DUMMY, AMP_BACKEND_DUMMY, AMP_FUNCNAMA(dummy) },
-  { AMP_ELECRAFT, AMP_BACKEND_ELECRAFT, AMP_FUNCNAMA(kpa1500) },
-  { 0, NULL }, /* end */
+    { AMP_DUMMY, AMP_BACKEND_DUMMY, AMP_FUNCNAMA(dummy) },
+    { AMP_ELECRAFT, AMP_BACKEND_ELECRAFT, AMP_FUNCNAMA(kpa1500) },
+    { 0, NULL }, /* end */
 };
 
 
@@ -103,15 +105,17 @@ static struct
  * This struct to keep track of known amp models.
  * It is chained, and used in a hash table, see below.
  */
+//! @cond Doxygen_Suppress
 struct amp_list
 {
-  const struct amp_caps *caps;
-  struct amp_list *next;
+    const struct amp_caps *caps;
+    struct amp_list *next;
 };
 
 
 #define AMPLSTHASHSZ 16
 #define HASH_FUNC(a) ((a)%AMPLSTHASHSZ)
+//! @endcond
 
 
 /*
@@ -127,62 +131,66 @@ static int amp_lookup_backend(amp_model_t amp_model);
 /*
  * Basically, this is a hash insert function that doesn't check for dup!
  */
+//! @cond Doxygen_Suppress
 int HAMLIB_API amp_register(const struct amp_caps *caps)
 {
-  int hval;
-  struct amp_list *p;
+    int hval;
+    struct amp_list *p;
 
-  if (!caps)
-  {
-    return -RIG_EINVAL;
-  }
+    if (!caps)
+    {
+        return -RIG_EINVAL;
+    }
 
-  amp_debug(RIG_DEBUG_VERBOSE, "amp_register (%d)\n", caps->amp_model);
+    amp_debug(RIG_DEBUG_VERBOSE, "amp_register (%d)\n", caps->amp_model);
 
 #ifndef DONT_WANT_DUP_CHECK
 
-  if (amp_get_caps(caps->amp_model) != NULL)
-  {
-    return -RIG_EINVAL;
-  }
+    if (amp_get_caps(caps->amp_model) != NULL)
+    {
+        return -RIG_EINVAL;
+    }
 
 #endif
 
-  p = (struct amp_list *)malloc(sizeof(struct amp_list));
+    p = (struct amp_list *)malloc(sizeof(struct amp_list));
 
-  if (!p)
-  {
-    return -RIG_ENOMEM;
-  }
+    if (!p)
+    {
+        return -RIG_ENOMEM;
+    }
 
-  hval = HASH_FUNC(caps->amp_model);
-  p->caps = caps;
-  // p->handle = NULL;
-  p->next = amp_hash_table[hval];
-  amp_hash_table[hval] = p;
+    hval = HASH_FUNC(caps->amp_model);
+    p->caps = caps;
+    // p->handle = NULL;
+    p->next = amp_hash_table[hval];
+    amp_hash_table[hval] = p;
 
-  return RIG_OK;
+    return RIG_OK;
 }
+//! @endcond
 
 
 /*
  * Get amp capabilities.
  * i.e. amp_hash_table lookup
  */
+//! @cond Doxygen_Suppress
 const struct amp_caps *HAMLIB_API amp_get_caps(amp_model_t amp_model)
 {
-  struct amp_list *p;
+    struct amp_list *p;
 
-  for (p = amp_hash_table[HASH_FUNC(amp_model)]; p; p = p->next)
-  {
-    if (p->caps->amp_model == amp_model)
+    for (p = amp_hash_table[HASH_FUNC(amp_model)]; p; p = p->next)
     {
-      return p->caps;
+        if (p->caps->amp_model == amp_model)
+        {
+            return p->caps;
+        }
     }
-  }
 
-  return NULL;    /* sorry, caps not registered! */
+    return NULL;    /* sorry, caps not registered! */
 }
+//! @endcond
 
 
 /*
@@ -190,21 +198,23 @@ const struct amp_caps *HAMLIB_API amp_get_caps(amp_model_t amp_model)
  * according to BACKEND_NUM
  * return -1 if not found.
  */
+//! @cond Doxygen_Suppress
 static int amp_lookup_backend(amp_model_t amp_model)
 {
-  int i;
+    int i;
 
-  for (i = 0; i < AMP_BACKEND_MAX && amp_backend_list[i].be_name; i++)
-  {
-    if (AMP_BACKEND_NUM(amp_model) ==
-        amp_backend_list[i].be_num)
+    for (i = 0; i < AMP_BACKEND_MAX && amp_backend_list[i].be_name; i++)
     {
-      return i;
+        if (AMP_BACKEND_NUM(amp_model) ==
+                amp_backend_list[i].be_num)
+        {
+            return i;
+        }
     }
-  }
 
-  return -1;
+    return -1;
 }
+//! @endcond
 
 
 /*
@@ -213,169 +223,181 @@ static int amp_lookup_backend(amp_model_t amp_model)
  * and if not loaded already, load it!
  * This permits seamless operation in amp_init.
  */
+//! @cond Doxygen_Suppress
 int HAMLIB_API amp_check_backend(amp_model_t amp_model)
 {
-  const struct amp_caps *caps;
-  int be_idx;
-  int retval;
+    const struct amp_caps *caps;
+    int be_idx;
+    int retval;
 
-  /* already loaded ? */
-  caps = amp_get_caps(amp_model);
+    /* already loaded ? */
+    caps = amp_get_caps(amp_model);
 
-  if (caps)
-  {
-    return RIG_OK;
-  }
-
-  be_idx = amp_lookup_backend(amp_model);
-
-  /*
-   * Never heard about this backend family!
-   */
-  if (be_idx == -1)
-  {
-    amp_debug(RIG_DEBUG_VERBOSE,
-              "%s: unsupported backend %d for model %d\n",
-              __func__,
-              AMP_BACKEND_NUM(amp_model),
-              amp_model);
-
-    return -RIG_ENAVAIL;
-  }
-
-  retval = amp_load_backend(amp_backend_list[be_idx].be_name);
-
-  return retval;
-}
-
-
-int HAMLIB_API amp_unregister(amp_model_t amp_model)
-{
-  int hval;
-  struct amp_list *p, *q;
-
-  hval = HASH_FUNC(amp_model);
-  q = NULL;
-
-  for (p = amp_hash_table[hval]; p; p = p->next)
-  {
-    if (p->caps->amp_model == amp_model)
+    if (caps)
     {
-      if (q == NULL)
-      {
-        amp_hash_table[hval] = p->next;
-      }
-      else
-      {
-        q->next = p->next;
-      }
-
-      free(p);
-      return RIG_OK;
+        return RIG_OK;
     }
 
-    q = p;
-  }
+    be_idx = amp_lookup_backend(amp_model);
 
-  return -RIG_EINVAL; /* sorry, caps not registered! */
+    /*
+     * Never heard about this backend family!
+     */
+    if (be_idx == -1)
+    {
+        amp_debug(RIG_DEBUG_VERBOSE,
+                  "%s: unsupported backend %d for model %d\n",
+                  __func__,
+                  AMP_BACKEND_NUM(amp_model),
+                  amp_model);
+
+        return -RIG_ENAVAIL;
+    }
+
+    retval = amp_load_backend(amp_backend_list[be_idx].be_name);
+
+    return retval;
 }
+//! @endcond
+
+
+//! @cond Doxygen_Suppress
+int HAMLIB_API amp_unregister(amp_model_t amp_model)
+{
+    int hval;
+    struct amp_list *p, *q;
+
+    hval = HASH_FUNC(amp_model);
+    q = NULL;
+
+    for (p = amp_hash_table[hval]; p; p = p->next)
+    {
+        if (p->caps->amp_model == amp_model)
+        {
+            if (q == NULL)
+            {
+                amp_hash_table[hval] = p->next;
+            }
+            else
+            {
+                q->next = p->next;
+            }
+
+            free(p);
+            return RIG_OK;
+        }
+
+        q = p;
+    }
+
+    return -RIG_EINVAL; /* sorry, caps not registered! */
+}
+//! @endcond
 
 
 /*
  * amp_list_foreach
  * executes cfunc on all the elements stored in the amp hash list
  */
+//! @cond Doxygen_Suppress
 int HAMLIB_API amp_list_foreach(int (*cfunc)(const struct amp_caps *,
                                 rig_ptr_t),
                                 rig_ptr_t data)
 {
-  struct amp_list *p;
-  int i;
+    struct amp_list *p;
+    int i;
 
-  if (!cfunc)
-  {
-    return -RIG_EINVAL;
-  }
+    if (!cfunc)
+    {
+        return -RIG_EINVAL;
+    }
 
-  for (i = 0; i < AMPLSTHASHSZ; i++)
-  {
-    for (p = amp_hash_table[i]; p; p = p->next)
-      if ((*cfunc)(p->caps, data) == 0)
-      {
-        return RIG_OK;
-      }
-  }
+    for (i = 0; i < AMPLSTHASHSZ; i++)
+    {
+        for (p = amp_hash_table[i]; p; p = p->next)
+            if ((*cfunc)(p->caps, data) == 0)
+            {
+                return RIG_OK;
+            }
+    }
 
-  return RIG_OK;
+    return RIG_OK;
 }
+//! @endcond
 
 
 /*
  * amp_probe_all
  * called straight by amp_probe
  */
+//! @cond Doxygen_Suppress
 amp_model_t HAMLIB_API amp_probe_all(hamlib_port_t *p)
 {
-  int i;
-  amp_model_t amp_model;
+    int i;
+    amp_model_t amp_model;
 
-  for (i = 0; i < AMP_BACKEND_MAX && amp_backend_list[i].be_name; i++)
-  {
-    if (amp_backend_list[i].be_probe)
+    for (i = 0; i < AMP_BACKEND_MAX && amp_backend_list[i].be_name; i++)
     {
-      amp_model = (*amp_backend_list[i].be_probe)(p);
+        if (amp_backend_list[i].be_probe)
+        {
+            amp_model = (*amp_backend_list[i].be_probe)(p);
 
-      if (amp_model != AMP_MODEL_NONE)
-      {
-        return amp_model;
-      }
+            if (amp_model != AMP_MODEL_NONE)
+            {
+                return amp_model;
+            }
+        }
     }
-  }
 
-  return AMP_MODEL_NONE;
+    return AMP_MODEL_NONE;
 }
+//! @endcond
 
 
+//! @cond Doxygen_Suppress
 int amp_load_all_backends()
 {
-  int i;
+    int i;
 
-  for (i = 0; i < AMP_BACKEND_MAX && amp_backend_list[i].be_name; i++)
-  {
-    amp_load_backend(amp_backend_list[i].be_name);
-  }
+    for (i = 0; i < AMP_BACKEND_MAX && amp_backend_list[i].be_name; i++)
+    {
+        amp_load_backend(amp_backend_list[i].be_name);
+    }
 
-  return RIG_OK;
+    return RIG_OK;
 }
+//! @endcond
 
 
 /*
  * amp_load_backend
  * Dynamically load a amp backend through dlopen mechanism
  */
+//! @cond Doxygen_Suppress
 int HAMLIB_API amp_load_backend(const char *be_name)
 {
-  int status;
-  int (*be_init)(rig_ptr_t);
-  int i;
+    int status;
+    int (*be_init)(rig_ptr_t);
+    int i;
 
-  for (i = 0; i < AMP_BACKEND_MAX && amp_backend_list[i].be_name; i++)
-  {
-    if (!strcmp(be_name, amp_backend_list[i].be_name))
+    for (i = 0; i < AMP_BACKEND_MAX && amp_backend_list[i].be_name; i++)
     {
-      be_init = amp_backend_list[i].be_init;
+        if (!strcmp(be_name, amp_backend_list[i].be_name))
+        {
+            be_init = amp_backend_list[i].be_init;
 
-      if (be_init == NULL)
-      {
-        printf("Null\n");
-        return -EINVAL;
-      }
+            if (be_init == NULL)
+            {
+                printf("Null\n");
+                return -EINVAL;
+            }
 
-      status = (*be_init)(NULL);
-      return status;
+            status = (*be_init)(NULL);
+            return status;
+        }
     }
-  }
 
-  return -EINVAL;
+    return -EINVAL;
 
 }
+//! @endcond

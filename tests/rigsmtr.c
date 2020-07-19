@@ -70,7 +70,7 @@ static struct option long_options[] =
     {0, 0, 0, 0}
 };
 
-#define MAXCONFLEN 128
+#define MAXCONFLEN 1024
 
 
 int main(int argc, char *argv[])
@@ -99,6 +99,7 @@ int main(int argc, char *argv[])
     {
         int c;
         int option_index = 0;
+        char dummy[2];
 
         c = getopt_long(argc, argv, SHORT_OPTIONS, long_options, &option_index);
 
@@ -154,7 +155,12 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-            serial_rate = atoi(optarg);
+            if (sscanf(optarg, "%d%1s", &serial_rate, dummy) != 1)
+            {
+                fprintf(stderr, "Invalid baud rate of %s\n", optarg);
+                exit(1);
+            }
+
             break;
 
         case 'C':
@@ -167,6 +173,13 @@ int main(int argc, char *argv[])
             if (*rig_conf_parms != '\0')
             {
                 strcat(rig_conf_parms, ",");
+            }
+
+            if (strlen(rig_conf_parms) + strlen(optarg) > MAXCONFLEN - 24)
+            {
+                printf("Length of conf_parms exceeds internal maximum of %d\n",
+                       MAXCONFLEN - 24);
+                return 1;
             }
 
             strncat(rig_conf_parms, optarg, MAXCONFLEN - strlen(rig_conf_parms));
@@ -230,7 +243,7 @@ int main(int argc, char *argv[])
     rig_set_debug(verbose < 2 ? RIG_DEBUG_WARN : verbose);
 
     rig_debug(RIG_DEBUG_VERBOSE, "rigsmtr, %s\n", hamlib_version);
-    rig_debug(RIG_DEBUG_VERBOSE,
+    rig_debug(RIG_DEBUG_VERBOSE, "%s",
               "Report bugs to <hamlib-developer@lists.sourceforge.net>\n\n");
 
     /*
@@ -241,7 +254,7 @@ int main(int argc, char *argv[])
     if (!rig)
     {
         fprintf(stderr,
-                "Unknown rig num %d, or initialization error.\n",
+                "Unknown rig num %u, or initialization error.\n",
                 rig_model);
 
         fprintf(stderr, "Please check with --list option.\n");
@@ -292,7 +305,7 @@ int main(int argc, char *argv[])
 
     if (verbose > 0)
     {
-        printf("Opened rig model %d, '%s'\n",
+        printf("Opened rig model %u, '%s'\n",
                rig->caps->rig_model,
                rig->caps->model_name);
     }
@@ -366,7 +379,7 @@ int main(int argc, char *argv[])
     while (fabs(azimuth - rot->state.min_az) > 1.)
     {
         rot_get_position(rot, &azimuth, &elevation);
-        usleep(step);
+        hl_usleep(step);
     }
 
     fprintf(stderr, "Now initiating full 360° rotation...\n");
@@ -428,27 +441,28 @@ void usage()
 
 int set_conf_rig(RIG *rig, char *conf_parms)
 {
-    char *p, *q, *n;
-    int ret;
+    char *p;
 
     p = conf_parms;
 
     while (p && *p != '\0')
     {
+        int ret;
+        char *q, *n = NULL;
         /* FIXME: left hand value of = cannot be null */
         q = strchr(p, '=');
 
         if (!q)
         {
             return RIG_EINVAL;
-        }
 
-        *q++ = '\0';
-        n = strchr(q, ',');
+            *q++ = '\0';
+            n = strchr(q, ',');
 
-        if (n)
-        {
-            *n++ = '\0';
+            if (n)
+            {
+                *n++ = '\0';
+            }
         }
 
         ret = rig_set_conf(rig, rig_token_lookup(rig, p), q);
@@ -467,26 +481,27 @@ int set_conf_rig(RIG *rig, char *conf_parms)
 
 int set_conf_rot(ROT *rot, char *conf_parms)
 {
-    char *p, *q, *n;
-    int ret;
+    char *p;
 
     p = conf_parms;
 
     while (p && *p != '\0')
     {
+        char *q, *n = NULL;
+        int ret;
         /* FIXME: left hand value of = cannot be null */
         q = strchr(p, '=');
 
         if (q)
         {
             *q++ = '\0';
-        }
 
-        n = strchr(q, ',');
+            n = strchr(q, ',');
 
-        if (n)
-        {
-            *n++ = '\0';
+            if (n)
+            {
+                *n++ = '\0';
+            }
         }
 
         ret = rot_set_conf(rot, rot_token_lookup(rot, p), q);

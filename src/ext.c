@@ -28,9 +28,9 @@
  * \file ext.c
  * \brief Extension request parameter interface
  *
- * An open-ended set of extension parameters and levels are available for each
- * rig, as provided in the rigcaps extparms and extlevels lists.  These
- * provide a way to work with rig-specific functions that don't fit into the
+ * An open-ended set of extension parameters, functions and levels are available
+ * for each rig, as provided in the rigcaps extparms, extfuncs and extlevels lists.
+ * These provide a way to work with rig-specific functions that don't fit into the
  * basic "virtual rig" of Hamlib.  See icom/ic746.c for an example.
  */
 
@@ -62,12 +62,11 @@
  */
 int HAMLIB_API rig_ext_level_foreach(RIG *rig,
                                      int (*cfunc)(RIG *,
-                                                  const struct confparams *,
-                                                  rig_ptr_t),
+                                             const struct confparams *,
+                                             rig_ptr_t),
                                      rig_ptr_t data)
 {
     const struct confparams *cfp;
-    int ret;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -78,7 +77,7 @@ int HAMLIB_API rig_ext_level_foreach(RIG *rig,
 
     for (cfp = rig->caps->extlevels; cfp && cfp->name; cfp++)
     {
-        ret = (*cfunc)(rig, cfp, data);
+        int ret = (*cfunc)(rig, cfp, data);
 
         if (ret == 0)
         {
@@ -108,12 +107,11 @@ int HAMLIB_API rig_ext_level_foreach(RIG *rig,
  */
 int HAMLIB_API rig_ext_parm_foreach(RIG *rig,
                                     int (*cfunc)(RIG *,
-                                                 const struct confparams *,
-                                                 rig_ptr_t),
+                                            const struct confparams *,
+                                            rig_ptr_t),
                                     rig_ptr_t data)
 {
     const struct confparams *cfp;
-    int ret;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -124,7 +122,7 @@ int HAMLIB_API rig_ext_parm_foreach(RIG *rig,
 
     for (cfp = rig->caps->extparms; cfp && cfp->name; cfp++)
     {
-        ret = (*cfunc)(rig, cfp, data);
+        int ret = (*cfunc)(rig, cfp, data);
 
         if (ret == 0)
         {
@@ -146,7 +144,7 @@ int HAMLIB_API rig_ext_parm_foreach(RIG *rig,
  * \param name
  * \brief lookup ext token by its name, return pointer to confparams struct.
  *
- * Lookup extlevels table first, then fall back to extparms.
+ * Lookup extlevels table, then extfuncs, then extparms.
  *
  * Returns NULL if nothing found
  *
@@ -164,6 +162,14 @@ const struct confparams *HAMLIB_API rig_ext_lookup(RIG *rig, const char *name)
     }
 
     for (cfp = rig->caps->extlevels; cfp && cfp->name; cfp++)
+    {
+        if (!strcmp(cfp->name, name))
+        {
+            return cfp;
+        }
+    }
+
+    for (cfp = rig->caps->extfuncs; cfp && cfp->name; cfp++)
     {
         if (!strcmp(cfp->name, name))
         {
@@ -191,7 +197,7 @@ const struct confparams *HAMLIB_API rig_ext_lookup(RIG *rig, const char *name)
  *
  * Returns NULL if nothing found
  */
-const struct confparams * HAMLIB_API rig_ext_lookup_tok(RIG *rig, token_t token)
+const struct confparams *HAMLIB_API rig_ext_lookup_tok(RIG *rig, token_t token)
 {
     const struct confparams *cfp;
 

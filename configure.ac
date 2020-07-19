@@ -27,6 +27,8 @@ AC_CONFIG_HEADERS([include/config.h])
 dnl Place build system provided programs in this directory.
 AC_CONFIG_AUX_DIR([build-aux])
 
+AC_USE_SYSTEM_EXTENSIONS
+
 
 ## ------------------------ ##
 ## Automake Initialisation. ##
@@ -49,8 +51,9 @@ dnl added to AC_CONFIG_FILES near the end of this file.  See README.developer
 dnl Beware of duplication should a backend directory include both rig and
 dnl rotor definitions, e.g. "dummy".  Optional backends will not be listed
 dnl here but will be added later, e.g. "winradio".
-BACKEND_LIST="adat alinco aor barrett dorji drake dummy elad flexradio icom icmarine jrc kachina kenwood kit lowe pcr prm80 racal rft rs skanti tapr tentec tuner uniden wj yaesu"
-ROT_BACKEND_LIST="amsat ars celestron cnctrk easycomm ether6 fodtrack gs232a heathkit m2 meade rotorez sartek spid ts7400 prosistel ioptron"
+BACKEND_LIST="dummy"
+RIG_BACKEND_LIST="rigs/adat rigs/alinco rigs/aor rigs/barrett rigs/dorji rigs/drake rigs/elad rigs/flexradio rigs/icom rigs/icmarine rigs/jrc rigs/kachina rigs/kenwood rigs/kit rigs/lowe rigs/pcr rigs/prm80 rigs/racal rigs/rft rigs/rs rigs/skanti rigs/tapr rigs/tentec rigs/tuner rigs/uniden rigs/winradio rigs/wj rigs/yaesu"
+ROT_BACKEND_LIST="rotators/amsat rotators/ars rotators/celestron rotators/cnctrk rotators/easycomm rotators/ether6 rotators/fodtrack rotators/gs232a rotators/heathkit rotators/m2 rotators/meade rotators/rotorez rotators/sartek rotators/spid rotators/ts7400 rotators/prosistel rotators/ioptron"
 # Amplifiers are all in the amplifiers directory
 AMP_BACKEND_LIST="amplifiers/elecraft"
 
@@ -299,6 +302,7 @@ AS_CASE(["$host_os"],
 
 dnl Check if C99 struct initializers are supported
 AC_MSG_CHECKING([whether C99 struct/array initializers are supported])
+
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],
                   [[struct{char a;int b;}s[8]={[3]={.b=5}};]])],
                   [AC_MSG_RESULT(yes)],
@@ -306,7 +310,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],
 "You need a C99 compliant C compiler that supports struct/array intializers."
 "Have you considered GCC lately?."])
                   ])
-
 
 dnl Check for libusb, treat LIBUSB_LIBS and LIBUSB_CFLAGS as precious variables
 AC_MSG_CHECKING([whether to build USB dependent backends])
@@ -541,6 +544,11 @@ dnl Determine whether to install pytest.py or py3test.py to $(docdir)/examples
 AM_PYTHON_CHECK_VERSION([${PYTHON}], [3.0], [pyver_3="yes"], [pyver_3="no"])
 AM_CONDITIONAL([PYVER_3], [test x"${pyver_3}" = x"yes"])
 
+dnl Determine whether to link libpython as it is unneeded for Python >= 3.8
+AM_PYTHON_CHECK_VERSION([${PYTHON}], [3.8], [pyver_3_8="yes"], [pyver_3_8="no"])
+AS_IF([test x"${pyver_3_8}" = "xyes"],[
+    PYTHON_LIBS=""
+])
 
 # Tcl binding
 AC_MSG_CHECKING([Whether to build Tcl bindings])
@@ -613,7 +621,7 @@ AM_CONDITIONAL([ENABLE_LUA], [test x"${cf_with_lua_binding}" = "xyes"])
 dnl Only search for Swig if one or more bindings are enabled.
 AS_IF([test "x${BINDING_ALL}" != "x"],
     [# macros/ax_pkg_swig.m4
-    AX_PKG_SWIG([1.3.22],
+    AX_PKG_SWIG([3.0.12],
         [BINDINGS="${BINDINGS} bindings"
         cf_with_bindings="yes"],
         [AC_MSG_ERROR([SWIG is required to build bindings...])
@@ -651,7 +659,15 @@ AC_MSG_RESULT([$cf_with_winradio])
 DL_LIBS=""
 
 AS_IF([test x"${cf_with_winradio}" = "xyes"],
-      [BACKEND_LIST="$BACKEND_LIST winradio"
+      [RIGS_BACKEND_LIST="$RIGS_BACKEND_LIST rigs/winradio"
+dnl Check for libdl and set DL_LIBS if found--used for linradio WR-G313 backend.
+       AC_CHECK_LIB([dl], [dlopen], [DL_LIBS="-ldl"],
+                    [AC_MSG_WARN([dlopen was not found in libdl--linradio backend will be disabled])])
+      ])
+
+# Still need -ldl if we have it
+AS_IF([test x"${cf_with_winradio}" = "xno"],
+      [RIGS_BACKEND_LIST="$RIGS_BACKEND_LIST"
 dnl Check for libdl and set DL_LIBS if found--used for linradio WR-G313 backend.
        AC_CHECK_LIB([dl], [dlopen], [DL_LIBS="-ldl"],
                     [AC_MSG_WARN([dlopen was not found in libdl--linradio backend will be disabled])])
@@ -695,6 +711,11 @@ AS_IF([test x"${cf_with_usrp}" = "xyes"],[
 
 AM_CONDITIONAL([HAVE_USRP], [test x"${cf_with_usrp}" = "xyes"])
 
+AM_CONDITIONAL(BUILD_OS_IS_UBUNTU, [test x"$build_os" = ubuntu])
+AM_CONDITIONAL(BUILD_OS_IS_FEDORA, [test x"$build_os" = fedora])
+echo Build_OS is $build_os
+
+
 
 ## -------------------------------- ##
 ## Prepare rig backend dependencies ##
@@ -702,12 +723,28 @@ AM_CONDITIONAL([HAVE_USRP], [test x"${cf_with_usrp}" = "xyes"])
 
 dnl otherwise parallel 'make -jn' will fail
 
+## ---------------------------------- ##
+## Prepare toplevel backend dependencies ##
+## ---------------------------------- ##
+
 for be in ${BACKEND_LIST} ; do
         BACKENDEPS="${BACKENDEPS} \$(top_builddir)/${be}/libhamlib-${be}.la"
 done
 
 AC_SUBST([BACKEND_LIST])
 AC_SUBST([BACKENDEPS])
+
+## ---------------------------------- ##
+## Prepare rig backend dependencies ##
+## ---------------------------------- ##
+
+for be in ${RIG_BACKEND_LIST} ; do
+        RIGDIR=$(echo $be | awk -F "/" '{print $2}')
+        RIG_BACKENDEPS="${RIG_BACKENDEPS} \$(top_builddir)/rigs/${RIGDIR}/libhamlib-${RIGDIR}.la"
+done
+
+AC_SUBST([RIG_BACKEND_LIST])
+AC_SUBST([RIG_BACKENDEPS])
 
 
 ## ---------------------------------- ##
@@ -717,7 +754,8 @@ AC_SUBST([BACKENDEPS])
 # otherwise parallel 'make -jn' will fail
 
 for be in ${ROT_BACKEND_LIST} ; do
-        ROT_BACKENDEPS="${ROT_BACKENDEPS} \$(top_builddir)/${be}/libhamlib-${be}.la"
+        ROTDIR=$(echo $be | awk -F "/" '{print $2}')
+        ROT_BACKENDEPS="${ROT_BACKENDEPS} \$(top_builddir)/rotators/${ROTDIR}/libhamlib-${ROTDIR}.la"
 done
 
 AC_SUBST([ROT_BACKEND_LIST])
@@ -730,7 +768,7 @@ AC_SUBST([ROT_BACKENDEPS])
 # otherwise parallel 'make -jn' will fail
 
 for be in ${AMP_BACKEND_LIST} ; do
-        AMPDIR=`echo $be | awk -F "/" '{print $2}'`
+        AMPDIR=$(echo $be | awk -F "/" '{print $2}')
         AMP_BACKENDEPS="${AMP_BACKENDEPS} \$(top_builddir)/amplifiers/${AMPDIR}/libhamlib-${AMPDIR}.la"
 done
 
@@ -754,59 +792,59 @@ macros/Makefile
 include/Makefile
 lib/Makefile
 dummy/Makefile
-elad/Makefile
-yaesu/Makefile
-icom/Makefile
-icmarine/Makefile
-aor/Makefile
-kenwood/Makefile
-winradio/Makefile
-pcr/Makefile
-alinco/Makefile
-uniden/Makefile
-tentec/Makefile
-kachina/Makefile
-jrc/Makefile
-drake/Makefile
-lowe/Makefile
-rft/Makefile
-rs/Makefile
-kit/Makefile
-tapr/Makefile
-skanti/Makefile
-prm80/Makefile
-wj/Makefile
-racal/Makefile
-tuner/Makefile
-ars/Makefile
-easycomm/Makefile
-fodtrack/Makefile
-gs232a/Makefile
-heathkit/Makefile
-spid/Makefile
-sartek/Makefile
 src/Makefile
 c++/Makefile
 bindings/Makefile
-tests/Makefile
 doc/Makefile
 doc/hamlib.cfg
-rotorez/Makefile
-flexradio/Makefile
-m2/Makefile
-amsat/Makefile
-adat/Makefile
-ts7400/Makefile
-celestron/Makefile
-cnctrk/Makefile
-ether6/Makefile
+rotators/amsat/Makefile
+rotators/ars/Makefile
+rotators/celestron/Makefile
+rotators/cnctrk/Makefile
+rotators/easycomm/Makefile
+rotators/ether6/Makefile
+rotators/fodtrack/Makefile
+rotators/gs232a/Makefile
+rotators/heathkit/Makefile
+rotators/ioptron/Makefile
+rotators/m2/Makefile
+rotators/meade/Makefile
+rotators/prosistel/Makefile
+rotators/rotorez/Makefile
+rotators/sartek/Makefile
+rotators/spid/Makefile
+rotators/ts7400/Makefile
+rigs/adat/Makefile
+rigs/alinco/Makefile
+rigs/aor/Makefile
+rigs/barrett/Makefile
+rigs/dorji/Makefile
+rigs/drake/Makefile
+rigs/elad/Makefile
+rigs/flexradio/Makefile
+rigs/icmarine/Makefile
+rigs/icom/Makefile
+rigs/jrc/Makefile
+rigs/kachina/Makefile
+rigs/kenwood/Makefile
+rigs/kit/Makefile
+rigs/lowe/Makefile
+rigs/pcr/Makefile
+rigs/prm80/Makefile
+rigs/racal/Makefile
+rigs/rft/Makefile
+rigs/rs/Makefile
+rigs/skanti/Makefile
+rigs/tapr/Makefile
+rigs/tentec/Makefile
+rigs/tuner/Makefile
+rigs/uniden/Makefile
+rigs/winradio/Makefile
+rigs/wj/Makefile
+rigs/yaesu/Makefile
+tests/Makefile
 scripts/Makefile
 android/Makefile
-prosistel/Makefile
-dorji/Makefile
-barrett/Makefile
-meade/Makefile
-ioptron/Makefile
 amplifiers/elecraft/Makefile
 hamlib.pc
 ])

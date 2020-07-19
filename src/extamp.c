@@ -64,12 +64,11 @@
  */
 int HAMLIB_API amp_ext_level_foreach(AMP *amp,
                                      int (*cfunc)(AMP *,
-                                                  const struct confparams *,
-                                                  amp_ptr_t),
+                                             const struct confparams *,
+                                             amp_ptr_t),
                                      amp_ptr_t data)
 {
     const struct confparams *cfp;
-    int ret;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -80,7 +79,7 @@ int HAMLIB_API amp_ext_level_foreach(AMP *amp,
 
     for (cfp = amp->caps->extlevels; cfp && cfp->name; cfp++)
     {
-        ret = (*cfunc)(amp, cfp, data);
+        int ret = (*cfunc)(amp, cfp, data);
 
         if (ret == 0)
         {
@@ -110,12 +109,11 @@ int HAMLIB_API amp_ext_level_foreach(AMP *amp,
  */
 int HAMLIB_API amp_ext_parm_foreach(AMP *amp,
                                     int (*cfunc)(AMP *,
-                                                 const struct confparams *,
-                                                 amp_ptr_t),
+                                            const struct confparams *,
+                                            amp_ptr_t),
                                     amp_ptr_t data)
 {
     const struct confparams *cfp;
-    int ret;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -126,7 +124,7 @@ int HAMLIB_API amp_ext_parm_foreach(AMP *amp,
 
     for (cfp = amp->caps->extparms; cfp && cfp->name; cfp++)
     {
-        ret = (*cfunc)(amp, cfp, data);
+        int ret = (*cfunc)(amp, cfp, data);
 
         if (ret == 0)
         {
@@ -194,7 +192,7 @@ const struct confparams *HAMLIB_API amp_ext_lookup(AMP *amp, const char *name)
  *
  * Returns NULL if nothing found
  */
-const struct confparams * HAMLIB_API amp_ext_lookup_tok(AMP *amp, token_t token)
+const struct confparams *HAMLIB_API amp_ext_lookup_tok(AMP *amp, token_t token)
 {
     const struct confparams *cfp;
 

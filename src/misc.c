@@ -54,6 +54,8 @@
 #include <hamlib/amplifier.h>
 
 #include "misc.h"
+#include "serial.h"
+#include "network.h"
 
 
 /**
@@ -76,12 +78,11 @@
  *
  * \sa to_bcd_be()
  */
-unsigned char * HAMLIB_API to_bcd(unsigned char bcd_data[],
-                                  unsigned long long freq,
-                                  unsigned bcd_len)
+unsigned char *HAMLIB_API to_bcd(unsigned char bcd_data[],
+                                 unsigned long long freq,
+                                 unsigned bcd_len)
 {
     int i;
-    unsigned char a;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -90,7 +91,7 @@ unsigned char * HAMLIB_API to_bcd(unsigned char bcd_data[],
 
     for (i = 0; i < bcd_len / 2; i++)
     {
-        a = freq % 10;
+        unsigned char a = freq % 10;
         freq /= 10;
         a |= (freq % 10) << 4;
         freq /= 10;
@@ -161,12 +162,11 @@ unsigned long long HAMLIB_API from_bcd(const unsigned char bcd_data[],
  *
  * \sa to_bcd()
  */
-unsigned char * HAMLIB_API to_bcd_be(unsigned char bcd_data[],
-                                     unsigned long long freq,
-                                     unsigned bcd_len)
+unsigned char *HAMLIB_API to_bcd_be(unsigned char bcd_data[],
+                                    unsigned long long freq,
+                                    unsigned bcd_len)
 {
     int i;
-    unsigned char a;
 
     /* '450'/4 -> 0,4;5,0 */
     /* '450'/3 -> 4,5;0,x */
@@ -183,7 +183,7 @@ unsigned char * HAMLIB_API to_bcd_be(unsigned char bcd_data[],
 
     for (i = (bcd_len / 2) - 1; i >= 0; i--)
     {
-        a = freq % 10;
+        unsigned char a = freq % 10;
         freq /= 10;
         a |= (freq % 10) << 4;
         freq /= 10;
@@ -206,7 +206,7 @@ unsigned char * HAMLIB_API to_bcd_be(unsigned char bcd_data[],
  * \sa from_bcd()
  */
 unsigned long long HAMLIB_API from_bcd_be(const unsigned char bcd_data[],
-                                          unsigned bcd_len)
+        unsigned bcd_len)
 {
     int i;
     freq_t f = 0;
@@ -231,9 +231,11 @@ unsigned long long HAMLIB_API from_bcd_be(const unsigned char bcd_data[],
 }
 
 
+//! @cond Doxygen_Suppress
 #ifndef llabs
 #define llabs(a) ((a)<0?-(a):(a))
 #endif
+//! @endcond
 
 
 /**
@@ -250,7 +252,8 @@ int HAMLIB_API sprintf_freq(char *str, freq_t freq)
     double f;
     char *hz;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    // too verbose
+    //rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     if (llabs(freq) >= GHz(1))
     {
@@ -282,10 +285,8 @@ int HAMLIB_API sprintf_freq(char *str, freq_t freq)
  * \param status RIG_STATUS_??
  * \return string
  */
-const char * HAMLIB_API rig_strstatus(enum rig_status_e status)
+const char *HAMLIB_API rig_strstatus(enum rig_status_e status)
 {
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
-
     switch (status)
     {
     case RIG_STATUS_ALPHA:
@@ -345,6 +346,7 @@ static struct
     { RIG_MODE_AMN, "AMN"},
     { RIG_MODE_PSK, "PSK"},
     { RIG_MODE_PSKR, "PSKR"},
+    { RIG_MODE_C4FM, "C4FM"},
     { RIG_MODE_NONE, "" },
 };
 
@@ -381,11 +383,12 @@ rmode_t HAMLIB_API rig_parse_mode(const char *s)
  *
  * \sa rmode_t
  */
-const char * HAMLIB_API rig_strrmode(rmode_t mode)
+const char *HAMLIB_API rig_strrmode(rmode_t mode)
 {
     int i;
 
-    rig_debug(RIG_DEBUG_TRACE, "%s called mode=0x%"PRXll"\n", __func__, mode);
+    // only enable if needed for debugging -- too verbose otherwise
+    //rig_debug(RIG_DEBUG_TRACE, "%s called mode=0x%"PRXll"\n", __func__, mode);
 
     if (mode == RIG_MODE_NONE)
     {
@@ -401,6 +404,46 @@ const char * HAMLIB_API rig_strrmode(rmode_t mode)
     }
 
     return "";
+}
+
+/**
+ * \brief Convert RIG_MODE or'd value to alpha string of all modes
+ * \param modes RIG_MODE or'd value
+ * \param buf char* of result buffer
+ * \param buflen length of buffer
+ * \return rig status -- RIG_ETRUNC if buffer not big enough
+ *
+ * \sa rmode_t
+ */
+int HAMLIB_API rig_strrmodes(rmode_t modes, char *buf, int buflen)
+{
+    int i;
+
+    // only enable if needed for debugging -- too verbose otherwise
+    //rig_debug(RIG_DEBUG_TRACE, "%s called mode=0x%"PRXll"\n", __func__, mode);
+
+    if (modes == RIG_MODE_NONE)
+    {
+        snprintf(buf, buflen, "NONE");
+        return RIG_OK;
+    }
+
+    for (i = 0 ; mode_str[i].str[0] != '\0'; i++)
+    {
+        if (modes & mode_str[i].mode)
+        {
+            char modebuf[16];
+
+            if (strlen(buf) == 0) { snprintf(modebuf, sizeof(modebuf), "%s", mode_str[i].str); }
+            else { snprintf(modebuf, sizeof(modebuf), " %s", mode_str[i].str); }
+
+            strncat(buf, modebuf, buflen - strlen(buf) - 1);
+
+            if (strlen(buf) > buflen - 10) { return -RIG_ETRUNC; }
+        }
+    }
+
+    return RIG_OK;
 }
 
 
@@ -419,8 +462,13 @@ static struct
     { RIG_VFO_TX, "TX" },
     { RIG_VFO_RX, "RX" },
     { RIG_VFO_MAIN, "Main" },
+    { RIG_VFO_MAIN_A, "MainA" },
+    { RIG_VFO_MAIN_B, "MainB" },
     { RIG_VFO_SUB, "Sub" },
-    { RIG_VFO_NONE, "" },
+    { RIG_VFO_SUB_A, "SubA" },
+    { RIG_VFO_SUB_B, "SubB" },
+    { RIG_VFO_NONE, "None" },
+    { 0xffffff, "" },
 };
 
 
@@ -429,7 +477,7 @@ static struct
  * \param s input alpha string
  * \return RIG_VFO_...
  *
- * \sa RIG_VFO_A RIG_VFO_B RIG_VFO_C RIG_VFO_MAIN RIG_VFO_SUB RIG_VFO_VFO RIG_VFO_CURR RIG_VFO_MEM RIG_VFO_TX RIG_VFO_RX RIG_VFO_NONE
+ * \sa RIG_VFO_A RIG_VFO_B RIG_VFO_C RIG_VFO_MAIN RIG_VFO_MAIN_A RIG_VFO_MAIN_B RIG_VFO_SUB RIG_VFO_SUB_A RIG_VFO_SUB_B RIG_VFO_VFO RIG_VFO_CURR RIG_VFO_MEM RIG_VFO_TX RIG_VFO_RX RIG_VFO_NONE
  */
 vfo_t HAMLIB_API rig_parse_vfo(const char *s)
 {
@@ -456,21 +504,18 @@ vfo_t HAMLIB_API rig_parse_vfo(const char *s)
  *
  * \sa RIG_VFO_A RIG_VFO_B RIG_VFO_C RIG_VFO_MAIN RIG_VFO_SUB RIG_VFO_VFO RIG_VFO_CURR RIG_VFO_MEM RIG_VFO_TX RIG_VFO_RX RIG_VFO_NONE
  */
-const char * HAMLIB_API rig_strvfo(vfo_t vfo)
+const char *HAMLIB_API rig_strvfo(vfo_t vfo)
 {
     int i;
 
-    rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
-
-    if (vfo == RIG_VFO_NONE)
-    {
-        return "";
-    }
+    //a bit too verbose
+    //rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
 
     for (i = 0 ; vfo_str[i].str[0] != '\0'; i++)
     {
         if (vfo == vfo_str[i].vfo)
         {
+            //rig_debug(RIG_DEBUG_TRACE, "%s returning %s\n", __func__, vfo_str[i].str);
             return vfo_str[i].str;
         }
     }
@@ -524,6 +569,8 @@ static struct
     { RIG_FUNC_BC2, "BC2" },
     { RIG_FUNC_DUAL_WATCH, "DUAL_WATCH"},
     { RIG_FUNC_DIVERSITY, "DIVERSITY"},
+    { RIG_FUNC_CSQL, "CSQL" },
+    { RIG_FUNC_SCEN, "SCEN" },
     { RIG_FUNC_NONE, "" },
 };
 
@@ -531,9 +578,10 @@ static struct
  * utility function to convert index to bit value
  *
  */
+// cppcheck-suppress *
 uint64_t rig_idx2setting(int i)
 {
-   return 1ULL << i;
+    return ((uint64_t)1) << i;
 }
 
 /**
@@ -568,11 +616,12 @@ setting_t HAMLIB_API rig_parse_func(const char *s)
  *
  * \sa rig_func_e()
  */
-const char * HAMLIB_API rig_strfunc(setting_t func)
+const char *HAMLIB_API rig_strfunc(setting_t func)
 {
     int i;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    // too verbose to keep on unless debugging this in particular
+    //rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     if (func == RIG_FUNC_NONE)
     {
@@ -599,7 +648,7 @@ static struct
 {
     { RIG_LEVEL_PREAMP, "PREAMP" },
     { RIG_LEVEL_ATT, "ATT" },
-    { RIG_LEVEL_VOX, "VOX" },
+    { RIG_LEVEL_VOXDELAY, "VOXDELAY" },
     { RIG_LEVEL_AF, "AF" },
     { RIG_LEVEL_RF, "RF" },
     { RIG_LEVEL_SQL, "SQL" },
@@ -693,10 +742,14 @@ setting_t HAMLIB_API amp_parse_level(const char *s)
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called level=%s\n", __func__, s);
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called str=%s\n", __func__, levelamp_str[0].str);
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called str=%s\n", __func__,
+              levelamp_str[0].str);
+
     for (i = 0 ; levelamp_str[i].str[0] != '\0'; i++)
     {
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called checking=%s\n", __func__, levelamp_str[i].str);
+        rig_debug(RIG_DEBUG_VERBOSE, "%s called checking=%s\n", __func__,
+                  levelamp_str[i].str);
+
         if (!strcmp(s, levelamp_str[i].str))
         {
             return levelamp_str[i].level;
@@ -714,7 +767,7 @@ setting_t HAMLIB_API amp_parse_level(const char *s)
  *
  * \sa rig_level_e()
  */
-const char * HAMLIB_API rig_strlevel(setting_t level)
+const char *HAMLIB_API rig_strlevel(setting_t level)
 {
     int i;
 
@@ -743,7 +796,7 @@ const char * HAMLIB_API rig_strlevel(setting_t level)
  *
  * \sa amp_level_e()
  */
-const char * HAMLIB_API amp_strlevel(setting_t level)
+const char *HAMLIB_API amp_strlevel(setting_t level)
 {
     int i;
 
@@ -779,6 +832,7 @@ static struct
     { RIG_PARM_TIME, "TIME" },
     { RIG_PARM_BAT, "BAT" },
     { RIG_PARM_KEYLIGHT, "KEYLIGHT"},
+    { RIG_PARM_SCREENSAVER, "SCREENSAVER"},
     { RIG_PARM_NONE, "" },
 };
 
@@ -815,7 +869,7 @@ setting_t HAMLIB_API rig_parse_parm(const char *s)
  *
  * \sa rig_parm_e()
  */
-const char * HAMLIB_API rig_strparm(setting_t parm)
+const char *HAMLIB_API rig_strparm(setting_t parm)
 {
     int i;
 
@@ -893,19 +947,16 @@ vfo_op_t HAMLIB_API rig_parse_vfo_op(const char *s)
  *
  * \sa vfo_op_t()
  */
-const char * HAMLIB_API rig_strvfop(vfo_op_t op)
+const char *HAMLIB_API rig_strvfop(vfo_op_t op)
 {
     int i;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
-
-    if (op == RIG_OP_NONE)
-    {
-        return "";
-    }
+// too verbose
+//    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     for (i = 0; vfo_op_str[i].str[0] != '\0'; i++)
-    {        if (op == vfo_op_str[i].vfo_op)
+    {
+        if (op == vfo_op_str[i].vfo_op)
         {
             return vfo_op_str[i].str;
         }
@@ -966,11 +1017,12 @@ scan_t HAMLIB_API rig_parse_scan(const char *s)
  *
  * \sa scan_t()
  */
-const char * HAMLIB_API rig_strscan(scan_t rscan)
+const char *HAMLIB_API rig_strscan(scan_t rscan)
 {
     int i;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+// too verbose
+//    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     if (rscan == RIG_SCAN_NONE)
     {
@@ -978,7 +1030,8 @@ const char * HAMLIB_API rig_strscan(scan_t rscan)
     }
 
     for (i = 0; scan_str[i].str[0] != '\0'; i++)
-    {        if (rscan == scan_str[i].rscan)
+    {
+        if (rscan == scan_str[i].rscan)
         {
             return scan_str[i].str;
         }
@@ -1086,7 +1139,7 @@ chan_type_t HAMLIB_API rig_parse_mtype(const char *s)
  *
  * \sa chan_type_t()
  */
-const char * HAMLIB_API rig_strmtype(chan_type_t mtype)
+const char *HAMLIB_API rig_strmtype(chan_type_t mtype)
 {
     int i;
 
@@ -1189,14 +1242,278 @@ void HAMLIB_API rig_force_cache_timeout(struct timeval *tv)
 }
 
 
+//! @cond Doxygen_Suppress
 int no_restore_ai;
+//! @endcond
 
 
+//! @cond Doxygen_Suppress
 void HAMLIB_API rig_no_restore_ai()
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     no_restore_ai = -1;
 }
+
+//! @cond Doxygen_Suppress
+double HAMLIB_API elapsed_ms(struct timespec *start, int option)
+{
+    // If option then we are starting the timing, else we get elapsed
+    struct timespec stop;
+    double elapsed_msec;
+
+    if (option == HAMLIB_ELAPSED_SET)
+    {
+        start->tv_sec = start->tv_nsec = 0;
+    }
+
+    rig_debug(RIG_DEBUG_TRACE, "%s: start = %ld,%ld\n", __func__,
+              (long)start->tv_sec, (long)start->tv_nsec);
+
+
+    switch (option)
+    {
+    case HAMLIB_ELAPSED_GET:
+        if (start->tv_nsec == 0)   // if we haven't done SET yet
+        {
+            clock_gettime(CLOCK_REALTIME, start);
+            return 1000 * 1000;
+        }
+
+        clock_gettime(CLOCK_REALTIME, &stop);
+        break;
+
+    case HAMLIB_ELAPSED_SET:
+        clock_gettime(CLOCK_REALTIME, start);
+        rig_debug(RIG_DEBUG_TRACE, "%s: after gettime, start = %ld,%ld\n", __func__,
+                  (long)start->tv_sec, (long)start->tv_nsec);
+        return 999 * 1000; // so we can tell the difference in debug where we came from
+        break;
+
+    case HAMLIB_ELAPSED_INVALIDATE:
+        clock_gettime(CLOCK_REALTIME, start);
+        stop = *start;
+        start->tv_sec -= 10; // ten seconds should be more than enough
+        break;
+    }
+
+    elapsed_msec = ((stop.tv_sec - start->tv_sec) + (stop.tv_nsec / 1e9 -
+                    start->tv_nsec / 1e9)) * 1e3;
+
+    rig_debug(RIG_DEBUG_TRACE, "%s: elapsed_msecs=%.0f\n", __func__, elapsed_msec);
+
+    if (elapsed_msec < 0 || option == HAMLIB_ELAPSED_INVALIDATE) { return 1000000; }
+
+    return elapsed_msec;
+}
+
+int HAMLIB_API rig_get_cache_timeout_ms(RIG *rig, hamlib_cache_t selection)
+{
+    rig_debug(RIG_DEBUG_TRACE, "%s: called selection=%d\n", __func__, selection);
+    return rig->state.cache.timeout_ms;
+}
+
+int HAMLIB_API rig_set_cache_timeout_ms(RIG *rig, hamlib_cache_t selection,
+                                        int ms)
+{
+    rig_debug(RIG_DEBUG_TRACE, "%s: called selection=%d, ms=%d\n", __func__,
+              selection, ms);
+    rig->state.cache.timeout_ms = ms;
+    return RIG_OK;
+}
+
+
+vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo)
+{
+    rig_debug(RIG_DEBUG_TRACE, "%s: vfo=%s\n", __func__, rig_strvfo(vfo));
+
+    if (vfo == RIG_VFO_CURR)
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s: Leaving currVFO alone\n", __func__);
+        return vfo;  // don't modify vfo for RIG_VFO_CURR
+    }
+
+    if (vfo == RIG_VFO_RX)
+    {
+        vfo = RIG_VFO_A;
+
+        if (VFO_HAS_MAIN_SUB_ONLY) { vfo = RIG_VFO_MAIN; }
+
+        if (VFO_HAS_MAIN_SUB_A_B_ONLY) { vfo = RIG_VFO_MAIN; }
+    }
+
+    if (vfo == RIG_VFO_TX)
+    {
+        int retval;
+        split_t split = 0;
+        // get split if we can -- it will default to off otherwise
+        // maybe split/satmode/vfo/freq/mode can be cached for rigs
+        // that don't have read capability or get_vfo like Icom?
+        // Icom's lack of get_vfo is problematic in this respect
+        // If we cache vfo or others than twiddling the rig may cause problems
+        retval = rig_get_split(rig, vfo, &split);
+
+        if (retval != RIG_OK)
+        {
+            split = rig->state.cache.split;
+        }
+
+        int satmode = rig->state.cache.satmode;
+        vfo = RIG_VFO_A;
+
+        if (split) { vfo = RIG_VFO_B; }
+
+        if (VFO_HAS_MAIN_SUB_ONLY && !split && !satmode) { vfo = RIG_VFO_MAIN; }
+
+        if (VFO_HAS_MAIN_SUB_ONLY && (split || satmode)) { vfo = RIG_VFO_SUB; }
+
+        if (VFO_HAS_MAIN_SUB_A_B_ONLY && split) { vfo = RIG_VFO_B; }
+
+        if (VFO_HAS_MAIN_SUB_A_B_ONLY && satmode) { vfo = RIG_VFO_SUB; }
+
+        rig_debug(RIG_DEBUG_TRACE,
+                  "%s: RIG_VFO_TX changed to %s, split=%d, satmode=%d\n", __func__,
+                  rig_strvfo(vfo), split, satmode);
+    }
+
+    rig_debug(RIG_DEBUG_TRACE, "%s: final vfo=%s\n", __func__, rig_strvfo(vfo));
+    return vfo;
+}
+
+int HAMLIB_API parse_hoststr(char *hoststr, char host[256], char port[6])
+{
+    unsigned int net1, net2, net3, net4, net5, net6, net7, net8;
+    char dummy[6], link[32], *p;
+    host[0] = 0;
+    port[0] = 0;
+    dummy[0] = 0;
+
+    // Handle device names 1st
+    if (strstr(hoststr, "/dev")) { return -1; }
+
+    if (strncasecmp(hoststr, "com", 3) == 0) { return -1; }
+
+    // escaped COM port like \\.\COM3
+    if (strstr(hoststr, "\\\\.\\")) { return -1; }
+
+    // bracketed IPV6 with optional port
+    int n = sscanf(hoststr, "[%255[^]]]:%5s", host, port);
+
+    if (n >= 1)
+    {
+        return RIG_OK;
+    }
+
+    // non-bracketed full IPV6 with optional link addr
+    n = sscanf(hoststr, "%x:%x:%x:%x:%x:%x:%x:%x%%%31[^:]:%5s", &net1, &net2, &net3,
+               &net4, &net5, &net6, &net7, &net8, link, port);
+
+    if (n == 8 || n == 9)
+    {
+        strcpy(host, hoststr);
+        return RIG_OK;
+    }
+    else if (n == 10)
+    {
+        strcpy(host, hoststr);
+        p = strrchr(host, ':'); // remove port from host
+        *p = 0;
+        return RIG_OK;
+    }
+
+    // non-bracketed IPV6 with optional link addr and optional port
+    n = sscanf(hoststr, "%x::%x:%x:%x:%x%%%31[^:]:%5s", &net1, &net2, &net3,
+               &net4, &net5, link, port);
+
+    if (strchr(hoststr, '%') && (n == 5 || n == 6))
+    {
+        strcpy(host, hoststr);
+        return RIG_OK;
+    }
+    else if (n == 7)
+    {
+        strcpy(host, hoststr);
+        p = strrchr(host, ':'); // remove port from host
+        *p = 0;
+        return RIG_OK;
+    }
+
+    // non-bracketed IPV6 short form with optional port
+    n = sscanf(hoststr, "%x::%x:%x:%x:%x:%5[0-9]%1s", &net1, &net2, &net3, &net4,
+               &net5, port, dummy);
+
+    if (n == 5)
+    {
+        strcpy(host, hoststr);
+        return RIG_OK;
+    }
+    else if (n == 6)
+    {
+        strcpy(host, hoststr);
+        p = strrchr(host, ':');
+        *p = 0;
+        return RIG_OK;
+    }
+    else if (n == 7)
+    {
+        return -RIG_EINVAL;
+    }
+
+    // bracketed localhost
+    if (strstr(hoststr, "::1"))
+    {
+        n = sscanf(hoststr, "::1%5s", dummy);
+        strcpy(host, hoststr);
+
+        if (n == 1)
+        {
+            p = strrchr(host, ':');
+            *p = 0;
+            strcpy(port, p + 1);
+        }
+
+        return RIG_OK;
+    }
+
+    if (sscanf(hoststr, ":%5[0-9]%1s", port,
+               dummy) == 1) // just a port if you please
+    {
+        sprintf(hoststr, "%s:%s\n", "localhost", port);
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: hoststr=%s\n", __func__, hoststr);
+        return RIG_OK;
+    }
+
+    // if we're here then we must have a hostname
+    n = sscanf(hoststr, "%255[^:]:%5[0-9]%1s", host, port, dummy);
+
+    if (n >= 1 && strlen(dummy) == 0) { return RIG_OK; }
+
+    printf("Unhandled host=%s\n", hoststr);
+
+    return -1;
+}
+
+int HAMLIB_API rig_flush(hamlib_port_t *port)
+{
+    rig_debug(RIG_DEBUG_TRACE, "%s: called for %s device\n", __func__,
+              port->type.rig == RIG_PORT_SERIAL ? "serial" : "network");
+
+    if (port->type.rig == RIG_PORT_NETWORK
+            || port->type.rig == RIG_PORT_UDP_NETWORK)
+    {
+        network_flush(port);
+        return RIG_OK;
+    }
+
+    if (port->type.rig != RIG_PORT_SERIAL)
+    {
+        rig_debug(RIG_DEBUG_WARN,
+                  "%s: Expected serial port type!!\nWhat is this rig?\n", __func__);
+    }
+
+    return serial_flush(port); // we must be on serial port
+}
+
+//! @endcond
 
 /** @} */

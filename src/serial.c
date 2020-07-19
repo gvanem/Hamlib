@@ -45,6 +45,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #ifdef HAVE_SYS_IOCTL_H
 #  include <sys/ioctl.h>
@@ -66,6 +67,7 @@
 #  endif
 #endif
 
+//! @cond Doxygen_Suppress
 #if defined(WIN32) && !defined(HAVE_TERMIOS_H)
 #  include "win32termios.h"
 #  define HAVE_TERMIOS_H  1   /* we have replacement */
@@ -74,6 +76,7 @@
 #  define CLOSE close
 #  define IOCTL ioctl
 #endif
+//! @endcond
 
 #include <hamlib/rig.h>
 #include "serial.h"
@@ -88,7 +91,9 @@
 static int uh_ptt_fd   = -1;
 static int uh_radio_fd = -1;
 
-typedef struct term_options_backup {
+//! @cond Doxygen_Suppress
+typedef struct term_options_backup
+{
     int fd;
 #if defined(HAVE_TERMIOS_H)
     struct termios options;
@@ -99,6 +104,7 @@ typedef struct term_options_backup {
 #endif
     struct term_options_backup *next;
 } term_options_backup_t;
+//! @endcond
 static term_options_backup_t *term_options_backup_head = NULL;
 
 
@@ -109,17 +115,19 @@ static term_options_backup_t *term_options_backup_head = NULL;
  * This function is only used in the WIN32 case and implements access "from
  * outside" to uh_radio_fd.
  */
+//! @cond Doxygen_Suppress
 int is_uh_radio_fd(int fd)
 {
-     if (uh_radio_fd >= 0 && uh_radio_fd == fd)
-     {
-         return 1;
-     }
-     else
-     {
-         return 0;
-     }
+    if (uh_radio_fd >= 0 && uh_radio_fd == fd)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
 }
+//! @endcond
 
 
 /**
@@ -140,32 +148,41 @@ int HAMLIB_API serial_open(hamlib_port_t *rp)
         return -RIG_EINVAL;
     }
 
-    if (!strncmp(rp->pathname,"uh-rig",6)) {
+    if (!strncmp(rp->pathname, "uh-rig", 6))
+    {
         /*
          * If the pathname is EXACTLY "uh-rig", try to use a microHam device
          * rather than a conventional serial port.
          * The microHam devices ALWAYS use "no parity", and can either use no handshake
          * or hardware handshake. Return with error if something else is requested.
          */
-        if (rp->parm.serial.parity != RIG_PARITY_NONE) {
+        if (rp->parm.serial.parity != RIG_PARITY_NONE)
+        {
             return -RIG_EIO;
         }
+
         if ((rp->parm.serial.handshake != RIG_HANDSHAKE_HARDWARE) &&
-          (rp->parm.serial.handshake != RIG_HANDSHAKE_NONE)) {
+                (rp->parm.serial.handshake != RIG_HANDSHAKE_NONE))
+        {
             return -RIG_EIO;
         }
+
         /*
          * Note that serial setup is also don in uh_open_radio.
          * So we need to dig into serial_setup().
          */
-        fd=uh_open_radio( rp->parm.serial.rate,                                   // baud
-                          rp->parm.serial.data_bits,                              // databits
-                          rp->parm.serial.stop_bits,                              // stopbits
-                          (rp->parm.serial.handshake == RIG_HANDSHAKE_HARDWARE)); // rtscts
-        if (fd == -1) {
+        fd = uh_open_radio(
+                 rp->parm.serial.rate,                                  // baud
+                 rp->parm.serial.data_bits,                              // databits
+                 rp->parm.serial.stop_bits,                              // stopbits
+                 (rp->parm.serial.handshake == RIG_HANDSHAKE_HARDWARE)); // rtscts
+
+        if (fd == -1)
+        {
             return -RIG_EIO;
         }
-        rp->fd=fd;
+
+        rp->fd = fd;
         /*
          * Remember the fd in a global variable. We can do read(), write() and select()
          * on fd but whenever it is tried to do an ioctl(), we have to catch it
@@ -179,9 +196,10 @@ int HAMLIB_API serial_open(hamlib_port_t *rp)
          *         read() must be used also in the WIN32 case.
          *         This is why uh_radio_fd is declared globally in microham.h.
          */
-        uh_radio_fd=fd;
+        uh_radio_fd = fd;
         return RIG_OK;
     }
+
     /*
      * Open in Non-blocking mode. Watch for EAGAIN errors!
      */
@@ -207,6 +225,7 @@ int HAMLIB_API serial_open(hamlib_port_t *rp)
         CLOSE(fd);
         return err;
     }
+
     serial_flush(rp); // ensure nothing is there when we open
 
     return RIG_OK;
@@ -247,18 +266,22 @@ int HAMLIB_API serial_setup(hamlib_port_t *rp)
      * Get the current options for the port...
      */
 #if defined(HAVE_TERMIOS_H)
+    rig_debug(RIG_DEBUG_TRACE, "%s: tcgetattr\n", __func__);
     tcgetattr(fd, &options);
     memcpy(&orig_options, &options, sizeof(orig_options));
 #elif defined(HAVE_TERMIO_H)
+    rig_debug(RIG_DEBUG_TRACE, "%s: IOCTL TCGETA\n", __func__);
     IOCTL(fd, TCGETA, &options);
     memcpy(&orig_options, &options, sizeof(orig_options));
 #else   /* sgtty */
+    rig_debug(RIG_DEBUG_TRACE, "%s: IOCTL TIOCGETP\n", __func__);
     IOCTL(fd, TIOCGETP, &sg);
     memcpy(&orig_sg, &sg, sizeof(orig_sg));
 #endif
 
 #ifdef HAVE_CFMAKERAW
     /* Set serial port to RAW mode by default. */
+    rig_debug(RIG_DEBUG_TRACE, "%s: cfmakeraw\n", __func__);
     cfmakeraw(&options);
 #endif
 
@@ -322,7 +345,9 @@ int HAMLIB_API serial_setup(hamlib_port_t *rp)
     }
 
     /* TODO */
+    rig_debug(RIG_DEBUG_TRACE, "%s: cfsetispeed\n", __func__);
     cfsetispeed(&options, speed);
+    rig_debug(RIG_DEBUG_TRACE, "%s: cfsetospeed\n", __func__);
     cfsetospeed(&options, speed);
 
     /*
@@ -495,6 +520,8 @@ int HAMLIB_API serial_setup(hamlib_port_t *rp)
      */
 #if defined(HAVE_TERMIOS_H)
 
+    rig_debug(RIG_DEBUG_TRACE, "%s: tcsetattr TCSANOW\n", __func__);
+
     if (tcsetattr(fd, TCSANOW, &options) == -1)
     {
         rig_debug(RIG_DEBUG_ERR,
@@ -508,6 +535,8 @@ int HAMLIB_API serial_setup(hamlib_port_t *rp)
 
 #elif defined(HAVE_TERMIO_H)
 
+    rig_debug(RIG_DEBUG_TRACE, "%s: IOCTL TCSETA\n", __func__);
+
     if (IOCTL(fd, TCSETA, &options) == -1)
     {
         rig_debug(RIG_DEBUG_ERR,
@@ -520,6 +549,8 @@ int HAMLIB_API serial_setup(hamlib_port_t *rp)
     }
 
 #else
+
+    rig_debug(RIG_DEBUG_TRACE, "%s: IOCTL TIOCSETP\n", __func__);
 
     /* sgtty */
     if (IOCTL(fd, TIOCSETP, &sg) == -1)
@@ -561,20 +592,31 @@ int HAMLIB_API serial_flush(hamlib_port_t *p)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd) {
-        char buf[32];
+    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd)
+    {
+        unsigned char buf[32];
         /*
          * Catch microHam case:
          * if fd corresponds to a microHam device drain the line
          * (which is a socket) by reading until it is empty.
          */
         int n;
-        while ((n=read(p->fd, buf, 32)) > 0) {
-            rig_debug(RIG_DEBUG_VERBOSE, "%s: flushed %d bytes\n", __func__, n);
+
+        rig_debug(RIG_DEBUG_TRACE, "%s: flushing: ", __func__);
+
+        while ((n = read(p->fd, buf, 32)) > 0)
+        {
+            //int i;
+
+            //for (i = 0; i < n; ++i) { printf("0x%02x(%c) ", buf[i], isprint(buf[i]) ? buf[i] : '~'); }
+
             /* do nothing */
         }
+
+
         return RIG_OK;
     }
+
     rig_debug(RIG_DEBUG_VERBOSE, "%s: tcflush\n", __func__);
     tcflush(p->fd, TCIFLUSH);
     return RIG_OK;
@@ -592,14 +634,18 @@ int ser_open(hamlib_port_t *p)
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    if (!strncmp(p->pathname,"uh-rig",6)) {
+    if (!strncmp(p->pathname, "uh-rig", 6))
+    {
         /*
          * This should not happen: ser_open is only used for
          * DTR-only serial ports (ptt_pathname != rig_pathname).
          */
-        ret=-1;
-    } else {
-        if (!strncmp(p->pathname,"uh-ptt",6)) {
+        ret = -1;
+    }
+    else
+    {
+        if (!strncmp(p->pathname, "uh-ptt", 6))
+        {
             /*
              * Use microHam device for doing PTT. Although a valid file
              * descriptor is returned, it is not used for anything
@@ -608,16 +654,19 @@ int ser_open(hamlib_port_t *p)
              * that we cannot use ioctl and must rather call our
              * PTT set/unset service routine.
              */
-             ret=uh_open_ptt();
-             uh_ptt_fd=ret;
-        } else {
+            ret = uh_open_ptt();
+            uh_ptt_fd = ret;
+        }
+        else
+        {
             /*
              * pathname is not uh_rig or uh_ptt: simply open()
              */
-            ret=OPEN(p->pathname, O_RDWR | O_NOCTTY | O_NDELAY);
+            ret = OPEN(p->pathname, O_RDWR | O_NOCTTY | O_NDELAY);
         }
     }
-    p->fd=ret;
+
+    p->fd = ret;
     return ret;
 }
 
@@ -640,15 +689,18 @@ int ser_close(hamlib_port_t *p)
      * (which might decide to keep the socket open).
      * However, unset p->fd and uh_ptt_fd/uh_radio_fd.
      */
-    if (p->fd == uh_ptt_fd) {
+    if (p->fd == uh_ptt_fd)
+    {
         uh_close_ptt();
-        uh_ptt_fd=-1;
+        uh_ptt_fd = -1;
         p->fd = -1;
         return 0;
     }
-    if (p->fd == uh_radio_fd) {
+
+    if (p->fd == uh_radio_fd)
+    {
         uh_close_radio();
-        uh_radio_fd=-1;
+        uh_radio_fd = -1;
         p->fd = -1;
         return 0;
     }
@@ -656,31 +708,40 @@ int ser_close(hamlib_port_t *p)
     // Find backup termios options to restore before closing
     term_backup = term_options_backup_head;
     term_backup_prev = term_options_backup_head;
-    while(term_backup) {
-        if(term_backup->fd == p->fd) {
+
+    while (term_backup)
+    {
+        if (term_backup->fd == p->fd)
+        {
             // Found matching. Remove from list
-            if(term_backup == term_options_backup_head) {
+            if (term_backup == term_options_backup_head)
+            {
                 term_options_backup_head = term_backup->next;
-            } else {
+            }
+            else
+            {
                 term_backup_prev->next = term_backup->next;
             }
+
             break;
         }
+
         term_backup_prev = term_backup;
         term_backup = term_backup->next;
     }
 
     // Restore backup termios
-    if(term_backup) {
+    if (term_backup)
+    {
         rig_debug(RIG_DEBUG_VERBOSE, "%s: restoring options\n", __func__);
 #if defined(HAVE_TERMIOS_H)
 
         if (tcsetattr(p->fd, TCSANOW, &term_backup->options) == -1)
         {
             rig_debug(RIG_DEBUG_ERR,
-                     "%s: tcsetattr restore failed: %s\n",
-                     __func__,
-                     strerror(errno));
+                      "%s: tcsetattr restore failed: %s\n",
+                      __func__,
+                      strerror(errno));
         }
 
 #elif defined(HAVE_TERMIO_H)
@@ -688,9 +749,9 @@ int ser_close(hamlib_port_t *p)
         if (IOCTL(p->fd, TCSETA, &term_backup->options) == -1)
         {
             rig_debug(RIG_DEBUG_ERR,
-                     "%s: ioctl(TCSETA) restore failed: %s\n",
-                     __func__,
-                     strerror(errno));
+                      "%s: ioctl(TCSETA) restore failed: %s\n",
+                      __func__,
+                      strerror(errno));
         }
 
 #else
@@ -699,14 +760,17 @@ int ser_close(hamlib_port_t *p)
         if (IOCTL(p->fd, TIOCSETP, &term_backup->sg) == -1)
         {
             rig_debug(RIG_DEBUG_ERR,
-                     "%s: ioctl(TIOCSETP) restore failed: %s\n",
-                     __func__,
-                     strerror(errno));
+                      "%s: ioctl(TIOCSETP) restore failed: %s\n",
+                      __func__,
+                      strerror(errno));
         }
+
 #endif
 
         free(term_backup);
-    } else {
+    }
+    else
+    {
         rig_debug(RIG_DEBUG_WARN, "%s: no options for fd to restore\n", __func__);
     }
 
@@ -732,7 +796,8 @@ int HAMLIB_API ser_set_rts(hamlib_port_t *p, int state)
     rig_debug(RIG_DEBUG_VERBOSE, "%s: RTS=%d\n", __func__, state);
 
     // ignore this for microHam ports
-    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd) {
+    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd)
+    {
         return RIG_OK;
     }
 
@@ -783,7 +848,8 @@ int HAMLIB_API ser_get_rts(hamlib_port_t *p, int *state)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     // cannot do this for microHam ports
-    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd) {
+    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd)
+    {
         return -RIG_ENIMPL;
     }
 
@@ -811,10 +877,13 @@ int HAMLIB_API ser_set_dtr(hamlib_port_t *p, int state)
 
     // silently ignore on microHam RADIO channel,
     // but (un)set ptt on microHam PTT channel.
-    if (p->fd == uh_radio_fd) {
+    if (p->fd == uh_radio_fd)
+    {
         return RIG_OK;
     }
-    if (p->fd == uh_ptt_fd) {
+
+    if (p->fd == uh_ptt_fd)
+    {
         uh_set_ptt(state);
         return RIG_OK;
     }
@@ -866,11 +935,14 @@ int HAMLIB_API ser_get_dtr(hamlib_port_t *p, int *state)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     // cannot do this for the RADIO port, return PTT state for the PTT port
-    if (p->fd == uh_ptt_fd) {
-        *state=uh_get_ptt();
+    if (p->fd == uh_ptt_fd)
+    {
+        *state = uh_get_ptt();
         return RIG_OK;
     }
-    if (p->fd == uh_radio_fd) {
+
+    if (p->fd == uh_radio_fd)
+    {
         return  -RIG_ENIMPL;
     }
 
@@ -892,7 +964,8 @@ int HAMLIB_API ser_set_brk(hamlib_port_t *p, int state)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     // ignore this for microHam ports
-    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd) {
+    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd)
+    {
         return RIG_OK;
     }
 
@@ -918,7 +991,8 @@ int HAMLIB_API ser_get_car(hamlib_port_t *p, int *state)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     // cannot do this for microHam ports
-    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd) {
+    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd)
+    {
         return  -RIG_ENIMPL;
     }
 
@@ -942,7 +1016,8 @@ int HAMLIB_API ser_get_cts(hamlib_port_t *p, int *state)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     // cannot do this for microHam ports
-    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd) {
+    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd)
+    {
         return -RIG_ENIMPL;
     }
 
@@ -966,9 +1041,11 @@ int HAMLIB_API ser_get_dsr(hamlib_port_t *p, int *state)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     // cannot do this for microHam ports
-    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd) {
+    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd)
+    {
         return -RIG_ENIMPL;
     }
+
     retcode = IOCTL(p->fd, TIOCMGET, &y);
     *state = (y & TIOCM_DSR) == TIOCM_DSR;
 

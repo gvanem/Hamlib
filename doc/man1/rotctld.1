@@ -5,7 +5,7 @@
 .\"
 .\" Note: Please keep this page in sync with the source, rotctld.c
 .\"
-.TH ROTCTLD "1" "2018-04-29" "Hamlib" "Hamlib Utilities"
+.TH ROTCTLD "1" "2019-12-10" "Hamlib" "Hamlib Utilities"
 .
 .
 .SH NAME
@@ -168,6 +168,12 @@ Set rotator configuration parameter(s),  e.g.
 Use the
 .B -L
 option above for a list of configuration parameters for a given model number.
+.
+.TP
+.BR \-u ", " \-\-dump\-state
+Dump state for the rotator defined with
+.B -m
+above and exit.
 .
 .TP
 .BR \-u ", " \-\-dump\-caps
@@ -361,6 +367,15 @@ Get misc information about the rotator.
 Returns
 .RI \(aq Info \(aq
 \(lqModel Name\(rq.
+.
+.TP
+.B dump_state
+Return certain state information about the rotator backend.
+.
+.TP
+.BR 1 ", " dump_caps
+Not a real rot remote command, it just dumps capabilities, i.e. what the
+backend knows about this model, and what it can do.
 .
 .TP
 .BR w ", " send_cmd " \(aq" \fICmd\fP \(aq
@@ -946,15 +961,16 @@ Hamlib Developer mailing list
 .SH COPYING
 .
 This file is part of Hamlib, a project to develop a library that simplifies
-radio and rotator control functions for developers of software primarily of
-interest to radio amateurs and those interested in radio communications.
+radio, rotator, and amplifier control functions for developers of software
+primarily of interest to radio amateurs and those interested in radio
+communications.
 .
 .PP
 Copyright \(co 2000-2009 Stephane Fillod
 .br
 Copyright \(co 2000-2018 the Hamlib Group (various contributors)
 .br
-Copyright \(co 2011-2018 Nate Bargmann
+Copyright \(co 2011-2019 Nate Bargmann
 .
 .PP
 This is free software; see the file COPYING for copying conditions.  There is

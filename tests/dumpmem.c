@@ -35,7 +35,7 @@
 #define SERIAL_PORT "/dev/ttyS0"
 
 
-static char * decode_modes(rmode_t modes);
+static char *decode_modes(rmode_t modes);
 static int dump_chan(RIG *rig, int chan_num);
 
 
@@ -86,10 +86,10 @@ int main(int argc, char *argv[])
      *  }
      */
 
-    for (i = 0; my_rig->state.chan_list[i].type && i < CHANLSTSIZ; i++)
+    for (i = 0; my_rig->state.chan_list[i].type; i++)
     {
         for (j = my_rig->state.chan_list[i].startc;
-             j <= my_rig->state.chan_list[i].endc; j++)
+                j <= my_rig->state.chan_list[i].endc; j++)
         {
             dump_chan(my_rig, j);
         }
@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
  * NB: this function is not reentrant, because of the static buf.
  *      but who cares?  --SF
  */
-static char * decode_modes(rmode_t modes)
+static char *decode_modes(rmode_t modes)
 {
     static char buf[80];
 
@@ -165,7 +165,7 @@ int dump_chan(RIG *rig, int chan_num)
 
     chan.vfo = RIG_VFO_MEM;
     chan.channel_num = chan_num;
-    status = rig_get_channel(rig, &chan);
+    status = rig_get_channel(rig, &chan, 1);
 
     if (status != RIG_OK)
     {
@@ -181,7 +181,7 @@ int dump_chan(RIG *rig, int chan_num)
 
     sprintf_freq(freqbuf, chan.width);
     printf("Width: %s\n", freqbuf);
-    printf("VFO: %d\n", chan.vfo);
+    printf("VFO: %s\n", rig_strvfo(chan.vfo));
 
     printf("Split: %d\n", chan.split);
     sprintf_freq(freqbuf, chan.tx_freq);
@@ -195,7 +195,7 @@ int dump_chan(RIG *rig, int chan_num)
     sprintf_freq(freqbuf, chan.rptr_offs);
     printf("Offset: %s%s\n", chan.rptr_offs > 0 ? "+" : "", freqbuf);
 
-    printf("Antenna: %d\n", chan.ant);
+    printf("Antenna: %u\n", chan.ant);
 
     sprintf_freq(freqbuf, chan.tuning_step);
     printf("Step: %s\n", freqbuf);
@@ -205,10 +205,10 @@ int dump_chan(RIG *rig, int chan_num)
 
     sprintf_freq(freqbuf, chan.xit);
     printf("XIT: %s%s\n", chan.xit > 0 ? "+" : "", freqbuf);
-    printf("CTCSS: %d.%dHz\n", chan.ctcss_tone / 10, chan.ctcss_tone % 10);
-    printf("CTCSSsql: %d.%dHz\n", chan.ctcss_sql / 10, chan.ctcss_sql % 10);
-    printf("DCS: %d.%d\n", chan.dcs_code / 10, chan.dcs_code % 10);
-    printf("DCSsql: %d.%d\n", chan.dcs_sql / 10, chan.dcs_sql % 10);
+    printf("CTCSS: %u.%uHz\n", chan.ctcss_tone / 10, chan.ctcss_tone % 10);
+    printf("CTCSSsql: %u.%uHz\n", chan.ctcss_sql / 10, chan.ctcss_sql % 10);
+    printf("DCS: %u.%u\n", chan.dcs_code / 10, chan.dcs_code % 10);
+    printf("DCSsql: %u.%u\n", chan.dcs_sql / 10, chan.dcs_sql % 10);
     printf("Name: %s\n", chan.channel_desc);
 
     printf("Functions: ");

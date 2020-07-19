@@ -31,9 +31,10 @@
 
 int gpio_open(hamlib_port_t *port, int output, int on_value)
 {
-    char pathname[FILPATHLEN*2];
+    char pathname[FILPATHLEN * 2];
     FILE *fexp, *fdir;
     int fd;
+    char *dir;
 
     port->parm.gpio.on_value = on_value;
 
@@ -69,8 +70,9 @@ int gpio_open(hamlib_port_t *port, int output, int on_value)
         return -RIG_EIO;
     }
 
-    char *dir = output ? "out" : "in";
-    rig_debug(RIG_DEBUG_VERBOSE, "Setting direction of GPIO%s to %s\n", port->pathname, dir);
+    dir = output ? "out" : "in";
+    rig_debug(RIG_DEBUG_VERBOSE, "Setting direction of GPIO%s to %s\n",
+              port->pathname, dir);
     fprintf(fdir, "%s\n", dir);
     fclose(fdir);
 
@@ -135,6 +137,7 @@ int gpio_ptt_get(hamlib_port_t *port, ptt_t *pttx)
     {
         *pttx = RIG_PTT_OFF;
     }
+
     return RIG_OK;
 }
 
@@ -142,23 +145,27 @@ int gpio_dcd_get(hamlib_port_t *port, dcd_t *dcdx)
 {
     char val;
     int port_value;
-    
+
     lseek(port->fd, 0, SEEK_SET);
+
     if (read(port->fd, &val, sizeof(val)) <= 0)
     {
         return -RIG_EIO;
     }
+
     rig_debug(RIG_DEBUG_VERBOSE, "DCD GPIO pin value: %c\n", val);
-    
+
     port_value = val - '0';
-    
+
     if (port_value == port->parm.gpio.on_value)
     {
         *dcdx = RIG_DCD_ON;
-    } else
+    }
+    else
     {
         *dcdx = RIG_DCD_OFF;
     }
+
     return RIG_OK;
 }
 

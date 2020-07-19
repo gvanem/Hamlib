@@ -23,6 +23,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
+#include "hamlibdatetime.h"
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
@@ -42,7 +43,7 @@
 #  elif defined(HAVE_READLINE_H)    /* !defined(HAVE_READLINE_READLINE_H) */
 #    include <readline.h>
 #  else                             /* !defined(HAVE_READLINE_H) */
-extern char * readline();
+extern char *readline();
 #  endif                            /* HAVE_READLINE_H */
 #else
 /* no readline */
@@ -104,7 +105,8 @@ static struct option long_options[] =
     {"dump-caps",       0, 0, 'u'},
     {"vfo",             0, 0, 'o'},
     {"no-restore-ai",   0, 0, 'n'},
-    {"debug-time-stamps",0, 0, 'Z'},
+    {"ignore rig open error", 0, 0, 'Y'},
+    {"debug-time-stamps", 0, 0, 'Z'},
 #ifdef HAVE_READLINE_HISTORY
     {"read-history",    0, 0, 'i'},
     {"save-history",    0, 0, 'I'},
@@ -116,13 +118,7 @@ static struct option long_options[] =
 
 };
 
-#define MAXCONFLEN 128
-
-/* variable for readline support */
-#ifdef HAVE_LIBREADLINE
-static const int have_rl = 1;
-#endif
-
+#define MAXCONFLEN 1024
 
 int main(int argc, char *argv[])
 {
@@ -135,6 +131,7 @@ int main(int argc, char *argv[])
     int verbose = 0;
     int show_conf = 0;
     int dump_caps_opt = 0;
+    int ignore_rig_open_error = 0;
 
 #ifdef HAVE_READLINE_HISTORY
     int rd_hist = 0;
@@ -142,7 +139,6 @@ int main(int argc, char *argv[])
     const char *hist_dir = NULL;
     const char hist_file[] = "/.rigctl_history";
     char *hist_path = NULL;
-    struct stat hist_dir_stat;
 #endif  /* HAVE_READLINE_HISTORY */
 
     const char *rig_file = NULL, *ptt_file = NULL, *dcd_file = NULL;
@@ -151,9 +147,9 @@ int main(int argc, char *argv[])
     int serial_rate = 0;
     char *civaddr = NULL;   /* NULL means no need to set conf */
     char conf_parms[MAXCONFLEN] = "";
-    int interactive = 1;    /* if no cmd on command line, switch to interactive */
+    int interactive;    /* if no cmd on command line, switch to interactive */
     int prompt = 1;         /* Print prompt in rigctl */
-    int vfo_mode = 0;       /* vfo_mode = 0 means target VFO is 'currVFO' */
+    int vfo_opt = 0;       /* vfo_opt = 0 means target VFO is 'currVFO' */
     char send_cmd_term = '\r';  /* send_cmd termination char */
     int ext_resp = 0;
     char resp_sep = '\n';
@@ -162,6 +158,7 @@ int main(int argc, char *argv[])
     {
         int c;
         int option_index = 0;
+        char dummy[2];
 
         c = getopt_long(argc,
                         argv,
@@ -265,7 +262,8 @@ int main(int argc, char *argv[])
             }
             else
             {
-                ptt_type = atoi(optarg);
+                puts("Unrecognised PTT type, using NONE");
+                ptt_type = RIG_PTT_NONE;
             }
 
             break;
@@ -315,7 +313,8 @@ int main(int argc, char *argv[])
             }
             else
             {
-                dcd_type = atoi(optarg);
+                puts("Unrecognised DCD type, using NONE");
+                dcd_type = RIG_DCD_NONE;
             }
 
             break;
@@ -355,7 +354,12 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-            serial_rate = atoi(optarg);
+            if (sscanf(optarg, "%d%1s", &serial_rate, dummy) != 1)
+            {
+                fprintf(stderr, "Invalid baud rate of %s\n", optarg);
+                exit(1);
+            }
+
             break;
 
         case 'C':
@@ -370,11 +374,18 @@ int main(int argc, char *argv[])
                 strcat(conf_parms, ",");
             }
 
+            if (strlen(conf_parms) + strlen(optarg) > MAXCONFLEN - 24)
+            {
+                printf("Length of conf_parms exceeds internal maximum of %d\n",
+                       MAXCONFLEN - 24);
+                return 1;
+            }
+
             strncat(conf_parms, optarg, MAXCONFLEN - strlen(conf_parms));
             break;
 
         case 'o':
-            vfo_mode++;
+            vfo_opt = 1;
             break;
 
         case 'n':
@@ -408,9 +419,12 @@ int main(int argc, char *argv[])
             dump_caps_opt++;
             break;
 
+        case 'Y':
+            ignore_rig_open_error = 1;
+
         case 'Z':
-	    rig_set_debug_time_stamp(1);
-	    break;
+            rig_set_debug_time_stamp(1);
+            break;
 
         default:
             usage();    /* unknown option? */
@@ -420,8 +434,9 @@ int main(int argc, char *argv[])
 
     rig_set_debug(verbose);
 
-    rig_debug(RIG_DEBUG_VERBOSE, "rigctl, %s\n", hamlib_version);
-    rig_debug(RIG_DEBUG_VERBOSE,
+    rig_debug(RIG_DEBUG_VERBOSE, "rigctl %s\nLast commit was %s\n", hamlib_version,
+              HAMLIBDATETIME);
+    rig_debug(RIG_DEBUG_VERBOSE, "%s",
               "Report bugs to <hamlib-developer@lists.sourceforge.net>\n\n");
 
     /*
@@ -432,13 +447,17 @@ int main(int argc, char *argv[])
     {
         interactive = 0;
     }
+    else
+    {
+        interactive = 1;
+    }
 
     my_rig = rig_init(my_model);
 
     if (!my_rig)
     {
         fprintf(stderr,
-                "Unknown rig num %d, or initialization error.\n",
+                "Unknown rig num %u, or initialization error.\n",
                 my_model);
         fprintf(stderr, "Please check with --list option.\n");
         exit(2);
@@ -515,34 +534,23 @@ int main(int argc, char *argv[])
     if (retcode != RIG_OK)
     {
         fprintf(stderr, "rig_open: error = %s \n", rigerror(retcode));
-        exit(2);
+
+        if (!ignore_rig_open_error) { exit(2); }
     }
 
     if (verbose > 0)
     {
-        printf("Opened rig model %d, '%s'\n",
+        printf("Opened rig model %u, '%s'\n",
                my_rig->caps->rig_model,
                my_rig->caps->model_name);
     }
 
-    if (my_rig->caps->rig_model == RIG_MODEL_NETRIGCTL) {
-      /* We automatically detect if we need to be in vfo mode or not */
-      int rigctld_vfo_mode = netrigctl_get_vfo_mode(my_rig);
-      if (rigctld_vfo_mode && !vfo_mode) {
-          fprintf(stderr, "Looks like rigctld is using vfo mode so we're switching to vfo mode\n");
-          vfo_mode = rigctld_vfo_mode;
-      }
-      else if (!rigctld_vfo_mode && vfo_mode) {
-          fprintf(stderr, "Looks like rigctld is not using vfo mode so we're switching vfo mode off\n");
-          vfo_mode = rigctld_vfo_mode;
-      }
-      else if (vfo_mode && my_rig->caps->rig_model != RIG_MODEL_NETRIGCTL) {
-          fprintf(stderr, "vfo mode doesn't make sense for any rig other than rig#2\n");
-          fprintf(stderr, "But we'll let you run this way if you want\n");
-      }
-      else if (!vfo_mode && my_rig->caps->rig_model == RIG_MODEL_NETRIGCTL) {
-          fprintf(stderr, "Recommend using --vfo switch for rigctl with rigctld\n");
-      }
+    if (my_rig->caps->rig_model == RIG_MODEL_NETRIGCTL)
+    {
+        /* We automatically detect if we need to be in vfo mode or not */
+        int rigctld_vfo_opt = netrigctl_get_vfo_mode(my_rig);
+        vfo_opt = my_rig->state.vfo_opt = rigctld_vfo_opt;
+        rig_debug(RIG_DEBUG_TRACE, "%s vfo_opt=%d\n", __func__, vfo_opt);
     }
 
     rig_debug(RIG_DEBUG_VERBOSE,
@@ -554,7 +562,7 @@ int main(int argc, char *argv[])
 
 #ifdef HAVE_LIBREADLINE
 
-    if (interactive && prompt && have_rl)
+    if (interactive && prompt)
     {
         rl_readline_name = "rigctl";
 
@@ -563,18 +571,21 @@ int main(int argc, char *argv[])
 
         if (rd_hist || sv_hist)
         {
+            int hist_path_size;
+            struct stat hist_dir_stat;
+
             if (!(hist_dir = getenv("RIGCTL_HIST_DIR")))
             {
                 hist_dir = getenv("HOME");
             }
 
             if (((stat(hist_dir, &hist_dir_stat) == -1) && (errno == ENOENT))
-                || !(S_ISDIR(hist_dir_stat.st_mode)))
+                    || !(S_ISDIR(hist_dir_stat.st_mode)))
             {
                 fprintf(stderr, "Warning: %s is not a directory!\n", hist_dir);
             }
 
-            int hist_path_size = sizeof(char)*(strlen(hist_dir)+strlen(hist_file) + 1);
+            hist_path_size = sizeof(char) * (strlen(hist_dir) + strlen(hist_file) + 1);
             hist_path = (char *)calloc(hist_path_size, sizeof(char));
 
             snprintf(hist_path, hist_path_size, "%s%s", hist_dir, hist_file);
@@ -597,9 +608,9 @@ int main(int argc, char *argv[])
 
     do
     {
-      retcode = rigctl_parse(my_rig, stdin, stdout, argv, argc, NULL,
-                             interactive, prompt, vfo_mode, send_cmd_term,
-                             &ext_resp, &resp_sep);
+        retcode = rigctl_parse(my_rig, stdin, stdout, argv, argc, NULL,
+                               interactive, prompt, &vfo_opt, send_cmd_term,
+                               &ext_resp, &resp_sep);
 
         if (retcode == 2)
         {
@@ -608,9 +619,7 @@ int main(int argc, char *argv[])
     }
     while (retcode == 0 || retcode == 2 || retcode == -RIG_ENAVAIL);
 
-#ifdef HAVE_LIBREADLINE
-
-    if (interactive && prompt && have_rl)
+    if (interactive && prompt)
     {
 #ifdef HAVE_READLINE_HISTORY
 
@@ -633,7 +642,6 @@ int main(int argc, char *argv[])
 #endif  /* HAVE_READLINE_HISTORY */
     }
 
-#endif  /* HAVE_LIBREADLINE */
     rig_close(my_rig);   /* close port */
     rig_cleanup(my_rig); /* if you care about memory */
 
@@ -668,6 +676,7 @@ void usage(void)
         "  -I, --save-history            save current interactive session history\n"
 #endif
         "  -v, --verbose                 set verbose mode, cumulative (-v to -vvvvv)\n"
+        "  -Y, --ignore_err              ignore rig_open errors\n"
         "  -Z, --debug-time-stamps       enable time stamps for debug messages\n"
         "  -h, --help                    display this help and exit\n"
         "  -V, --version                 output version information and exit\n\n"

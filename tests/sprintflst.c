@@ -43,9 +43,9 @@
 
 int sprintf_vfo(char *str, vfo_t vfo)
 {
-    int i, len = 0;
-    const char *sv;
+    unsigned int i, len = 0;
 
+    rig_debug(RIG_DEBUG_TRACE, "%s: vfo=%s\n", __func__, rig_strvfo(vfo));
     *str = '\0';
 
     if (vfo == RIG_VFO_NONE)
@@ -53,46 +53,12 @@ int sprintf_vfo(char *str, vfo_t vfo)
         return 0;
     }
 
-    sv = rig_strvfo(vfo & RIG_VFO_CURR);
-
-    if (sv && sv[0])
+    for (i = 0; i < 32; i++)
     {
-        len += sprintf(str + len, "%s ", sv);
-    }
-
-    sv = rig_strvfo(vfo & RIG_VFO_MEM);
-
-    if (sv && sv[0])
-    {
-        len += sprintf(str + len, "%s ", sv);
-    }
-
-    sv = rig_strvfo(vfo & RIG_VFO_VFO);
-
-    if (sv && sv[0])
-    {
-        len += sprintf(str + len, "%s ", sv);
-    }
-
-    sv = rig_strvfo(vfo & RIG_VFO_MAIN);
-
-    if (sv && sv[0])
-    {
-        len += sprintf(str + len, "%s ", sv);
-    }
-
-    sv = rig_strvfo(vfo & RIG_VFO_SUB);
-
-    if (sv && sv[0])
-    {
-        len += sprintf(str + len, "%s ", sv);
-    }
-
-    for (i = 0; i < 16; i++)
-    {
+        const char *sv;
         sv = rig_strvfo(vfo & RIG_VFO_N(i));
 
-        if (sv && sv[0])
+        if (sv && sv[0] && (strstr(sv, "None") == 0))
         {
             len += sprintf(str + len, "%s ", sv);
         }
@@ -104,6 +70,7 @@ int sprintf_vfo(char *str, vfo_t vfo)
 
 int sprintf_mode(char *str, rmode_t mode)
 {
+    // cppcheck-suppress *
     uint64_t i, len = 0;
 
     *str = '\0';
@@ -115,6 +82,7 @@ int sprintf_mode(char *str, rmode_t mode)
 
     for (i = 0; i < 63; i++)
     {
+        // cppcheck-suppress *
         const char *ms = rig_strrmode(mode & (1ULL << i));
 
         if (!ms || !ms[0])
@@ -133,26 +101,54 @@ int sprintf_mode(char *str, rmode_t mode)
 
 int sprintf_ant(char *str, ant_t ant)
 {
-  int i, len = 0;
+    int i, len = 0;
+    char *ant_name;
 
-  *str = '\0';
+    *str = '\0';
 
-  if (ant == RIG_ANT_NONE) {
-    return 0;
-  }
-
-  for (i = 0; i < RIG_ANT_MAX; i++) {
-    if (ant & (1UL << i)) {
-      len += sprintf(str + len, "%d ", i + 1);
+    if (ant == RIG_ANT_NONE)
+    {
+        sprintf(str, "ANT_NONE");
+        return 0;
     }
-  }
 
-  return len;
+    for (i = 0; i < RIG_ANT_MAX; i++)
+    {
+        if (ant & (1UL << i))
+        {
+            switch (i)
+            {
+            case 0: ant_name = "ANT1"; break;
+
+            case 1: ant_name = "ANT2"; break;
+
+            case 2: ant_name = "ANT3"; break;
+
+            case 3: ant_name = "ANT4"; break;
+
+            case 4: ant_name = "ANT5"; break;
+
+            case 30: ant_name = "ANT_UNKNOWN"; break;
+
+            case 31: ant_name = "ANT_CURR"; break;
+
+            default:
+                ant_name = "ANT_UNK";
+                rig_debug(RIG_DEBUG_ERR, "%s: unknown ant=%d\n", __func__, i);
+                break;
+            }
+
+            len += sprintf(str + len, "%s ", ant_name);
+        }
+    }
+
+    return len;
 }
 
 
 int sprintf_func(char *str, setting_t func)
 {
+    // cppcheck-suppress *
     uint64_t i, len = 0;
 
     *str = '\0';
@@ -261,6 +257,7 @@ int sprintf_level_ext(char *str, const struct confparams *extlevels)
         case RIG_CONF_COMBO:
         case RIG_CONF_NUMERIC:
         case RIG_CONF_STRING:
+        case RIG_CONF_BINARY:
             strcat(str, extlevels->name);
             strcat(str, " ");
             len += strlen(extlevels->name) + 1;
@@ -476,18 +473,26 @@ int sprintf_scan(char *str, scan_t rscan)
 
 char *get_rig_conf_type(enum rig_conf_e type)
 {
-  switch (type) {
+    switch (type)
+    {
     case RIG_CONF_STRING:
-      return "STRING";
-    case RIG_CONF_COMBO:
-      return "COMBO";
-    case RIG_CONF_NUMERIC:
-      return "NUMERIC";
-    case RIG_CONF_CHECKBUTTON:
-      return "CHECKBUTTON";
-    case RIG_CONF_BUTTON:
-      return "BUTTON";
-  }
+        return "STRING";
 
-  return "UNKNOWN";
+    case RIG_CONF_COMBO:
+        return "COMBO";
+
+    case RIG_CONF_NUMERIC:
+        return "NUMERIC";
+
+    case RIG_CONF_CHECKBUTTON:
+        return "CHECKBUTTON";
+
+    case RIG_CONF_BUTTON:
+        return "BUTTON";
+
+    case RIG_CONF_BINARY:
+        return "BINARY";
+    }
+
+    return "UNKNOWN";
 }

@@ -5,7 +5,7 @@
 .\"
 .\" Note: Please keep this page in sync with the source, rigctl.c
 .\"
-.TH RIGCTL "1" "2018-04-29" "Hamlib" "Hamlib Utilities"
+.TH RIGCTL "1" "2019-12-10" "Hamlib" "Hamlib Utilities"
 .
 .
 .SH NAME
@@ -27,6 +27,7 @@ rigctl \- control radio transceivers and receivers
 .OP \-c id
 .OP \-t char
 .OP \-C parm=val
+.RG \-Y
 .RB [ \-v [ \-Z ]]
 .RB [ command | \- ]
 .YS
@@ -111,7 +112,7 @@ Use
 of Push-To-Talk device.
 .IP
 Supported types are \(oqRIG\(cq (CAT command), \(oqDTR\(cq, \(oqRTS\(cq,
-\(oqPARALLEL\(cq, \(oqNONE\(cq, overriding PTT type defined in the rig's
+\(oqPARALLEL\(cq, \(oqCM108\(cq, \(oqGPIO\(cq, \(oqGPION\(cq, \(oqNONE\(cq, overriding PTT type defined in the rig's
 backend.
 .IP
 Some side effects of this command are that when type is set to DTR, read
@@ -127,7 +128,7 @@ Use
 of Data Carrier Detect device.
 .IP
 Supported types are \(oqRIG\(cq (CAT command), \(oqDSR\(cq, \(oqCTS\(cq,
-\(oqCD\(cq, \(oqPARALLEL\(cq, \(oqNONE\(cq.
+\(oqCD\(cq, \(oqPARALLEL\(cq, \(oqCM108\(cq, \(oqGPIO\(cq, \(oqGPION\(cq, \(oqNONE\(cq.
 .
 .TP
 .BR \-s ", " \-\-serial\-speed = \fIbaud\fP
@@ -236,7 +237,7 @@ If this is not desired, for example if you are using
 to turn AI mode on or off, pass this option.
 .
 .TP
-.B \-i ", " \-\-read\-history
+.BR \-i ", " \-\-read\-history
 Read previously saved command and argument history from a file (default
 .IR $HOME/.rigctl_history )
 for the current session.
@@ -281,6 +282,9 @@ is used.
 Set verbose mode, cumulative (see
 .B DIAGNOSTICS
 below).
+.TP
+.BR \-Y "," \-\-\ignore\-err
+Ignores rig open errors 
 .
 .TP
 .BR \-Z ", " \-\-debug\-time\-stamps
@@ -353,7 +357,8 @@ method.  Each operation also has a long name; in interactive mode, prepend a
 backslash, \(oq\\\(cq, to enter a long command name.
 .
 .PP
-Example: Use \(lq\\dump_caps\(rq to see what this radio and backend support.
+Example: Use \(lq\\dump_caps\(rq to see what capabilities this radio and
+backend support.
 .
 .PP
 .BR Note :
@@ -414,7 +419,7 @@ $
 .RE
 .
 .
-.SS Radio Commands
+.SS rigctl Commands
 .
 A summary of commands is included below (In the case of
 .B set
@@ -446,7 +451,9 @@ Get
 .RI \(aq Frequency \(aq,
 in Hz.
 .IP
-Returns an integer value.
+Returns an integer value and the VFO hamlib thinks is active.
+Note that some rigs (e.g. all Icoms) cannot track current VFO so hamlib can
+get out of sync with the rig if the user presses rig buttons like the VFO.
 .
 .TP
 .BR M ", " set_mode " \(aq" \fIMode\fP "\(aq \(aq" \fIPassband\fP \(aq
@@ -652,16 +659,28 @@ Returns TX Mode as a token and TX Passband in Hz as in
 above.
 .
 .TP
-.BR Y ", " set_ant " \(aq" \fIAntenna\fP \(aq
+.BR Y ", " set_ant " \(aq" \fIAntenna\fP "\(aq \(aq" \fIOption\fP \(aq
 Set
 .RI \(aq Antenna \(aq
-number (\(oq0\(cq, \(oq1\(cq, \(oq2\(cq, ...).
+and
+.RI \(aq Option \(aq.
+.IP
+Number is 1-based antenna# (\(oq1\(cq, \(oq2\(cq, \(oq3\(cq, ...).
+.IP
+Option depends on rig..for Icom it probably sets the RX only flag. See your manual for specific option values.
 .
 .TP
-.BR y ", " get_ant
+.BR y ", " get_ant " \(aq" \fIAntenna\fP \(aq
 Get
 .RI \(aq Antenna \(aq
-number (\(oq0\(cq, \(oq1\(cq, \(oq2\(cq, ...).
+.IP
+A value of 0 for Antenna will return the current TX antenna
+.IP
+> 0 is 1-based antenna# (\(oq1\(cq, \(oq2\(cq, \(oq3\(cq, ...).
+
+
+.IP
+Option returned depends on rig..for Icom is likely the RX only flag.
 .
 .TP
 .BR b ", " send_morse " \(aq" \fIMorse\fP \(aq
@@ -924,7 +943,7 @@ Set memory
 .RI \(aq Channel \(aq
 data.
 .IP
-Not implemented yet.
+Sets memory channel information
 .
 .TP
 .BR h ", " get_channel
@@ -932,7 +951,7 @@ Get memory
 .RI \(aq Channel \(aq
 data.
 .IP
-Not implemented yet.
+Returns programmed channel information for specified channel
 .
 .TP
 .BR A ", " set_trn " \(aq" \fITransceive\fP \(aq
@@ -981,7 +1000,8 @@ Set
 .RI \(aq "Power Status" \(aq.
 .IP
 Power Status is a value: \(oq0\(cq = Power Off, \(oq1\(cq = Power On,
-\(oq2\(cq = Power Standby.
+\(oq2\(cq = Power Standby (enter standby), \(oq4\(cq = Power Operate (leave
+standby).
 .
 .TP
 .BR 0x88 ", " get_powerstat
@@ -1004,6 +1024,10 @@ Get DTMF
 .TP
 .BR _ ", " get_info
 Get misc information about the rig (no VFO in 'VFO mode' or value is passed).
+.
+.TP
+.B dump_state
+Return certain state information about the radio backend.
 .
 .TP
 .BR 1 ", " dump_caps
@@ -1069,6 +1093,43 @@ The command terminator, set by the
 .B send-cmd-term
 option above, will terminate each command string sent to the radio.  This
 character should not be a part of the input string.
+.
+.TP
+.BR W ", " send_cmd_rx " \(aq" \fICmd\fP \(aq
+Send a raw command string to the radio and expect a number of bytes returned.
+.IP
+This is useful for testing and troubleshooting radio commands and responses when
+developing a backend.  If the # of bytes requested is <= the number actually returned no timeout will occur.
+.IP
+The command argument can have no spaces in it.
+For binary protocols enter values as \\0xAA\\0xBB.  Expect a
+.RI \(aq Reply \(aq
+from the radio which will likely be a binary block or an ASCII string
+depending on the radio's protocol (see your radio's computer control
+documentation).
+.IP
+The command terminator, set by the
+.B send-cmd-term
+option above, will terminate each command string sent to the radio.  This
+character should not be a part of the input string.
+.
+.TP
+.BR chk_vfo
+Get
+.RI \(aq Status \(aq
+.IP
+Returns Status as 1 if vfo option is on and 0 if vfo option is off.
+This command reflects the -o switch for rigctl and ritctld and can be dynamically changed by 
+.B set_vfo_opt.
+.
+.TP
+.BR set_vfo_opt " \(aq" \fIStatus\fP \(aq
+Set
+.RI \(aq Status \(aq
+.IP
+Set vfo option Status 1=on or 0=off
+This is the same as using the -o switch for rigctl and ritctld. 
+This can be dyamically changed while running.
 .
 .TP
 .BR pause " \(aq" \fISeconds\fP \(aq
@@ -1278,15 +1339,16 @@ Hamlib Developer mailing list
 .SH COPYING
 .
 This file is part of Hamlib, a project to develop a library that simplifies
-radio and rotator control functions for developers of software primarily of
-interest to radio amateurs and those interested in radio communications.
+radio, rotator, and amplifier control functions for developers of software
+primarily of interest to radio amateurs and those interested in radio
+communications.
 .
 .PP
 Copyright \(co 2000-2011 Stephane Fillod
 .br
 Copyright \(co 2000-2018 the Hamlib Group (various contributors)
 .br
-Copyright \(co 2010-2018 Nate Bargmann
+Copyright \(co 2010-2019 Nate Bargmann
 .
 .PP
 This is free software; see the file COPYING for copying conditions.  There is

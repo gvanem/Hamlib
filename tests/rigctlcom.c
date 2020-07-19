@@ -33,30 +33,43 @@
 
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN
+// cppcheck-suppress *
 #include <windows.h>
 #endif
 
+// cppcheck-suppress *
 #include <stdio.h>
+// cppcheck-suppress *
 #include <stdlib.h>
+// cppcheck-suppress *
 #include <string.h>
+// cppcheck-suppress *
 #include <unistd.h>
+// cppcheck-suppress *
 #include <ctype.h>
+// cppcheck-suppress *
 #include <errno.h>
+// cppcheck-suppress *
 #include <signal.h>
 
+// cppcheck-suppress *
 #include <getopt.h>
 
+// cppcheck-suppress *
 #include <sys/types.h>
 
 #ifdef HAVE_NETINET_IN_H
+// cppcheck-suppress *
 #  include <netinet/in.h>
 #endif
 
 #ifdef HAVE_ARPA_INET_H
+// cppcheck-suppress *
 #  include <arpa/inet.h>
 #endif
 
 #ifdef HAVE_SYS_SOCKET_H
+// cppcheck-suppress *
 #  include <sys/socket.h>
 #elif HAVE_WS2TCPIP_H
 #  include <ws2tcpip.h>
@@ -116,7 +129,7 @@ static sig_atomic_t volatile ctrl_c;
 static int volatile ctrl_c;
 #endif
 
-#define MAXCONFLEN 128
+#define MAXCONFLEN 1024
 
 #if 0
 # ifdef WIN32
@@ -206,6 +219,7 @@ int main(int argc, char *argv[])
     int serial_rate2 = 115200;  /* virtual com port default speed */
     char *civaddr = NULL;       /* NULL means no need to set conf */
     char conf_parms[MAXCONFLEN] = "";
+    int status;
 
     printf("rigctlcom Version 1.1\n");
 
@@ -213,6 +227,7 @@ int main(int argc, char *argv[])
     {
         int c;
         int option_index = 0;
+        char dummy[2];
 
         c = getopt_long(argc,
                         argv,
@@ -379,15 +394,17 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-            serial_rate = atoi(optarg);
+            if (sscanf(optarg, "%d%1s", &serial_rate, dummy) != 1)
+            {
+                fprintf(stderr, "Invalid baud rate of %s\n", optarg);
+                exit(1);
+            }
+
             break;
 
         case 'S':
-            printf("yup\n");
-
             if (!optarg)
             {
-                printf("nope\n");
                 usage();        /* wrong arg count */
                 exit(1);
             }
@@ -406,6 +423,13 @@ int main(int argc, char *argv[])
             if (*conf_parms != '\0')
             {
                 strcat(conf_parms, ",");
+            }
+
+            if (strlen(conf_parms) + strlen(optarg) > MAXCONFLEN - 24)
+            {
+                printf("Length of conf_parms exceeds internal maximum of %d\n",
+                       MAXCONFLEN - 24);
+                return 1;
             }
 
             strncat(conf_parms, optarg, MAXCONFLEN - strlen(conf_parms));
@@ -441,7 +465,7 @@ int main(int argc, char *argv[])
     rig_set_debug(verbose);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s, %s\n", "rigctlcom", hamlib_version);
-    rig_debug(RIG_DEBUG_VERBOSE,
+    rig_debug(RIG_DEBUG_VERBOSE, "%s",
               "Report bugs to <hamlib-developer@lists.sourceforge.net>\n\n");
 
     if (argc == 1)
@@ -577,7 +601,7 @@ int main(int argc, char *argv[])
     my_com.parm.serial.parity = RIG_PARITY_NONE;
     my_com.parm.serial.handshake = RIG_HANDSHAKE_NONE;
 
-    int status = port_open(&my_com);
+    status = port_open(&my_com);
 
     if (status != RIG_OK)
     {
@@ -596,7 +620,6 @@ int main(int argc, char *argv[])
         char *stop_set = ";\n\r";
 
         memset(ts2000, 0, sizeof(ts2000));
-        serial_flush(&my_com);  // get rid of anything in the queue
 
         status = read_string(&my_com,
                              ts2000,
@@ -630,7 +653,7 @@ static rmode_t ts2000_get_mode()
 {
     rmode_t mode;
     pbwidth_t width;
-    rig_get_mode(my_rig, RIG_VFO_A, &mode, &width);
+    rig_get_mode(my_rig, vfo_fixup(my_rig, RIG_VFO_A), &mode, &width);
 
     // Perhaps we should emulate a rig that has PKT modes instead??
     switch (mode)
@@ -653,6 +676,10 @@ static rmode_t ts2000_get_mode()
 
     case RIG_MODE_RTTYR: mode = 9; break;
 
+    case RIG_MODE_PKTUSB: mode = 2; break; // need to change to a TS_2000 mode
+
+    case RIG_MODE_PKTLSB: mode = 1; break; // need to change to a TS_2000 mode
+
     default: mode = 0; break;
     }
 
@@ -666,11 +693,11 @@ static int write_block2(void *func,
                         size_t count)
 {
     int retval = write_block(p, txbuffer, count);
-    usleep(5000);
+    hl_usleep(5000);
 
     if (retval != RIG_OK)
     {
-        rig_debug(RIG_DEBUG_ERR, "%s: %s\n", func, rigerror(retval));
+        rig_debug(RIG_DEBUG_ERR, "%s: %s\n", __func__, rigerror(retval));
     }
 
     return retval;
@@ -682,7 +709,7 @@ static int write_block2(void *func,
  */
 static int handle_ts2000(void *arg)
 {
-    char *_arg = (char*) arg;
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: cmd=%s\n", __func__, (char *)arg);
 
     // Handle all the queries
     if (strcmp(arg, "ID;") == 0)
@@ -713,8 +740,11 @@ static int handle_ts2000(void *arg)
         int p13 = 0;            // P13 Tone dummy value for now
         int p14 = 0;            // P14 Tone Freq dummy value for now
         int p15 = 0;            // P15 Shift status dummy value for now
+        int retval = rig_get_freq(my_rig, vfo_fixup(my_rig, RIG_VFO_A), &freq);
         char response[64];
-        int retval = rig_get_freq(my_rig, RIG_VFO_A, &freq);
+        char *fmt =
+            // cppcheck-suppress *
+            "IF%011"PRIll"%04d+%05d%1d%1d%1d%02d%1d%1"PRIll"%1d%1d%1d%1d%02d%1d;";
 
         if (retval != RIG_OK)
         {
@@ -722,21 +752,22 @@ static int handle_ts2000(void *arg)
         }
 
         mode = ts2000_get_mode();
-        retval = rig_get_ptt(my_rig, RIG_VFO_A, &ptt);
+        retval = rig_get_ptt(my_rig, vfo_fixup(my_rig, RIG_VFO_A), &ptt);
 
         if (retval != RIG_OK)
         {
             return retval;
         }
 
-        if (ptt)
+        // we need to know split status -- don't care about the vfo
+        retval = rig_get_split_vfo(my_rig, RIG_VFO_CURR, &split, &vfo);
+
+        if (retval != RIG_OK)
         {
-            retval = rig_get_split_vfo(my_rig, RIG_VFO_CURR, &split, &vfo);
+            return retval;
         }
-        else
-        {
-            retval = rig_get_vfo(my_rig, &vfo);
-        }
+
+        retval = rig_get_vfo(my_rig, &vfo);
 
         if (retval != RIG_OK)
         {
@@ -746,10 +777,16 @@ static int handle_ts2000(void *arg)
         switch (vfo)
         {
         case RIG_VFO_A:
+        case RIG_VFO_MAIN:
+        case RIG_VFO_MAIN_A:
+        case RIG_VFO_SUB_A:
             vfo = 0;
             break;
 
         case RIG_VFO_B:
+        case RIG_VFO_SUB:
+        case RIG_VFO_MAIN_B:
+        case RIG_VFO_SUB_B:
             vfo = 1;
             break;
 
@@ -759,7 +796,7 @@ static int handle_ts2000(void *arg)
 
         snprintf(response,
                  sizeof(response),
-                 "IF%011"PRIll"%04d+%05d%1d%1d%1d%02d%1d%1"PRIll"%1d%1d%1d%1d%02d%1d;",
+                 fmt,
                  (uint64_t)freq,
                  freq_step,
                  rit_xit_freq,
@@ -795,7 +832,9 @@ static int handle_ts2000(void *arg)
     else if (strcmp(arg, "FA;") == 0)
     {
         freq_t freq = 0;
-        int retval = rig_get_freq(my_rig, RIG_VFO_A, &freq);
+        char response[32];
+
+        int retval = rig_get_freq(my_rig, vfo_fixup(my_rig, RIG_VFO_A), &freq);
 
         if (retval != RIG_OK)
         {
@@ -804,15 +843,14 @@ static int handle_ts2000(void *arg)
             return retval;
         }
 
-        char response[32];
-
         snprintf(response, sizeof(response), "FA%011"PRIll";", (uint64_t)freq);
         return write_block2((void *)__func__, &my_com, response, strlen(response));
     }
     else if (strcmp(arg, "FB;") == 0)
     {
+        char response[32];
         freq_t freq = 0;
-        int retval = rig_get_freq(my_rig, RIG_VFO_B, &freq);
+        int retval = rig_get_freq(my_rig, vfo_fixup(my_rig, RIG_VFO_B), &freq);
 
         if (retval != RIG_OK)
         {
@@ -820,8 +858,6 @@ static int handle_ts2000(void *arg)
                       rigerror(retval));
             return retval;
         }
-
-        char response[32];
 
         snprintf(response, sizeof(response), "FB%011"PRIll";", (uint64_t)freq);
         return write_block2((void *)__func__, &my_com, response, strlen(response));
@@ -843,7 +879,7 @@ static int handle_ts2000(void *arg)
     // Now some commands to set things
     else if (strcmp(arg, "TX;") == 0)
     {
-        return rig_set_ptt(my_rig, RIG_VFO_A, 1);
+        return rig_set_ptt(my_rig, vfo_fixup(my_rig, RIG_VFO_A), 1);
     }
     else if (strcmp(arg, "AI0;") == 0)
     {
@@ -857,16 +893,18 @@ static int handle_ts2000(void *arg)
     }
     else if (strcmp(arg, "FR0;") == 0)
     {
-        return rig_set_vfo(my_rig, RIG_VFO_A);
+        return rig_set_vfo(my_rig, vfo_fixup(my_rig, RIG_VFO_A));
     }
     else if (strcmp(arg, "FR1;") == 0)
     {
-        return rig_set_vfo(my_rig, RIG_VFO_B);
+        return rig_set_vfo(my_rig, vfo_fixup(my_rig, RIG_VFO_B));
     }
     else if (strcmp(arg, "FR;") == 0)
     {
+        char response[32];
         vfo_t vfo;
         int retval = rig_get_vfo(my_rig, &vfo);
+        int nvfo = 0;
 
         if (retval != RIG_OK)
         {
@@ -875,17 +913,15 @@ static int handle_ts2000(void *arg)
             return retval;
         }
 
-        int nvfo = 0;
 
-        if (vfo == RIG_VFO_A) { nvfo = 0; }
-        else if (vfo == RIG_VFO_B) { nvfo = 1; }
+        if (vfo == vfo_fixup(my_rig, RIG_VFO_A)) { nvfo = 0; }
+        else if (vfo == vfo_fixup(my_rig, RIG_VFO_B)) { nvfo = 1; }
         else
         {
             retval = -RIG_EPROTO;
             return retval;
         }
 
-        char response[32];
         snprintf(response, sizeof(response), "FR%c;", nvfo + '0');
         return write_block2((void *)__func__, &my_com, response, strlen(response));
 
@@ -893,8 +929,10 @@ static int handle_ts2000(void *arg)
     }
     else if (strcmp(arg, "FT;") == 0)
     {
-        vfo_t vfo, vfo_curr = RIG_VFO_A;
+        char response[32];
+        vfo_t vfo, vfo_curr = vfo_fixup(my_rig, RIG_VFO_A);
         split_t split;
+        int nvfo = 0;
         int retval = rig_get_split_vfo(my_rig, vfo_curr, &split, &vfo);
 
         if (retval != RIG_OK)
@@ -904,17 +942,15 @@ static int handle_ts2000(void *arg)
             return retval;
         }
 
-        int nvfo = 0;
 
-        if (vfo == RIG_VFO_A) { nvfo = 0; }
-        else if (vfo == RIG_VFO_B) { nvfo = 1; }
+        if (vfo == vfo_fixup(my_rig, RIG_VFO_A)) { nvfo = 0; }
+        else if (vfo == vfo_fixup(my_rig, RIG_VFO_B)) { nvfo = 1; }
         else
         {
             retval = -RIG_EPROTO;
             return retval;
         }
 
-        char response[32];
         snprintf(response, sizeof(response), "FT%c;", nvfo + '0');
         return write_block2((void *)__func__, &my_com, response, strlen(response));
 
@@ -922,6 +958,7 @@ static int handle_ts2000(void *arg)
     }
     else if (strcmp(arg, "TN;") == 0)
     {
+        char response[32];
         tone_t val;
         int retval = rig_get_ctcss_tone(my_rig, RIG_VFO_CURR, &val);
 
@@ -932,16 +969,17 @@ static int handle_ts2000(void *arg)
             return retval;
         }
 
-        char response[32];
         snprintf(response, sizeof(response), "TN%02d;", val);
         return write_block2((void *)__func__, &my_com, response, strlen(response));
     }
     else if (strncmp(arg, "TN", 2) == 0)
     {
+        tone_t val;
         int ival = 0;
+        int retval;
         sscanf(arg, "TN%d", &ival);
-        tone_t val = ival;
-        int retval = rig_set_ctcss_tone(my_rig, RIG_VFO_CURR, val);
+        val = ival;
+        retval = rig_set_ctcss_tone(my_rig, RIG_VFO_CURR, val);
 
         if (retval != RIG_OK)
         {
@@ -953,8 +991,11 @@ static int handle_ts2000(void *arg)
     }
     else if (strcmp(arg, "PA;") == 0)
     {
+        char response[32];
         int valA;
-        int retval = rig_get_func(my_rig, RIG_VFO_A, RIG_FUNC_AIP, &valA);
+        int retval = rig_get_func(my_rig, vfo_fixup(my_rig, RIG_VFO_A), RIG_FUNC_AIP,
+                                  &valA);
+        int valB;
 
         if (retval != RIG_OK)
         {
@@ -963,15 +1004,16 @@ static int handle_ts2000(void *arg)
 
             if (retval == -RIG_ENIMPL || retval == -RIG_ENAVAIL)
             {
-                char *response = "?;";
-                return write_block2((void *)__func__, &my_com, response, strlen(response));
+                char *responsetmp = "?;";
+                return write_block2((void *)__func__, &my_com, responsetmp,
+                                    strlen(responsetmp));
             }
 
             return retval;
         }
 
-        int valB;
-        retval = rig_get_func(my_rig, RIG_VFO_B, RIG_FUNC_AIP, &valB);
+        retval = rig_get_func(my_rig, vfo_fixup(my_rig, RIG_VFO_B), RIG_FUNC_AIP,
+                              &valB);
 
         if (retval != RIG_OK)
         {
@@ -980,7 +1022,6 @@ static int handle_ts2000(void *arg)
             return retval;
         }
 
-        char response[32];
         snprintf(response, sizeof(response), "PA%c%c;", valA + '0', valB + '0');
         return write_block2((void *)__func__, &my_com, response, strlen(response));
     }
@@ -988,14 +1029,16 @@ static int handle_ts2000(void *arg)
     {
         int valA = 0;
         int valB = 0;
+        int retval;
         int n = sscanf(arg, "PA%1d%1d", &valA, &valB);
 
         if (n != 2)
         {
-            rig_debug(RIG_DEBUG_ERR, "%s: error parsing preamp cmd '%s'\n", __func__, arg);
+            rig_debug(RIG_DEBUG_ERR, "%s: error parsing preamp cmd '%s'\n", __func__,
+                      (char *)arg);
         }
 
-        int retval = rig_set_func(my_rig, RIG_VFO_A, RIG_FUNC_AIP, valA);
+        retval = rig_set_func(my_rig, vfo_fixup(my_rig, RIG_VFO_A), RIG_FUNC_AIP, valA);
 
         if (retval != RIG_OK)
         {
@@ -1004,7 +1047,7 @@ static int handle_ts2000(void *arg)
             return retval;
         }
 
-        retval = rig_set_func(my_rig, RIG_VFO_B, RIG_FUNC_AIP, valB);
+        retval = rig_set_func(my_rig, vfo_fixup(my_rig, RIG_VFO_B), RIG_FUNC_AIP, valB);
 
         if (retval != RIG_OK)
         {
@@ -1017,6 +1060,7 @@ static int handle_ts2000(void *arg)
     }
     else if (strcmp(arg, "XT;") == 0)
     {
+        char response[32];
         int val;
         int retval = rig_get_func(my_rig, RIG_VFO_CURR, RIG_FUNC_XIT, &val);
 
@@ -1027,22 +1071,23 @@ static int handle_ts2000(void *arg)
 
             if (retval == -RIG_ENIMPL || retval == -RIG_ENAVAIL)
             {
-                char *response = "?;";
-                return write_block2((void *)__func__, &my_com, response, strlen(response));
+                char *responsetmp = "?;";
+                return write_block2((void *)__func__, &my_com, responsetmp,
+                                    strlen(responsetmp));
             }
 
             return retval;
         }
 
-        char response[32];
         snprintf(response, sizeof(response), "XT%c;", val + '0');
         return write_block2((void *)__func__, &my_com, response, strlen(response));
     }
     else if (strncmp(arg, "XT", 2) == 0)
     {
         int val = 0;
+        int retval;
         sscanf(arg, "XT%d", &val);
-        int retval = rig_set_func(my_rig, RIG_VFO_CURR, RIG_FUNC_XIT, val);
+        retval = rig_set_func(my_rig, RIG_VFO_CURR, RIG_FUNC_XIT, val);
 
         if (retval != RIG_OK)
         {
@@ -1060,6 +1105,7 @@ static int handle_ts2000(void *arg)
     }
     else if (strcmp(arg, "NR;") == 0)
     {
+        char response[32];
         int val;
         int retval = rig_get_func(my_rig, RIG_VFO_CURR, RIG_FUNC_NR, &val);
 
@@ -1069,22 +1115,23 @@ static int handle_ts2000(void *arg)
 
             if (retval == -RIG_ENIMPL || retval == -RIG_ENAVAIL)
             {
-                char *response = "?;";
-                return write_block2((void *)__func__, &my_com, response, strlen(response));
+                char *responsetmp = "?;";
+                return write_block2((void *)__func__, &my_com, responsetmp,
+                                    strlen(responsetmp));
             }
 
             return retval;
         }
 
-        char response[32];
         snprintf(response, sizeof(response), "NR%c;", val + '0');
         return write_block2((void *)__func__, &my_com, response, strlen(response));
     }
     else if (strncmp(arg, "NR", 2) == 0)
     {
         int val = 0;
+        int retval;
         sscanf(arg, "NR%d", &val);
-        int retval = rig_set_func(my_rig, RIG_VFO_CURR, RIG_FUNC_NR, val);
+        retval = rig_set_func(my_rig, RIG_VFO_CURR, RIG_FUNC_NR, val);
 
         if (retval != RIG_OK)
         {
@@ -1092,8 +1139,9 @@ static int handle_ts2000(void *arg)
 
             if (retval == -RIG_ENIMPL || retval == -RIG_ENAVAIL)
             {
-                char *response = "?;";
-                return write_block2((void *)__func__, &my_com, response, strlen(response));
+                char *responsetmp = "?;";
+                return write_block2((void *)__func__, &my_com, responsetmp,
+                                    strlen(responsetmp));
             }
         }
 
@@ -1101,6 +1149,7 @@ static int handle_ts2000(void *arg)
     }
     else if (strcmp(arg, "NB;") == 0)
     {
+        char response[32];
         int val;
         int retval = rig_get_func(my_rig, RIG_VFO_CURR, RIG_FUNC_NB, &val);
 
@@ -1111,22 +1160,22 @@ static int handle_ts2000(void *arg)
 
             if (retval == -RIG_ENIMPL || retval == -RIG_ENAVAIL)
             {
-                char *response = "?;";
-                return write_block2((void *)__func__, &my_com, response, strlen(response));
+                char *responsetmp = "?;";
+                return write_block2((void *)__func__, &my_com, responsetmp,
+                                    strlen(responsetmp));
             }
 
             return retval;
         }
 
-        char response[32];
         snprintf(response, sizeof(response), "NB%c;", val + '0');
         return write_block2((void *)__func__, &my_com, response, strlen(response));
     }
     else if (strncmp(arg, "NB", 2) == 0)
     {
         int val = 0;
-        sscanf(arg, "NB%d", &val);
         int retval = rig_set_func(my_rig, RIG_VFO_CURR, RIG_FUNC_NB, val);
+        sscanf(arg, "NB%d", &val);
 
         if (retval != RIG_OK)
         {
@@ -1135,8 +1184,9 @@ static int handle_ts2000(void *arg)
 
             if (retval == -RIG_ENIMPL || retval == -RIG_ENAVAIL)
             {
-                char *response = "?;";
-                return write_block2((void *)__func__, &my_com, response, strlen(response));
+                char *responsetmp = "?;";
+                return write_block2((void *)__func__, &my_com, responsetmp,
+                                    strlen(responsetmp));
             }
         }
 
@@ -1146,6 +1196,8 @@ static int handle_ts2000(void *arg)
     {
         value_t val;
         int retval = rig_get_level(my_rig, RIG_VFO_CURR, RIG_LEVEL_AF, &val);
+        char response[32];
+        int level;
 
         if (retval != RIG_OK)
         {
@@ -1154,15 +1206,15 @@ static int handle_ts2000(void *arg)
 
             if (retval == -RIG_ENIMPL || retval == -RIG_ENAVAIL)
             {
-                char *response = "?;";
-                return write_block2((void *)__func__, &my_com, response, strlen(response));
+                char *responsetmp = "?;";
+                return write_block2((void *)__func__, &my_com, responsetmp,
+                                    strlen(responsetmp));
             }
 
             return retval;
         }
 
-        char response[32];
-        int level = val.f * 255;
+        level = val.f * 255;
         snprintf(response, sizeof(response), "AG0%03d;", level);
         return write_block2((void *)__func__, &my_com, response, strlen(response));
     }
@@ -1170,16 +1222,18 @@ static int handle_ts2000(void *arg)
     {
         int level = 0;
         int n = sscanf(arg, "AG%d", &level);
+        int retval;
+        value_t val;
 
         if (n != 1)
         {
-            rig_debug(RIG_DEBUG_ERR, "%s: af level cmd parse failed: %s\n", __func__, arg);
+            rig_debug(RIG_DEBUG_ERR, "%s: af level cmd parse failed: %s\n", __func__,
+                      (char *)arg);
             return -RIG_EPROTO;
         }
 
-        value_t val;
         val.f = level / 255.0;
-        int retval = rig_set_level(my_rig, RIG_VFO_CURR, RIG_LEVEL_AF, val);
+        retval = rig_set_level(my_rig, RIG_VFO_CURR, RIG_LEVEL_AF, val);
 
         if (retval != RIG_OK)
         {
@@ -1191,8 +1245,10 @@ static int handle_ts2000(void *arg)
     }
     else if (strcmp(arg, "PR;") == 0)
     {
+        char response[32];
         value_t val;
         int retval = rig_get_level(my_rig, RIG_VFO_CURR, RIG_LEVEL_COMP, &val);
+        int speechLevel;
 
         if (retval != RIG_OK)
         {
@@ -1201,33 +1257,34 @@ static int handle_ts2000(void *arg)
 
             if (retval == -RIG_ENIMPL || retval == -RIG_ENAVAIL)
             {
-                char *response = "?;";
-                return write_block2((void *)__func__, &my_com, response, strlen(response));
+                char *responsetmp = "?;";
+                return write_block2((void *)__func__, &my_com, responsetmp,
+                                    strlen(responsetmp));
             }
 
             return retval;
         }
 
-        char response[32];
-        int speechLevel = val.f * 255;
+        speechLevel = val.f * 255;
         snprintf(response, sizeof(response), "PR%03d;", speechLevel);
         return write_block2((void *)__func__, &my_com, response, strlen(response));
     }
     else if (strncmp(arg, "PR", 2) == 0)
     {
+        value_t val;
         int speechLevel = 0;
         int n = sscanf(arg, "PR%d", &speechLevel);
+        int retval;
 
         if (n != 1)
         {
             rig_debug(RIG_DEBUG_ERR, "%s: speech level cmd parse failed: %s\n", __func__,
-                      arg);
+                      (char *)arg);
             return -RIG_EPROTO;
         }
 
-        value_t val;
         val.f = speechLevel / 255.0;
-        int retval = rig_set_level(my_rig, RIG_VFO_CURR, RIG_LEVEL_COMP, val);
+        retval = rig_set_level(my_rig, RIG_VFO_CURR, RIG_LEVEL_COMP, val);
 
         if (retval != RIG_OK)
         {
@@ -1237,8 +1294,9 @@ static int handle_ts2000(void *arg)
 
         if (retval == -RIG_ENIMPL || retval == -RIG_ENAVAIL)
         {
-            char *response = "?;";
-            return write_block2((void *)__func__, &my_com, response, strlen(response));
+            char *responsetmp = "?;";
+            return write_block2((void *)__func__, &my_com, responsetmp,
+                                strlen(responsetmp));
         }
 
         return retval;
@@ -1247,6 +1305,8 @@ static int handle_ts2000(void *arg)
     {
         value_t val;
         int retval = rig_get_level(my_rig, RIG_VFO_CURR, RIG_LEVEL_AGC, &val);
+        char response[32];
+        int agcLevel;
 
         if (retval != RIG_OK)
         {
@@ -1255,15 +1315,15 @@ static int handle_ts2000(void *arg)
 
             if (retval == -RIG_ENIMPL || retval == -RIG_ENAVAIL)
             {
-                char *response = "?;";
-                return write_block2((void *)__func__, &my_com, response, strlen(response));
+                char *responsetmp = "?;";
+                return write_block2((void *)__func__, &my_com, responsetmp,
+                                    strlen(responsetmp));
             }
 
             return retval;
         }
 
-        char response[32];
-        int agcLevel = val.f * 255;
+        agcLevel = val.f * 255;
         snprintf(response, sizeof(response), "GT%03d;", agcLevel);
         return write_block2((void *)__func__, &my_com, response, strlen(response));
     }
@@ -1271,16 +1331,18 @@ static int handle_ts2000(void *arg)
     {
         int agcLevel = 0;
         int n = sscanf(arg, "GT%d", &agcLevel);
+        int retval;
+        value_t val;
 
         if (n != 1)
         {
-            rig_debug(RIG_DEBUG_ERR, "%s: AGC cmd parse failed: %s\n", __func__, arg);
+            rig_debug(RIG_DEBUG_ERR, "%s: AGC cmd parse failed: %s\n", __func__,
+                      (char *)arg);
             return -RIG_EPROTO;
         }
 
-        value_t val;
         val.f = agcLevel / 255.0;
-        int retval = rig_set_level(my_rig, RIG_VFO_CURR, RIG_LEVEL_AGC, val);
+        retval = rig_set_level(my_rig, RIG_VFO_CURR, RIG_LEVEL_AGC, val);
 
         if (retval != RIG_OK)
         {
@@ -1292,8 +1354,10 @@ static int handle_ts2000(void *arg)
     }
     else if (strcmp(arg, "SQ;") == 0)
     {
+        char response[32];
         value_t val;
         int retval = rig_get_level(my_rig, RIG_VFO_CURR, RIG_LEVEL_SQL, &val);
+        int sqlev;
 
         if (retval != RIG_OK)
         {
@@ -1302,15 +1366,15 @@ static int handle_ts2000(void *arg)
 
             if (retval == -RIG_ENIMPL || retval == -RIG_ENAVAIL)
             {
-                char *response = "?;";
-                return write_block2((void *)__func__, &my_com, response, strlen(response));
+                char *responsetmp = "?;";
+                return write_block2((void *)__func__, &my_com, responsetmp,
+                                    strlen(responsetmp));
             }
 
             return retval;
         }
 
-        char response[32];
-        int sqlev = val.f * 255;
+        sqlev = val.f * 255;
         snprintf(response, sizeof(response), "SQ%03d;", sqlev);
         return write_block2((void *)__func__, &my_com, response, strlen(response));
     }
@@ -1318,16 +1382,18 @@ static int handle_ts2000(void *arg)
     {
         int sqlev = 0;
         int n = sscanf(arg, "SQ%d", &sqlev);
+        int retval;
+        value_t val;
 
         if (n != 1)
         {
-            rig_debug(RIG_DEBUG_ERR, "%s: squelch cmd parse failed: %s\n", __func__, arg);
+            rig_debug(RIG_DEBUG_ERR, "%s: squelch cmd parse failed: %s\n", __func__,
+                      (char *)arg);
             return -RIG_EPROTO;
         }
 
-        value_t val;
         val.f = sqlev / 255.0;
-        int retval = rig_set_level(my_rig, RIG_VFO_CURR, RIG_LEVEL_SQL, val);
+        retval = rig_set_level(my_rig, RIG_VFO_CURR, RIG_LEVEL_SQL, val);
 
         if (retval != RIG_OK)
         {
@@ -1336,8 +1402,9 @@ static int handle_ts2000(void *arg)
 
             if (retval == -RIG_ENIMPL || retval == -RIG_ENAVAIL)
             {
-                char *response = "?;";
-                return write_block2((void *)__func__, &my_com, response, strlen(response));
+                char *responsetmp = "?;";
+                return write_block2((void *)__func__, &my_com, responsetmp,
+                                    strlen(responsetmp));
             }
         }
 
@@ -1345,8 +1412,9 @@ static int handle_ts2000(void *arg)
     }
     else if (strcmp(arg, "DC;") == 0)
     {
-        vfo_t vfo, vfo_curr = RIG_VFO_A;
+        vfo_t vfo, vfo_curr = vfo_fixup(my_rig, RIG_VFO_A);
         split_t split;
+        char response[32];
         int retval = rig_get_split_vfo(my_rig, vfo_curr, &split, &vfo);
 
         if (retval != RIG_OK)
@@ -1356,7 +1424,6 @@ static int handle_ts2000(void *arg)
             return retval;
         }
 
-        char response[32];
         snprintf(response, sizeof(response), "DC%c;", split + '0');
         return write_block2((void *)__func__, &my_com, response, strlen(response));
 
@@ -1364,20 +1431,22 @@ static int handle_ts2000(void *arg)
     }
     else if (strncmp(arg, "DC", 2) == 0)
     {
-        vfo_t vfo_curr = RIG_VFO_A;
+        vfo_t vfo_curr = vfo_fixup(my_rig, RIG_VFO_A);
         split_t split;
         int isplit;
+        int retval;
+        char response[32];
         // Expecting DCnn -- but we dont' care about the control param
         int n = sscanf(arg, "DC%d", &isplit);
 
         if (n != 1)
         {
-            rig_debug(RIG_DEBUG_ERR, "%s: error parsing '%s'\n", __func__, arg);
+            rig_debug(RIG_DEBUG_ERR, "%s: error parsing '%s'\n", __func__, (char *)arg);
             return -RIG_EPROTO;
         }
 
         split = isplit;
-        int retval = rig_set_split_vfo(my_rig, vfo_curr, split, RIG_VFO_SUB);
+        retval = rig_set_split_vfo(my_rig, vfo_curr, split, RIG_VFO_SUB);
 
         if (retval != RIG_OK)
         {
@@ -1386,7 +1455,6 @@ static int handle_ts2000(void *arg)
             return retval;
         }
 
-        char response[32];
         snprintf(response, sizeof(response), "DC%c;", split + '0');
         return write_block2((void *)__func__, &my_com, response, strlen(response));
 
@@ -1394,32 +1462,35 @@ static int handle_ts2000(void *arg)
     }
     else if (strcmp(arg, "FT0;") == 0)
     {
-        return rig_set_split_vfo(my_rig, RIG_VFO_A, RIG_VFO_A, 0);
+        return rig_set_split_vfo(my_rig, vfo_fixup(my_rig, RIG_VFO_A), vfo_fixup(my_rig,
+                                 RIG_VFO_A), 0);
     }
     else if (strcmp(arg, "FT1;") == 0)
     {
-        return rig_set_split_vfo(my_rig, RIG_VFO_B, RIG_VFO_B, 0);
+        return rig_set_split_vfo(my_rig, vfo_fixup(my_rig, RIG_VFO_B), vfo_fixup(my_rig,
+                                 RIG_VFO_B), 0);
     }
     else if (strncmp(arg, "FA0", 3) == 0)
     {
         freq_t freq;
 
-        sscanf(_arg + 2, "%"SCNfreq, &freq);
-        return rig_set_freq(my_rig, RIG_VFO_A, freq);
+        sscanf((char *)arg + 2, "%"SCNfreq, &freq);
+        return rig_set_freq(my_rig, vfo_fixup(my_rig, RIG_VFO_A), freq);
     }
     else if (strncmp(arg, "FB0", 3) == 0)
     {
         freq_t freq;
 
-        sscanf(_arg + 2, "%"SCNfreq, &freq);
-        return rig_set_freq(my_rig, RIG_VFO_A, freq);
+        sscanf((char *)arg + 2, "%"SCNfreq, &freq);
+        return rig_set_freq(my_rig, vfo_fixup(my_rig, RIG_VFO_A), freq);
     }
     else if (strncmp(arg, "MD", 2) == 0)
     {
+        char response[32];
         mode_t mode = 0;
         int imode = 0;
 
-        sscanf(_arg + 2, "%d", &imode);
+        sscanf((char *)arg + 2, "%d", &imode);
 
         switch (imode)
         {
@@ -1443,8 +1514,6 @@ static int handle_ts2000(void *arg)
 
         case 9: mode = RIG_MODE_RTTYR; break;
         }
-
-        char response[32];
 
         snprintf(response, sizeof(response), "MD%c;", mode + '0');
         return write_block2((void *)__func__, &my_com, response, strlen(response));
@@ -1502,7 +1571,7 @@ static int handle_ts2000(void *arg)
         rig_debug(RIG_DEBUG_ERR,
                   "*********************************\n%s: unknown cmd='%s'\n",
                   __func__,
-                  arg);
+                  (char *)arg);
         return -RIG_EINVAL;
     }
 

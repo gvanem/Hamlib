@@ -49,10 +49,10 @@ struct rot_state;
 
 
 /**
- *  \typedef typedef struct rot ROT
+ *  \typedef typedef struct s_rot ROT
  *  \brief Rotator structure definition (see rot for details).
  */
-typedef struct rot ROT;
+typedef struct s_rot ROT;
 
 
 /**
@@ -103,6 +103,7 @@ typedef float azimuth_t;
 typedef int rot_reset_t;
 
 
+//! @cond Doxygen_Suppress
 /**
  * \brief Rotator type flags
  */
@@ -117,6 +118,7 @@ typedef enum {
 #define ROT_TYPE_AZIMUTH    ROT_FLAG_AZIMUTH
 #define ROT_TYPE_ELEVATION  ROT_FLAG_ELEVATION
 #define ROT_TYPE_AZEL       (ROT_FLAG_AZIMUTH|ROT_FLAG_ELEVATION)
+//! @endcond
 
 
 /**
@@ -213,9 +215,12 @@ typedef enum {
  * sharing the struct rot_caps of the backend, while keeping their own
  * customized data.
  *
- * n.b.: Don't move fields around, as the backends depend on it when
- *       initializing their caps.
+ * mdblack: Careful movinf fields around, as the backends depend on it when
+ *       initializing their caps in shared libraries and dlls.
  */
+
+//! @cond Doxygen_Suppress
+#define ROT_MODEL(arg) .rot_model=arg,.macro_name=#arg
 struct rot_caps {
     rot_model_t rot_model;                      /*!< Rotator model. */
     const char *model_name;                     /*!< Model name. */
@@ -238,6 +243,7 @@ struct rot_caps {
     int post_write_delay;                       /*!< Post-write delay. */
     int timeout;                                /*!< Timeout. */
     int retry;                                  /*!< Number of retry if command fails. */
+ 
 
     /*
      * Movement range, az is relative to North
@@ -283,8 +289,10 @@ struct rot_caps {
     /* get firmware info, etc. */
     const char * (*get_info)(ROT *rot);
 
+    const char *macro_name;                     /*!< Macro name. */
     /* more to come... */
 };
+//! @endcond
 
 
 /**
@@ -306,6 +314,9 @@ struct rot_state {
     azimuth_t max_az;       /*!< Upper limit for azimuth (overridable). */
     elevation_t min_el;     /*!< Lower limit for elevation (overridable). */
     elevation_t max_el;     /*!< Upper limit for elevation (overridable). */
+    int south_zero;         /*!< South is zero degrees */
+    azimuth_t az_offset;    /*!< Offset to be applied to azimuth */
+    elevation_t el_offset;  /*!< Offset to be applied to elevation */
 
     /*
      * non overridable fields, internal use
@@ -322,7 +333,7 @@ struct rot_state {
 
 /**
  * Rotator structure
- * \struct rot
+ * \struct s_rot
  * \brief This is the master data structure,
  * acting as a handle for the controlled rotator.
  *
@@ -332,12 +343,13 @@ struct rot_state {
  *
  * \sa rot_init(), rot_caps(), rot_state()
  */
-struct rot {
+struct s_rot {
     struct rot_caps *caps;      /*!< Rotator caps. */
     struct rot_state state;     /*!< Rotator state. */
 };
 
 
+//! @cond Doxygen_Suppress
 /* --------------- API function prototypes -----------------*/
 
 extern HAMLIB_EXPORT(ROT *)
@@ -479,8 +491,10 @@ dec2dmmm HAMLIB_PARAMS((double dec,
 extern HAMLIB_EXPORT(double)
 dmmm2dec HAMLIB_PARAMS((int degrees,
                         double minutes,
+                        double seconds,
                         int sw));
 
+//! @endcond
 
 /**
  *  \def rot_debug
