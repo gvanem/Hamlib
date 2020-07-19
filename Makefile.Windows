@@ -55,6 +55,7 @@ USE_CLANG_FORMAT ?= 1
 # (or create env-vars like 'LIBXML2_ROOT=c:/whatever/xml2').
 #
 LIBXML2_ROOT     ?= f:/MinGW32/src/Parsers/libxml2
+LIBICONV_ROOT    ?= f:/MinGW32/src/libiconv-1.15
 LIBGD_ROOT       ?= f:/MinGW32/src/Graphics/libgd-2.1.0
 LIBREADLINE_ROOT ?= f:/MinGW32/src/misc/libreadline
 LUAJIT_ROOT      ?= f:/MinGW32/src/LUA/LuaJIT
@@ -62,7 +63,6 @@ LUA5_ROOT        ?= f:/MinGW32/src/LUA/Lua-5.1
 LIBUSB_ROOT      ?= f:/MinGW32/src/USB/libusb
 LIBUSRP_ROOT     ?= f:/gv/dx-radio/Bor-IP/src/libusrp
 GNURADIO_ROOT    ?= f:/gv/dx-radio/GnuRadio/gv-build
-ZLIB_ROOT        ?= f:/MinGW32/src/Compression/zlib-1.2.8
 
 PYTHON ?= py -3
 
@@ -119,7 +119,7 @@ ifeq ($(CC),gcc)
 
 else
   select  = $(2)
-  CFLAGS  = -nologo -MD -W3 -Zi -O2 -EHsc -FI./$(OBJ_DIR)/config.h
+  CFLAGS  = -nologo -MD -W3 -Zi -O2 -EHsc -DWIN32 -FI./$(OBJ_DIR)/config.h
   LDFLAGS = -nologo -debug -incremental:no -verbose -machine:$(CPU)
   O       = obj
 
@@ -153,7 +153,7 @@ else ifeq ($(CC),clang-cl)
           # -Wno-dll-attribute-on-redeclaration
 
   #
-  # Empty initializers are not handled by MSVC. So let 'clang-cl' warn on that.
+  # Empty initializers are not handled by MSVC. So lets 'clang-cl' warn on that.
   #
   CFLAGS += -Wgnu-empty-initializer
 
@@ -215,6 +215,9 @@ TARGETS += $(HamlibPP_DLL) $(HamlibPP_IMP_LIB)
 #
 PROG_LIBS = $(WS2_32_LIB) $(call select, -lwinpthread)
 
+#
+# This will let all programs use 'Hamlib-$(ABI_VER).dll'
+#
 PROG_CFLAGS = -DDLL_EXPORT
 
 #
@@ -352,18 +355,18 @@ TESTS_PROGS = ampctl.exe    \
 
 ifeq ($(USE_LIBXML2),1)
   TESTS_PROGS += rigmem.exe
-  PROG_CFLAGS += -I$(LIBXML2_ROOT)/include \
-                 -DHAVE_XML2               \
-               # -DLIBXML_STATIC
+  PROG_CFLAGS += -I$(LIBXML2_ROOT)/include  \
+                 -I$(LIBICONV_ROOT)/include \
+                 -DHAVE_XML2
 
+  #
+  # Use the dynamic version of 'libxml2'.
+  # I.e. do not set 'PROG_CFLAGS += -DLIBXML_STATIC'.
+  # Otherwise we could need to link to a static 'Iconv', 'Zlib' and
+  # a 'liblzma' too (depending on how 'libxml2' was built).
+  #
   XML2_LIB = $(call select, $(LIBXML2_ROOT)/libxml2.dll.a, \
                             $(LIBXML2_ROOT)/xml2_imp.lib)
-
-  #
-  # Since a static 'xml2.lib' could depend on Zlib
-  #
-  # XML2_LIB += $(call select, $(ZLIB_ROOT)/lib/$(CPU)/libz.a, \
-  #                           $(ZLIB_ROOT)/lib/$(CPU)/zlib.lib)
 endif
 
 ifeq ($(USE_LIBGD),1)
@@ -793,6 +796,9 @@ hamlibPP_SRC = $(addprefix c++/, \
                  rigclass.cc     \
                  rotclass.cc)
 
+#
+# .c sources for various programs:
+#
 ampctl_SRC = $(addprefix tests/, \
                ampctl.c          \
                ampctl_parse.c    \
@@ -852,7 +858,6 @@ hamlib_OBJ      = $(call c_to_obj, $(hamlib_SRC)) \
 hamlib_CC_OBJ   = $(call cc_to_obj, $(hamlib_CC_SRC))
 hamlibPP_OBJ    = $(call cc_to_obj, $(hamlibPP_SRC))
 
-
 hamlib_misc_OBJ = $(call c_to_obj, $(hamlib_misc_SRC))
 ampctl_OBJ      = $(call c_to_obj, $(ampctl_SRC))
 ampctld_OBJ     = $(call c_to_obj, $(ampctld_SRC))
@@ -866,8 +871,34 @@ rotctld_OBJ     = $(call c_to_obj, $(rotctld_SRC))
 
 hamlib_i = $(call c_to_i, $(hamlib_SRC))
 
-$(hamlib_i): CFLAGS += -DIN_HAMLIB
+$(hamlib_OBJ) $(hamlib_i): EXTRA_CFLAGS = -DIN_HAMLIB
 
+all_test_OBJ = $(addprefix $(OBJ_DIR)/, \
+                 dumpmem.obj            \
+                 example.obj            \
+                 listrigs.obj           \
+                 rigsmtr.obj            \
+                 rigswr.obj             \
+                 testfreq.obj           \
+                 testbcd.obj            \
+                 testfreq.obj           \
+                 testloc.obj            \
+                 testrig.obj            \
+                 testtrn.obj)
+
+all_test_OBJ += $(ampctl_OBJ)    \
+                $(ampctld_OBJ)   \
+                $(rigctlcom_OBJ) \
+                $(rigctl_OBJ)    \
+                $(rigctld_OBJ)   \
+                $(rigmatrix_OBJ) \
+                $(rigmem_OBJ)    \
+                $(rotctl_OBJ)    \
+                $(rotctld_OBJ)   \
+
+$(all_test_OBJ): EXTRA_CFLAGS = $(PROG_CFLAGS)
+
+.SECONDARY: $(all_test_OBJ)
 
 GENERATED = $(addprefix $(OBJ_DIR)/, \
               config.h               \
@@ -937,7 +968,7 @@ testcpp.exe: $(OBJ_DIR)/testcpp.$(O) $(HamlibPP_IMP_LIB) $(Hamlib_IMP_LIB)
 # For $(TESTS_PROGS):
 #
 $(OBJ_DIR)/%.$(O): tests/%.c | $(CC).args
-	$(call Compile, $(PROG_CFLAGS) $<, $@)
+	$(call Compile, $<, $@)
 
 ampctl.exe: $(ampctl_OBJ) $(Hamlib_IMP_LIB) $(misc_LIB)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
@@ -992,16 +1023,16 @@ $(OBJ_DIR)/%.$(O): c++/%.cc | $(CC).args
 # For $(hamlib_SRC) and $(hamlib_CC_SRC):
 #
 $(OBJ_DIR)/amp_%.obj: amplifiers/elecraft/%.c
-	$(call Compile, -DIN_HAMLIB $<, $@)
+	$(call Compile, $<, $@)
 
 $(OBJ_DIR)/%.$(O): %.c | $(CC).args
-	$(call Compile, -DIN_HAMLIB $<, $@)
+	$(call Compile, $<, $@)
 
 $(OBJ_DIR)/%.$(O): %.cc | $(CC).args
-	$(call Compile, -DIN_HAMLIB $<, $@)
+	$(call Compile, $<, $@)
 
 #
-# For $(hamlib_misc_SRC); no '-DIN_HAMLIB' is needed here.
+# For $(hamlib_misc_SRC):
 #
 $(OBJ_DIR)/%.$(O): lib/%.c | $(CC).args
 	$(call Compile, $<, $@)
@@ -1124,18 +1155,18 @@ $(OBJ_DIR)/hamliblua_wrap.c: bindings/Hamlib.swg
 HamlibLua_DLL_deps = $(OBJ_DIR)/HamlibLua_wrap.$(O) \
                      $(OBJ_DIR)/HamlibLua.res
 
-LUA_CFLAGS = -I$(LUA_ROOT)/src
-
 ifeq ($(USE_STATIC),1)
   HamlibLua_DLL_deps += $(Hamlib_STAT_LIB) $(misc_LIB)
   LUA_LIB            += $(EX_LIBS)
 else
   HamlibLua_DLL_deps += $(Hamlib_IMP_LIB)
-  LUA_CFLAGS         += -DDLL_EXPORT
+  export_to_LUA       = -DDLL_EXPORT
 endif
 
+$(OBJ_DIR)/HamlibLua_wrap.$(O) HamlibLua_wrap.i: EXTRA_CFLAGS = -I$(LUA_ROOT)/src $(export_to_LUA)
+
 $(OBJ_DIR)/HamlibLua_wrap.$(O): $(OBJ_DIR)/HamlibLua_wrap.c | $(CC).args
-	$(call Compile, $(LUA_CFLAGS) $<, $@)
+	$(call Compile, $<, $@)
 
 #
 # The imp-lib name 'HamlibLua.lib' is not correct for MinGW,
@@ -1174,9 +1205,9 @@ white_message = @echo -e "\e[1;37m$(strip $(1))\e[0m"
 #   $(2): the .obj / .o file
 #
 ifeq ($(CC),gcc)
-  Compile = $(CC) -c @$(CC).args -o $(2) $(1)
+  Compile = $(CC) -c @$(CC).args $(EXTRA_CFLAGS) -o $(2) $(1)
 else
-  Compile = $(CC) -c @$(CC).args -Fo$(strip $(2)) $(1)
+  Compile = $(CC) -c @$(CC).args $(EXTRA_CFLAGS) -Fo$(strip $(2)) $(1)
 endif
 
 #
@@ -1318,11 +1349,6 @@ define CONFIG_H
       #define __MINGW32__   1    /* Yeah, really */
       #endif
 
-      #if !defined(IN_HAMLIB)
-      //#define _AIX       /* for lib/getopt_long.c */
-      //#define _LIBC
-      #endif
-
       #define _CRT_SECURE_NO_WARNINGS
       #define _CRT_NONSTDC_NO_WARNINGS
 
@@ -1364,10 +1390,10 @@ define CONFIG_H
       #define __attribute__(x)
       #endif
 
-      #define strncasecmp(s1, s2, n) _strnicmp (s1, s2, n)
-      #define sleep(s)  Sleep (1000*(s))
+      #define strncasecmp(s1, s2, n)  _strnicmp (s1, s2, n)
+      #define sleep(s)                Sleep (1000*(s))
 
-      extern int usleep (unsigned long usec);
+    // extern int usleep (unsigned long usec);
     #endif
 
     /* No point defining this
@@ -1414,9 +1440,13 @@ define CONFIG_H
 
     #define PACKAGE_VERSION    "$(VERSION)"
 
+    /* Functions in 'lib/win-misc.c':
+     */
     #if defined(IN_HAMLIB) && defined(_MSC_VER)
       #define CLOCK_REALTIME  0
       extern int clock_gettime (int clock_id, struct timespec *ts);
+
+      extern char *strtok_r (char *s, const char *delim, char **ptrptr);
     #endif
 
   #else /* !defined(RC_INVOKED) */
@@ -1545,19 +1575,19 @@ ifeq ($(USE_CLANG_FORMAT),1)
 endif
 
 %.i: %.c FORCE $(GENERATED) cpp_filter.py
-	$(CC) -E $(CFLAGS) $< | $(call preprocess_filter,c) > $@
+	$(CC) -E $(CFLAGS) $(EXTRA_CFLAGS) $< | $(call preprocess_filter,c) > $@
 	@echo
 
 %.i: lib/%.c FORCE $(GENERATED) cpp_filter.py
-	$(CC) -E $(CFLAGS) $< | $(call preprocess_filter,c) > $@
+	$(CC) -E $(CFLAGS) $(EXTRA_CFLAGS) $< | $(call preprocess_filter,c) > $@
 	@echo
 
 %.i: $(OBJ_DIR)/%.c FORCE $(GENERATED) cpp_filter.py
-	$(CC) -E $(CFLAGS) $(LUA_CFLAGS) $< | $(call preprocess_filter,c) > $@
+	$(CC) -E $(CFLAGS) $< $(EXTRA_CFLAGS) | $(call preprocess_filter,c) > $@
 	@echo
 
 %.i: %.cc FORCE $(GENERATED) cpp_filter.py
-	$(CC) -E $(CFLAGS) $< | $(call preprocess_filter,cpp) > $@
+	$(CC) -E $(CFLAGS) $(EXTRA_CFLAGS) $< | $(call preprocess_filter,cpp) > $@
 	@echo
 
 FORCE:
