@@ -137,6 +137,11 @@ extern HAMLIB_EXPORT(int) parse_hoststr(char *host, char hoststr[256], char port
 #endif
 
 
+#define fprintf_flush(f, ...)      \
+        do {                       \
+          fprintf(f, __VA_ARGS__); \
+          fflush(f);               \
+        } while (0)
 
 __END_DECLS
 

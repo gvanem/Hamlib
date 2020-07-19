@@ -607,13 +607,6 @@ static int next_word(char *buffer, int argc, char *argv[], int newline)
 }
 
 
-#define fprintf_flush(f, a...)        \
-    ({ fprintf((f), a);               \
-       fflush((f));                   \
-                                      \
-    })
-
-
 int rigctl_parse(RIG *my_rig, FILE *fin, FILE *fout, char *argv[], int argc,
                  sync_cb_t sync_cb,
                  int interactive, int prompt, int *vfo_opt, char send_cmd_term,

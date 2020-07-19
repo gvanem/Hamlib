@@ -446,14 +446,6 @@ static int next_word(char *buffer, int argc, char *argv[], int newline)
 }
 
 
-#define fprintf_flush(f, a...)                  \
-    ({ int __ret;                               \
-        __ret = fprintf((f), a);                \
-        fflush((f));                            \
-        __ret;                                  \
-    })
-
-
 extern int interactive;
 extern int prompt;
 extern char send_cmd_term;
