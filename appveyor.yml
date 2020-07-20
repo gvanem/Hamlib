@@ -15,12 +15,11 @@ install:
   - cmd: if %BUILDER%. == msvc.            call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %CPU%
   - cmd: if %BUILDER%-%CPU%. == mingw-x86. set PATH=c:\msys64\MinGW32\bin;%PATH%
   - cmd: if %BUILDER%-%CPU%. == mingw-x64. set PATH=c:\msys64\MinGW64\bin;%PATH%
-  - cmd: set MAK=make -f Makefile.Windows USE_MP_COMPILE=0 USE_LIBUSB=0 USE_USRP=0 USE_WSOCK_TRACE=0 USE_LIBXML2=0 USE_LIBGD=0 USE_LIBREADLINE=0 USE_LUAJIT=0 USE_GNURADIO=0
-  - cmd: set PATH=%PATH%;c:\msys64\usr\bin
+  - cmd: set MAKE=make -f Makefile.Windows USE_MP_COMPILE=0 USE_LIBUSB=0 USE_USRP=0 USE_WSOCK_TRACE=0 USE_LIBXML2=0 USE_LIBGD=0 USE_LIBREADLINE=0 USE_LUAJIT=0 USE_GNURADIO=0
+  - cmd: set PATH=c:\msys64\usr\bin;%PATH%
   - cmd: set SHELL=/bin/sh
-  - cmd: dir c:\msys64\usr\bin\*.exe
 
 build_script:
-  - cmd: if %BUILDER%. == msvc.  %MAK% CPU=%CPU% CC=cl --debug=j
-  - cmd: if %BUILDER%. == mingw. %MAK% CPU=%CPU% CC=gcc
+  - cmd: if %BUILDER%. == msvc.  %MAKE% CPU=%CPU% CC=cl --debug=j
+  - cmd: if %BUILDER%. == mingw. %MAKE% CPU=%CPU% CC=gcc
 
