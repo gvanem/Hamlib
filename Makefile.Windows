@@ -136,10 +136,6 @@ else
   $(error $(Usage))
 endif
 
-ifneq ($(CC),cl)
-  USE_MP_COMPILE = 0
-endif
-
 ifeq ($(CC),gcc)
   select  = $(1)
   CFLAGS += -m$(BITS) -Wall -O2 -g --include config.h
@@ -999,10 +995,12 @@ $(Hamlib++_DLL): $(hamlib++_OBJ) $(Hamlib_IMP_LIB) $(OBJ_DIR)/Hamlib++.res
 #
 # Note: '$(hamlib_amp_OBJ)' is not part of '$(hamlib_C_OBJ)'.
 #
-ifeq ($(USE_MP_COMPILE),1)
+ifeq ($(CC),cl)
+  ifeq ($(USE_MP_COMPILE),1)
 $(hamlib_C_OBJ): $(hamlib_C_SRC) | $(CC).args
 	$(CC) -MP -c @$(CC).args $(EXTRA_CFLAGS) -Fo./$(OBJ_DIR)\\ $(hamlib_C_SRC)
 	@echo
+  endif
 endif
 
 #
