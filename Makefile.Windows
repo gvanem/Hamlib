@@ -1095,8 +1095,8 @@ config.h: $(THIS_FILE)
 	$(file >> $@,#endif /* _CONFIG_H */)
 
 tests/hamlibdatetime.h: tests/hamlibdatetime.h.in
-	$(call Generate, $@, //)
-	cat $< >> $@
+	$(call green_message, Copying $< to $@)
+	cp --update $< $@
 
 $(OBJ_DIR)/unistd.h: $(THIS_FILE)
 	$(call Generate, $@, //)
