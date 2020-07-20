@@ -75,6 +75,7 @@
 #  define OPEN open
 #  define CLOSE close
 #  define IOCTL ioctl
+#  define READ  read
 #endif
 //! @endcond
 
@@ -604,7 +605,7 @@ int HAMLIB_API serial_flush(hamlib_port_t *p)
 
         rig_debug(RIG_DEBUG_TRACE, "%s: flushing: ", __func__);
 
-        while ((n = read(p->fd, buf, 32)) > 0)
+        while ((n = READ(p->fd, buf, 32)) > 0)
         {
             //int i;
 
