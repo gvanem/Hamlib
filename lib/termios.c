@@ -1,24 +1,27 @@
-#ifdef HAVE_CONFIG_H
+
 #include "hamlib/rig.h"
+
+#ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
 #if defined(WIN32) && !defined(HAVE_TERMIOS_H)
 
-#undef DEBUG
-#undef TRACE
+// #undef DEBUG
+// #undef TRACE
 
 #ifdef DEBUG
-#define DEBUG_VERBOSE
-#define DEBUG_ERRORS
-#define report(a) fprintf(stderr,a)
-#define report_warning(a) fprintf(stderr,a)
-#define report_error(a) fprintf(stderr,a)
+  #define DEBUG_VERBOSE
+  #define DEBUG_ERRORS
+  #define report(a)          fprintf(stderr,a)
+  #define report_warning(a)  fprintf(stderr,a)
+  #define report_error(a)    fprintf(stderr,a)
 #else
-#define report(a) do {} while (0)
-#define report_warning(a) do {} while (0)
-#define report_error(a) do {} while (0)
-#endif /* DEBUG */
+  #define report(a) do {} while (0)
+  #define report_warning(a) do {} while (0)
+  #define report_error(a) do {} while (0)
+#endif
+
 /*-------------------------------------------------------------------------
 |   rxtx is a native interface to serial ports in java.
 |   Copyright 1997-2002 by Trent Jarvi taj@www.linux.org.uk.
@@ -1134,7 +1137,7 @@ static struct termios_list *find_port(int fd)
 fail:
     sprintf(message, "No info known about the port. %i\n", fd);
     report(message);
-    set_errno(EBADF);
+    set_errno(EBADFD);
     LEAVE("find_port");
     return NULL;
 }
