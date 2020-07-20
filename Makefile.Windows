@@ -30,7 +30,7 @@ USE_LUAJIT      ?= 1
 # Add support for a 'GnuRadio' device.
 # Impossible as it is not up-to-date with current GnuRadio 3.8 (?) API.
 #
-USE_GNURADIO ?= 1
+USE_GNURADIO ?= 0
 
 #
 # Use only static external libraries to create '$(Hamlib_DLL)', '$(_Hamlib_PYD)'
@@ -182,10 +182,12 @@ endif
 # Warning control:
 #
 ifeq ($(CC),gcc)
-  CFLAGS += -Wno-format         \
-            -Wno-array-bounds   \
-            -Wno-missing-braces \
-            -Wno-unused-function
+  CFLAGS += -Wno-format          \
+            -Wno-array-bounds    \
+            -Wno-missing-braces  \
+            -Wno-unused-function \
+            -Wno-unused-variable \
+            -Wno-shift-count-overflow
 
 else ifeq ($(CC),clang-cl)
   CFLAGS += -Wno-unused-function    \
@@ -1198,6 +1200,8 @@ else
   PY_CFLAGS        += -DDLL_EXPORT
 endif
 
+$(PY_WRAPPER).i: EXTRA_CFLAGS += $(PY_CFLAGS)
+
 py_module: $(py_module_deps)
 	$(COPY) $^ $(PY_ROOT)/Lib/site-packages
 ifneq ($(CC),gcc)
@@ -1318,7 +1322,10 @@ white_message = @echo -e "\e[1;37m$(strip $(1))\e[0m"
 # Do not use '@gcc.args' since some MinGW gets confused by it!?
 #
 ifeq ($(CC),gcc)
-  Compile = $(CC) -c $(CFLAGS) $(EXTRA_CFLAGS) -o $(2) $(1)
+  define Compile
+    $(CC) -c $(CFLAGS) $(EXTRA_CFLAGS) -o $(2) $(1)
+    @echo
+  endef
 else
   Compile = $(CC) -c @$(CC).args $(EXTRA_CFLAGS) -Fo$(strip $(2)) $(1)
 endif
@@ -1393,7 +1400,7 @@ endef
 
 make_res_cl       = rc -nologo -D_MSC_VER  -Fo./$(strip $(2)) $(1)
 make_res_clang-cl = rc -nologo -D__clang__ -Fo./$(strip $(2)) $(1)
-make_res_gcc      = windres -O COFF -I. $(RCFLAGS) -o $(2) -i $(1)
+make_res_gcc      = windres -D__MINGW32__ -O COFF -I. $(RCFLAGS) -o $(2) -i $(1)
 
 #
 # static .lib creation macro:
