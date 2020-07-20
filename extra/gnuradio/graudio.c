@@ -85,7 +85,7 @@ const struct rig_caps graudio_caps =
     .attenuator =     { RIG_DBLST_END, },
     .preamp =      { RIG_DBLST_END, },
     .rx_range_list2 =  { {
-            .start = kHz(100), .end = MHz(30), .modes = GRAUDIO_MODES,
+            .startf = kHz(100), .endf = MHz(30), .modes = GRAUDIO_MODES,
             .low_power = -1, .high_power = -1, GRAUDIO_VFO
         },
         RIG_FRNG_END,
@@ -159,7 +159,7 @@ const struct rig_caps graudioiq_caps =
     .attenuator =     { RIG_DBLST_END, },
     .preamp =      { RIG_DBLST_END, },
     .rx_range_list2 =  { {
-            .start = kHz(100), .end = MHz(30), .modes = GRAUDIO_MODES,
+            .startf = kHz(100), .endf = MHz(30), .modes = GRAUDIO_MODES,
             .low_power = -1, .high_power = -1, GRAUDIO_VFO
         },
         RIG_FRNG_END,
