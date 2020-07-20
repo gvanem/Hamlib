@@ -1094,9 +1094,9 @@ config.h: $(THIS_FILE)
 	$(file >> $@,$(CONFIG_H))
 	$(file >> $@,#endif /* _CONFIG_H */)
 
-tests/hamlibdatetime.h: tests/hamlibdatetime.h.in
-	$(call green_message, Copying $< to $@)
-	cp --update $< $@
+tests/hamlibdatetime.h: $(THIS_FILE)
+	$(call Generate, $@, //)
+	$(file >> $@, #define HAMLIBDATETIME "__DATE__")
 
 $(OBJ_DIR)/unistd.h: $(THIS_FILE)
 	$(call Generate, $@, //)
