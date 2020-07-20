@@ -2,13 +2,13 @@ version: 1.0.{build}
 
 environment:
   matrix:
-    - BUILDER: msvc
+    - BUILDER: mingw
       CPU:     x86
-    - BUILDER: msvc
+    - BUILDER: mingw
       CPU:     x64
-    - BUILDER: mingw
+    - BUILDER: msvc
       CPU:     x86
-    - BUILDER: mingw
+    - BUILDER: msvc
       CPU:     x64
 
 install:
