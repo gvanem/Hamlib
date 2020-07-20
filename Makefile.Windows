@@ -51,6 +51,12 @@ USE_PY_BINDING ?= 3
 USE_CLANG_FORMAT ?= 1
 
 #
+# Could be set in 'appveyor.yml'
+#
+HAVE_MODE_T ?= 0
+
+
+#
 # Change these as needed:
 # (or create env-vars like 'LIBXML2_ROOT=c:/whatever/xml2').
 #
@@ -138,7 +144,7 @@ endif
 
 ifeq ($(CC),gcc)
   select  = $(1)
-  CFLAGS += -m$(BITS) -Wall -O2 -g --include config.h
+  CFLAGS  = -m$(BITS) -Wall -O2 -g --include config.h
   LDFLAGS = -m$(BITS) -Wl,--print-map,--sort-common
   O       = o
 
@@ -156,6 +162,10 @@ else
   ifeq ($(CC),clang-cl)
     CFLAGS += -fms-compatibility -ferror-limit=5
   endif
+endif
+
+ifeq ($(HAVE_MODE_T),1)
+  CFLAGS += -DHAVE_MODE_T
 endif
 
 ifeq ($(CC),gcc)
@@ -1531,6 +1541,7 @@ define CONFIG_H
     typedef unsigned short mode_t;
 
     #define _MODE_T_DEFINED
+    #define HAVE_MODE_T_
   #endif
 
   #if !defined(timersub)

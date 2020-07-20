@@ -25,5 +25,5 @@ install:
 
 build_script:
   - cmd: if %BUILDER%. == msvc.  %MAKE% CPU=%CPU% CC=cl
-  - cmd: if %BUILDER%. == mingw. %MAKE% CPU=%CPU% CC=gcc CFLAGS=-DHAVE_MODE_T_
+  - cmd: if %BUILDER%. == mingw. %MAKE% CPU=%CPU% CC=gcc HAVE_MODE_T=1
 
