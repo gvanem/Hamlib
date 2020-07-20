@@ -1537,11 +1537,11 @@ define CONFIG_H
     #define _UINT_DEFINED
   #endif
 
-  #if !defined(_MODE_T_DEFINED) && !defined(HAVE_MODE_T_)
+  #if !defined(_MODE_T_DEFINED) && !defined(HAVE_MODE_T)
     typedef unsigned short mode_t;
 
     #define _MODE_T_DEFINED
-    #define HAVE_MODE_T_
+    #define HAVE_MODE_T
   #endif
 
   #if !defined(timersub)
