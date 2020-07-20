@@ -316,7 +316,7 @@ cc_to_obj = $(addprefix $(OBJ_DIR)/, \
 c_to_i  = $(notdir $(1:.c=.i))
 cc_to_i = $(notdir $(1:.cc=.i))
 
-VPATH = dummy src c++
+VPATH = dummy src tests c++
 
 VPATH += $(addprefix rigs/, \
            adat             \
@@ -1005,6 +1005,9 @@ $(hamlib_C_OBJ): $(hamlib_C_SRC) | $(CC).args
 	@echo
 endif
 
+#
+# Not used for MinGW/gcc.
+#
 $(CC).args: $(THIS_FILE)
 	$(call create_rsp_file, $@, $(CFLAGS))
 
@@ -1083,7 +1086,7 @@ $(OBJ_DIR)/%.$(O): lib/%.c | $(CC).args
 
 clean: $(CC)_clean
 	rm -f $(GENERATED) $(OBJ_DIR)/*.$(O) $(OBJ_DIR)/*.rc $(OBJ_DIR)/*.res $(Hamlib_DEF) \
-	      $(TESTS_PROGS:.exe=.map) cl.args clang-cl.args gcc.args lib.args link.args depend1.args depend2.args cpp_filter.py
+	      $(TESTS_PROGS:.exe=.map) *.args cpp_filter.py
 	- $(RMDIR) $(OBJ_DIR)/sys $(OBJ_DIR)
 
 gcc_clean: ;
@@ -1304,8 +1307,10 @@ white_message = @echo -e "\e[1;37m$(strip $(1))\e[0m"
 #   $(1): the .c file (and extra CFLAGS)
 #   $(2): the .obj / .o file
 #
+# Do not use '@gcc.args' since some MinGW gets confused by it!?
+#
 ifeq ($(CC),gcc)
-  Compile = $(CC) -c @$(CC).args $(EXTRA_CFLAGS) -o $(2) $(1)
+  Compile = $(CC) -c $(CFLAGS) $(EXTRA_CFLAGS) -o $(2) $(1)
 else
   Compile = $(CC) -c @$(CC).args $(EXTRA_CFLAGS) -Fo$(strip $(2)) $(1)
 endif
