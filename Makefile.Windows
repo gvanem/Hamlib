@@ -146,6 +146,11 @@ ifeq ($(CC),gcc)
   LDFLAGS = -m$(BITS) -Wl,--print-map,--sort-common
   O       = o
 
+  #
+  # We want true Winsock2. Not some POSIX emulation that messes up things big-time.
+  #
+  CFLAGS += -D__USE_W32_SOCKETS
+
 else
   select  = $(2)
   CFLAGS  = -nologo -MD -W3 -Zi -O2 -EHsc -DWIN32 -FI./config.h
