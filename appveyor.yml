@@ -20,6 +20,6 @@ install:
   - cmd: set SHELL=/bin/sh
 
 build_script:
-  - cmd: if %BUILDER%. == msvc.  %MAKE% CPU=%CPU% CC=cl
+  - cmd: if %BUILDER%. == msvc.  (echo Doing: %MAKE% CPU=%CPU% CC=cl & %MAKE% CPU=%CPU% CC=cl)
   - cmd: if %BUILDER%. == mingw. %MAKE% CPU=%CPU% CC=gcc
 

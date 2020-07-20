@@ -797,7 +797,7 @@ hamlib_C_SRC += $(addprefix rotators/gs232a/, \
 hamlib_misc_SRC = lib/termios.c \
                   tests/sprintflst.c
 
-ifeq ($(USE_GNURADIO),0)
+ifeq ($(USE_GNURADIO),1)
   VPATH  += extra/gnuradio
   CFLAGS += -I./extra/gnuradio -I$(GNURADIO_ROOT)/include
 
