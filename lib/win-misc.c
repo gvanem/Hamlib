@@ -1,27 +1,36 @@
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include <string.h>
+#include <time.h>
+#include <windows.h>
+
 /*
  * Ripped from:
  *   https://stackoverflow.com/questions/5404277/porting-clock-gettime-to-windows
+ *
+ * Return the difference between Windows Epoch and Posix Epoch:
+ * The seconds from '1 Jan 1601' to '1 Jan 1970'.
  */
-#include "config.h"
-
-static LARGE_INTEGER getFILETIMEoffset (void)
+static LARGE_INTEGER get_FILETIME_offset (void)
 {
-  SYSTEMTIME    s;
-  FILETIME      f;
-  LARGE_INTEGER t;
+  SYSTEMTIME    st;
+  FILETIME      ft;
+  LARGE_INTEGER ret;
 
-  s.wYear = 1970;
-  s.wMonth = 1;
-  s.wDay = 1;
-  s.wHour = 0;
-  s.wMinute = 0;
-  s.wSecond = 0;
-  s.wMilliseconds = 0;
-  SystemTimeToFileTime(&s, &f);
-  t.QuadPart = f.dwHighDateTime;
-  t.QuadPart <<= 32;
-  t.QuadPart |= f.dwLowDateTime;
-  return (t);
+  st.wYear   = 1970;
+  st.wMonth  = 1;
+  st.wDay    = 1;
+  st.wHour   = 0;
+  st.wMinute = 0;
+  st.wSecond = 0;
+  st.wMilliseconds = 0;
+  SystemTimeToFileTime (&st, &ft);
+  ret.QuadPart = ft.dwHighDateTime;
+  ret.QuadPart <<= 32;
+  ret.QuadPart |= ft.dwLowDateTime;
+  return (ret);
 }
 
 int clock_gettime (int clock_id, struct timespec *ts)
@@ -43,12 +52,12 @@ int clock_gettime (int clock_id, struct timespec *ts)
     if (usePerformanceCounter)
     {
       QueryPerformanceCounter (&offset);
-      frequencyToMicroseconds = (double)performanceFrequency.QuadPart / 1000000.;
+      frequencyToMicroseconds = (double)performanceFrequency.QuadPart / 1000000.0;
     }
     else
     {
-      offset = getFILETIMEoffset();
-      frequencyToMicroseconds = 10.;
+      offset = get_FILETIME_offset();
+      frequencyToMicroseconds = 10.0;
     }
   }
 
@@ -62,11 +71,11 @@ int clock_gettime (int clock_id, struct timespec *ts)
     t.QuadPart |= f.dwLowDateTime;
   }
 
-  t.QuadPart -= offset.QuadPart;
+  t.QuadPart  -= offset.QuadPart;
   microseconds = (double)t.QuadPart / frequencyToMicroseconds;
-  t.QuadPart = microseconds;
-  ts->tv_sec = t.QuadPart / 1000000;
-  ts->tv_nsec = t.QuadPart % 1000;
+  t.QuadPart   = microseconds;
+  ts->tv_sec   = t.QuadPart / 1000000;
+  ts->tv_nsec  = t.QuadPart % 1000;
   (void) clock_id;
   return (0);
 }
@@ -114,10 +123,10 @@ char *strtok_r (char *s, const char *delim, char **ptrptr)
       ++*ptrptr;        /* Advance the last pointer to beyond the null byte */
     }
 
-    return start;       /* Return the position where the string starts */
+    return (start);     /* Return the position where the string starts */
   }
 
   /* We ended up on a null byte, there are no more strings to find!
    */
-  return NULL;
+  return (NULL);
 }

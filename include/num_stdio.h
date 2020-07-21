@@ -33,7 +33,7 @@
  * Wrapper for sscanf to workaround some locales where the decimal
  * separator (float, ...) is not the dot.
  */
-#if defined(_MSC_VER) && !defined(__clang__)
+#if defined(_MSC_VER)
   /*
    * MSVC have problem with the below 'num_sscanf()' macro in netrigctl.c.
    * And also some issues with 'num_sprintf()'. So use inline functions
@@ -42,7 +42,7 @@
   static __inline int num_sscanf (const char *buf, const char *fmt, ...)
   {
     const char *savedlocale = setlocale (LC_NUMERIC, NULL);
-    int ret;
+    int     ret;
     va_list args;
 
     va_start (args, fmt);
@@ -68,7 +68,7 @@
   static __inline int num_snprintf (char *buf, size_t max, const char *fmt, ...)
   {
     const char *savedlocale = setlocale (LC_NUMERIC, NULL);
-    int ret;
+    int     ret;
     va_list args;
 
     va_start (args, fmt);
@@ -106,6 +106,6 @@
          setlocale(LC_NUMERIC, __savedlocale); \
          __ret; \
        })
-#endif /* _MSC_VER) && !__clang__ */
+#endif  /* _MSC_VER */
 
 #endif  /* _NUM_STDIO_H */
