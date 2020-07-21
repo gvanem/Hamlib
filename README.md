@@ -21,7 +21,7 @@ Supported Radios
 ----------------
 
 The Hamlib Wiki page, Supported Radios, contains a snapshot of the supported
-radios at the time of the last Hamlib release.  Go to http://www.hamlib.org
+radios at the time of the last Hamlib release.  Go to https://hamlib.github.io/
 to reach the Wiki.
 
 Hamlib Design
@@ -31,19 +31,19 @@ The library provides functions for both radio and rotator control,
 and data retrieval from the radio or rotator.  A number of functions useful
 for calculating distance and bearing and grid square conversion are included.
 
-libhamlib.so -  library that provides generic API for all RIG types.
+`libhamlib.so` - library that provides generic API for all RIG types.
     This is what Application programmers will "see".  Will have different
-    names on other platforms, e.g. libhamlib-2.dll on MS windows.  Also
-    contains all radio and rotator "backends" (formerly in their own
-    dlopen'ed libraries) provided by Hamlib.
+    names on other platforms, e.g. `libhamlib-4.dll` on MS windows.  Also
+    contains all radio and rotator *backends* (formerly in their own
+    `dlopen`'ed libraries) provided by Hamlib.
 
 Backend Examples are:
 ---------------------
 
-1. yaesu will provide connectivity to Yaesu FT 747GX Transceiver, FT 847
+1. `yaesu` will provide connectivity to Yaesu FT 747GX Transceiver, FT 847
    "Earth Station", etc. via a standard API.
 
-2. xxxx. will provide connectivity to the Wiz-bang moon-melter 101A (yikes..)
+2. `xxxx` will provide connectivity to the Wiz-bang moon-melter 101A (yikes..)
 
 Hamlib will also enable developers to develop professional looking GUI's
 towards a standard control library API, and they would not have to worry
@@ -65,9 +65,7 @@ version included in your distribution.
 Developing with Hamlib API
 --------------------------
 
-API documentation is at:
-
-        https://github.com/Hamlib/Hamlib/wiki/Documentation
+API documentation is at https://github.com/Hamlib/Hamlib/wiki/Documentation
 
 Take a look at tests/README for more info on simple programming examples and
 test programs.
@@ -81,25 +79,26 @@ Recompiling
 -----------
 
 Hamlib is entirely developed using GNU tools, under various Linux systems.
-The library may be recompiled by the familiar "three step":
+The library may be recompiled by the familiar *three step*:
 ```
-        ./configure
-        make
-        sudo make install
+    ./configure
+    make
+    sudo make install
 ```
 
-See the INSTALL file for more information.
+See the [`INSTALL`](INSTALL) file for more information.
 
 Contributing
 ------------
 
-Consult the README.betatester and README.developer files in this directory
+Consult the [`README.betatester`](README.betatester) and
+[`README.developer`](README.developer) files in this directory
 if you feel like testing or helping with Hamlib development.
 
 Contributions of rig specifications and protocol documentation are highly
 encouraged.  Do keep in mind that in some cases the manufacturer may not
 provide complete control information or it is only available under a
-Non-Disclosure Agreement (NDA).  Any documentation *must* be publicly
+Non-Disclosure Agreement (NDA).  Any documentation **must** be publicly
 available so we can legally write and distribute Free Software supporting a
 given device.
 
@@ -107,14 +106,13 @@ The Hamlib team is very interested to hear from you, how Hamlib builds and
 works on your system, especially on non-Linux system or non-PC systems. We
 try to make Hamlib as portable as possible.
 
-Please report in case of problems at hamlib-developer@lists.sourceforge.net
+Please report in case of problems at hamlib-developer@lists.sourceforge.net.
 Git email formatted patches or in unified diff format are welcome!
 
 Also, take a look at http://sourceforge.net/projects/hamlib/ Here you will
 find a mail list, link to the Wiki, and the latest releases.  Feedback,
 questions, etc. about Hamlib are very welcome at the mail list:
-
-        <hamlib-developer@lists.sourceforge.net>
+<hamlib-developer@lists.sourceforge.net>
 
 Hamlib Version Numbers
 ----------------------
