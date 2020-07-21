@@ -1032,9 +1032,10 @@ static int dummy_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         return -RIG_EINVAL;
     }
 
-    if (level == RIG_LEVEL_STRENGTH ||
-        level == RIG_LEVEL_RAWSTR)
+    switch (level)
     {
+    case RIG_LEVEL_STRENGTH:
+    case RIG_LEVEL_RAWSTR:
         if (priv->static_data)
         {
             curr->levels[idx].i = -12;
@@ -1065,9 +1066,10 @@ static int dummy_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             curr->levels[idx].i = qrm + (time(NULL) % 32) + (rand() % 4)
                                   - curr->levels[level1].i + curr->levels[level2].i;
         }
-    }
-    else if (level == RIG_LEVEL_RFPOWER_METER)
-    {
+
+        break;
+
+    case RIG_LEVEL_RFPOWER_METER:
         if (priv->static_data)
         {
             curr->levels[idx].f = 0.5f;
@@ -1077,9 +1079,10 @@ static int dummy_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             curr->levels[idx].f = (float)(time(NULL) % 32) / 64.0f + (float)(
                                       rand() % 4) / 8.0f;
         }
-    }
-    else if (level == RIG_LEVEL_COMP_METER)
-    {
+
+        break;
+
+    case RIG_LEVEL_COMP_METER:
         if (priv->static_data)
         {
             curr->levels[idx].f = 3.5f;
@@ -1089,9 +1092,10 @@ static int dummy_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             curr->levels[idx].f = 0.5f + (float)(time(NULL) % 32) / 16.0f + (float)(
                                       rand() % 200) / 20.0f;
         }
-    }
-    else if (level == RIG_LEVEL_VD_METER)
-    {
+
+        break;
+
+    case RIG_LEVEL_VD_METER:
         if (priv->static_data)
         {
             curr->levels[idx].f = 13.82f;
@@ -1101,9 +1105,10 @@ static int dummy_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             curr->levels[idx].f = 13.82f + (float)(time(NULL) % 10) / 50.0f - (float)(
                                       rand() % 10) / 40.0f;
         }
-    }
-    else if (level == RIG_LEVEL_ID_METER)
-    {
+
+        break;
+
+    case RIG_LEVEL_ID_METER:
         if (priv->static_data)
         {
             curr->levels[idx].f = 0.85f;
@@ -1113,6 +1118,8 @@ static int dummy_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             curr->levels[idx].f = 2.0f + (float)(time(NULL) % 320) / 16.0f - (float)(
                                       rand() % 40) / 20.0f;
         }
+
+        break;
     }
 
     *val = curr->levels[idx];
