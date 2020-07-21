@@ -1089,7 +1089,7 @@ $(OBJ_DIR)/%.$(O): %.cc | $(CC).args
 	$(call Compile, $<, $@)
 
 #
-# For $(hamlib_misc_SRC):
+# For '$(hamlib_misc_SRC)' since 'lib' is not in 'VPATH':
 #
 $(OBJ_DIR)/%.$(O): lib/%.c | $(CC).args
 	$(call Compile, $<, $@)
@@ -1155,15 +1155,23 @@ FORCE:
 # Create API documentation in 'doc/html/index.html':
 #
 doxy_docs: doc/Hamlib.cfg
-	cd doc ; \
-	doxygen Hamlib.cfg 2> doxygen.log
+	cd doc                            ; \
+	doxygen Hamlib.cfg 2> doxygen.log ; \
+	cd html                           ; \
+	hhc index.hhp                     ; \
+	mv -f Hamlib.chm ..
+	@echo 'Doxygen done. Look in "$(realpath doc/doxygen.log)" for messages.'
 
 hamlib_CFG_REPLACE = -e 's|@VERSION@|$(VERSION)|g' \
                      -e 's|@top_srcdir@|..|g'
 
-doc/Hamlib.cfg: doc/hamlib.cfg.in
+doc/Hamlib.cfg: doc/hamlib.cfg.in $(THIS_FILE)
 	$(call Generate, $@, #)
-	sed $(hamlib_CFG_REPLACE) < $< >> $@
+	sed $(hamlib_CFG_REPLACE) < $<     >> $@
+	echo 'FILE_PATTERN = *.c *.h *.cc' >> $@
+	echo 'GENERATE_HTMLHELP = YES'     >> $@
+	echo 'CHM_FILE = Hamlib.chm'       >> $@
+	echo 'SEARCHENGINE = NO'           >> $@
 
 doc_JUNK = $(addprefix doc/, \
              doxygen.log     \
@@ -1172,7 +1180,8 @@ doc_JUNK = $(addprefix doc/, \
 doc_clean:
 	rm -f $(doc_JUNK)
 	cd doc ; rm -fR html/*
-	- $(RMDIR) doc/html
+	rm -f doc/Hamlib.chm
+	- rmdir doc/html
 
 #
 # Python 2/3 module stuff.
