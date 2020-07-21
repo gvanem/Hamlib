@@ -10,8 +10,10 @@ import sys
 
 import Hamlib
 
-def color_print (**kw):
-  pass
+def rig_message_cb (debug_level, *args):
+  print ("debug_level: %d" % debug_level)
+  # print (format, *args)
+  return None
 
 def StartUp(verbose):
     """Simple script to test the Hamlib.py module with Python3."""
@@ -20,7 +22,7 @@ def StartUp(verbose):
           % (sys.argv[0], sys.version.split()[0], Hamlib.cvar.hamlib_version))
 
     if 0 and verbose:
-      Hamlib.rig_set_debug_callback (color_print, None)
+      Hamlib.rig_set_debug_callback (rig_message_cb, None)
 
     Hamlib.rig_set_debug(Hamlib.RIG_DEBUG_NONE)
 
@@ -127,6 +129,9 @@ def StartUp(verbose):
     print('Latitude:\t%4.4f, %4d° %2d\' %2d" %1s\trecoded: %9.4f' \
         % (lat1, deg2, mins2, sec2, ('S' if sw2 else 'N'), lat3))
 
+    print ("The next two lines should show 0x8000000000000000");
+    print ("RIG_MODE_TESTS_MAX:            0x%016x" % Hamlib.RIG_MODE_TESTS_MAX)
+    print ("RIG_FUNC_BIT63:                0x%016x" % Hamlib.RIG_FUNC_BIT63)
 
 if __name__ == '__main__':
     StartUp([0,1]["-v" in sys.argv])
