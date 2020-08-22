@@ -152,7 +152,7 @@ char *date_strget(char *buf, int buflen)
     struct tm *mytm;
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    mytm = gmtime(&tv.tv_sec);
+    mytm = gmtime((const time_t*)&tv.tv_sec);
     strftime(buf, buflen, "%Y-%m-%d:%H:%M:%S.", mytm);
     sprintf(tmp, "%06ld", (long)tv.tv_usec);
     strcat(buf, tmp);
