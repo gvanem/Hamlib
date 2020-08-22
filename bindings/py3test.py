@@ -33,7 +33,7 @@ def StartUp(verbose):
 
     my_rig.open ()
 
-    # 1073741944 is token value for "itu_region"
+    # 1073741944 is token value for "deprecated_itu_region"
     # but using get_conf is much more convenient
     region = my_rig.get_conf(1073741944)
     rpath = my_rig.get_conf("rig_pathname")
