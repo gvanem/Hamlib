@@ -31,7 +31,7 @@
 #  include "config.h"
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 // cppcheck-suppress *
 #include <windows.h>
@@ -169,7 +169,7 @@ static void signal_handler(int sig)
 static void handle_error(enum rig_debug_level_e lvl, const char *msg)
 {
     int e;
-# ifdef __MINGW32__
+# ifdef _WIN32
     LPVOID lpMsgBuf;
 
     lpMsgBuf = (LPVOID)"Unknown error";
@@ -198,7 +198,7 @@ static void handle_error(enum rig_debug_level_e lvl, const char *msg)
 # else
     e = errno;
     rig_debug(lvl, "%s: Network error %d: %s\n", msg, e, strerror(e));
-# endif  /* ifdef __MINGW32__ */
+# endif  /* ifdef _WIN32 */
 }
 #endif  /* if 0 */
 
@@ -693,6 +693,7 @@ static int write_block2(void *func,
                         size_t count)
 {
     int retval = write_block(p, txbuffer, count);
+
     hl_usleep(5000);
 
     if (retval != RIG_OK)

@@ -67,7 +67,7 @@ extern int read_history();
 
 /* HAVE_SSLEEP is defined when Windows Sleep is found
  * HAVE_SLEEP is defined when POSIX sleep is found
- * _WIN32 is defined when compiling with MinGW
+ * _WIN32 is defined when compiling with MinGW / MSVC
  *
  * When cross-compiling from POSIX to Windows using MinGW, HAVE_SLEEP
  * will often be defined by configure although it is not supported by

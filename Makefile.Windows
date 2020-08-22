@@ -397,6 +397,12 @@ TESTS_PROGS = ampctl.exe    \
               testrig.exe   \
               testtrn.exe
 
+ifneq ($(APPVEYOR_PROJECT_NAME),)
+  #
+  # TODO: build with 'LIBUSB_ROOT = ./CI/libusb' etc. when running via 'appveoyr.yml'
+  #
+endif
+
 ifeq ($(USE_LIBXML2),1)
   TESTS_PROGS += rigmem.exe
   PROG_CFLAGS += -I$(LIBXML2_ROOT)/include  \
@@ -1103,7 +1109,7 @@ gcc_clean: ;
 
 cl_clean clang-cl_clean:
 	rm -f link.tmp vc1*.pdb $(Hamlib_DLL:.dll=.pdb) $(Hamlib++_DLL:.dll=.pdb) \
-	      $(TESTS_PROGS:.exe=.pdb) $(TESTS_PROGS:.exe=.exp)
+	      $(TESTS_PROGS:.exe=.pdb) $(TESTS_PROGS:.exe=.exp) testcpp.lib
 
 vclean realclean: clean doc_clean py_clean lua_clean
 	rm -f $(TARGETS) $(Hamlib_DLL:.dll=.map) $(Hamlib++_DLL:.dll=.map) \
@@ -1477,10 +1483,6 @@ define CONFIG_H
    *   while doing 'make depend', pretend we are MinGW.
    */
   #if defined(_MSC_VER)
-    #if !defined(__cplusplus)
-    #define __MINGW32__   1    /* Yeah, really */
-    #endif
-
     #define _CRT_SECURE_NO_WARNINGS
     #define _CRT_NONSTDC_NO_WARNINGS
 

@@ -68,7 +68,7 @@
 #endif
 
 //! @cond Doxygen_Suppress
-#if defined(WIN32) && !defined(HAVE_TERMIOS_H)
+#if defined(_WIN32) && !defined(HAVE_TERMIOS_H)
 #  include "win32termios.h"
 #  define HAVE_TERMIOS_H  1   /* we have replacement */
 #else
@@ -113,7 +113,7 @@ static term_options_backup_t *term_options_backup_head = NULL;
  * This function simply returns TRUE if the argument matches uh_radio_fd and
  * is >= 0
  *
- * This function is only used in the WIN32 case and implements access "from
+ * This function is only used in the _WIN32 case and implements access "from
  * outside" to uh_radio_fd.
  */
 //! @cond Doxygen_Suppress
@@ -191,10 +191,10 @@ int HAMLIB_API serial_open(hamlib_port_t *rp)
          * While this may look dirty, it is certainly easier and more efficient than
          * to check whether fd corresponds to a serial line or a socket everywhere.
          *
-         * CAVEAT: for WIN32, it might be necessary to use win_serial_read() instead
+         * CAVEAT: for _WIN32, it might be necessary to use win_serial_read() instead
          *         of read() for serial lines in iofunc.c. Therefore, we have to
          *         export uh_radio_fd to iofunc.c because in the case of sockets,
-         *         read() must be used also in the WIN32 case.
+         *         read() must be used also in the _WIN32 case.
          *         This is why uh_radio_fd is declared globally in microham.h.
          */
         uh_radio_fd = fd;
@@ -238,11 +238,11 @@ int HAMLIB_API serial_open(hamlib_port_t *rp)
  * \brief Set up Serial port according to requests in port
  * \param rp
  * \return RIG_OK or < 0
+ * \note For Windows, there's an emulation of termios in `lib/termios.c`
  */
 int HAMLIB_API serial_setup(hamlib_port_t *rp)
 {
     int fd;
-    /* There's a lib replacement for termios under Mingw */
 #if defined(HAVE_TERMIOS_H)
     speed_t speed;            /* serial comm speed */
     struct termios options, orig_options;

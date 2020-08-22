@@ -78,8 +78,7 @@
 #include "network.h"
 #include "misc.h"
 
-
-#ifdef __MINGW32__
+#ifdef _WIN32
 static int wsstarted;
 #endif
 
@@ -90,7 +89,7 @@ static int wsstarted;
 static void handle_error(enum rig_debug_level_e lvl, const char *msg)
 {
     int e;
-#ifdef __MINGW32__
+#ifdef _WIN32
     LPVOID lpMsgBuf;
 
     lpMsgBuf = (LPVOID)"Unknown error";
@@ -142,15 +141,14 @@ int network_open(hamlib_port_t *rp, int default_port)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
     rig_debug(RIG_DEBUG_VERBOSE, "%s version 1.0\n", __func__);
 
-#ifdef __MINGW32__
+#ifdef _WIN32
     WSADATA wsadata;
 
-    if (!(wsstarted++) && WSAStartup(MAKEWORD(1, 1), &wsadata) == SOCKET_ERROR)
+    if (wsstarted++ == 0 && WSAStartup(MAKEWORD(1, 1), &wsadata) == SOCKET_ERROR)
     {
         rig_debug(RIG_DEBUG_ERR, "%s: error creating socket\n", __func__);
         return -RIG_EIO;
     }
-
 #endif
 
     if (!rp)
@@ -240,8 +238,8 @@ int network_open(hamlib_port_t *rp, int default_port)
     do
     {
         char msg[1024];
-        fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 
+        fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
         if (fd < 0)
         {
             handle_error(RIG_DEBUG_ERR, "socket");
@@ -258,7 +256,7 @@ int network_open(hamlib_port_t *rp, int default_port)
                  rp->pathname);
         handle_error(RIG_DEBUG_WARN, msg);
 
-#ifdef __MINGW32__
+#ifdef _WIN32
         closesocket(fd);
 #else
         close(fd);
@@ -290,7 +288,7 @@ int network_open(hamlib_port_t *rp, int default_port)
  */
 void network_flush(hamlib_port_t *rp)
 {
-#ifdef __MINGW32__
+#ifdef _WIN32
     ULONG len;
 #else
     uint len;
@@ -304,7 +302,7 @@ void network_flush(hamlib_port_t *rp)
     {
         int ret;
         len = 0;
-#ifdef __MINGW32__
+#ifdef _WIN32
         ret = ioctlsocket(rp->fd, FIONREAD, &len);
 #else
         ret = ioctl(rp->fd, FIONREAD, &len);
@@ -352,10 +350,10 @@ int network_close(hamlib_port_t *rp)
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-#ifdef __MINGW32__
+#ifdef _WIN32
     ret = closesocket(rp->fd);
 
-    if (--wsstarted)
+    if (wsstarted > 0 && wsstarted-- == 0)
     {
         WSACleanup();
     }

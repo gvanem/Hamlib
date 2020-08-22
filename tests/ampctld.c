@@ -117,7 +117,7 @@ char send_cmd_term = '\r';      /* send_cmd termination char */
 static void handle_error(enum rig_debug_level_e lvl, const char *msg)
 {
     int e;
-#ifdef __MINGW32__
+#ifdef _WIN32
     LPVOID lpMsgBuf;
 
     lpMsgBuf = (LPVOID)"Unknown error";
@@ -390,7 +390,7 @@ int main(int argc, char *argv[])
               my_amp->caps->version,
               rig_strstatus(my_amp->caps->status));
 
-#ifdef __MINGW32__
+#ifdef _WIN32
 #  ifndef SO_OPENTYPE
 #    define SO_OPENTYPE     0x7008
 #  endif
@@ -491,7 +491,7 @@ int main(int argc, char *argv[])
         }
 
         handle_error(RIG_DEBUG_WARN, "binding failed (trying next interface)");
-#ifdef __MINGW32__
+#ifdef _WIN32
         closesocket(sock_listen);
 #else
         close(sock_listen);
@@ -604,7 +604,7 @@ int main(int argc, char *argv[])
     amp_close(my_amp); /* close port */
     amp_cleanup(my_amp); /* if you care about memory */
 
-#ifdef __MINGW32__
+#ifdef _WIN32
     WSACleanup();
 #endif
 
@@ -624,7 +624,7 @@ void *handle_socket(void *arg)
     char host[NI_MAXHOST];
     char serv[NI_MAXSERV];
 
-#ifdef __MINGW32__
+#ifdef _WIN32
     int sock_osfhandle = _open_osfhandle(handle_data_arg->sock, _O_RDONLY);
 
     if (sock_osfhandle == -1)
@@ -644,7 +644,7 @@ void *handle_socket(void *arg)
         goto handle_exit;
     }
 
-#ifdef __MINGW32__
+#ifdef _WIN32
     fsockout = _fdopen(sock_osfhandle, "wb");
 #else
     fsockout = fdopen(handle_data_arg->sock, "wb");
@@ -689,12 +689,12 @@ void *handle_socket(void *arg)
               serv);
 
     fclose(fsockin);
-#ifndef __MINGW32__
+#ifndef _WIN32
     fclose(fsockout);
 #endif
 
 handle_exit:
-#ifdef __MINGW32__
+#ifdef _WIN32
     closesocket(handle_data_arg->sock);
 #else
     close(handle_data_arg->sock);
