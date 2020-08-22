@@ -80,6 +80,7 @@ int clock_gettime (int clock_id, struct timespec *ts)
   return (0);
 }
 
+#if !defined(HAVE_STRTOK_R)
 /*
  * A 'strtok_r()' function taken from libcurl:
  *
@@ -130,3 +131,4 @@ char *strtok_r (char *s, const char *delim, char **ptrptr)
    */
   return (NULL);
 }
+#endif
