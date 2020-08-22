@@ -17,7 +17,7 @@ VERSION   = $(MAJOR_VER).$(MINOR_VER)
 #
 # Must use 'CC=clang-cl' until all the gcc centric stuff is gone.
 #
-USE_MP_COMPILE  ?= 1
+USE_MP_COMPILE  ?= 0
 USE_LIBUSB      ?= 1
 USE_USRP        ?= 0
 USE_WSOCK_TRACE ?= 1
@@ -144,7 +144,7 @@ endif
 
 ifeq ($(CC),gcc)
   select  = $(1)
-  CFLAGS  = -m$(BITS) -Wall -O2 -g --include config.h
+  CFLAGS  = -m$(BITS) -Wall -O2 -g --include config.h -DHAVE_STRTOK_R
   LDFLAGS = -m$(BITS) -Wl,--print-map,--sort-common
   O       = o
 
@@ -426,7 +426,7 @@ TESTS_PROGS += testcpp.exe
 #
 # All .c-files for '$(Hamlib_DLL)'.
 # Except for those in '$(hamlib_misc_SRC)' which do not need to be exported
-# (i.e. they have no '-DIN_HAMLIB' in CFLAGS).
+# (i.e. they have no '-DIN_HAMLIB' in 'CFLAGS').
 #
 hamlib_C_SRC = $(addprefix src/, \
                  amp_conf.c      \
@@ -811,8 +811,16 @@ hamlib_C_SRC += $(addprefix rotators/gs232a/, \
 #
 # Various support code for Hamlib's internal use:
 #
-hamlib_misc_SRC = lib/termios.c \
+hamlib_misc_SRC = lib/termios.c  \
+                  lib/win-misc.c \
                   tests/sprintflst.c
+
+ifneq ($(CC),gcc)
+  hamlib_misc_SRC += $(addprefix lib/, \
+                       getopt_long.c   \
+                       gettimeofday.c  \
+                       usleep.c)
+endif
 
 ifeq ($(USE_GNURADIO),1)
   VPATH  += extra/gnuradio
@@ -824,14 +832,6 @@ ifeq ($(USE_GNURADIO),1)
                     mc4020.c)
 
   hamlib_CC_SRC += gnuradio/gnuradio.cc
-endif
-
-ifneq ($(CC),gcc)
-  hamlib_misc_SRC += $(addprefix lib/, \
-                       getopt_long.c   \
-                       gettimeofday.c  \
-                       win-misc.c      \
-                       usleep.c)
 endif
 
 #
@@ -1160,18 +1160,11 @@ doxy_docs: doc/Hamlib.cfg
 	cd html                           ; \
 	hhc index.hhp                     ; \
 	mv -f Hamlib.chm ..
-	@echo 'Doxygen done. Look in "$(realpath doc/doxygen.log)" for messages.'
+	@echo 'Doxygen done. Look in "doc/doxygen.log" for messages.'
 
-hamlib_CFG_REPLACE = -e 's|@VERSION@|$(VERSION)|g' \
-                     -e 's|@top_srcdir@|..|g'
-
-doc/Hamlib.cfg: doc/hamlib.cfg.in $(THIS_FILE)
+doc/Hamlib.cfg: $(THIS_FILE)
 	$(call Generate, $@, #)
-	sed $(hamlib_CFG_REPLACE) < $<     >> $@
-	echo 'FILE_PATTERN = *.c *.h *.cc' >> $@
-	echo 'GENERATE_HTMLHELP = YES'     >> $@
-	echo 'CHM_FILE = Hamlib.chm'       >> $@
-	echo 'SEARCHENGINE = NO'           >> $@
+	$(file >> $@,$(hamlib_CFG))
 
 doc_JUNK = $(addprefix doc/, \
              doxygen.log     \
@@ -1189,16 +1182,24 @@ doc_clean:
 # Get the Python prefix via the 'py -x' launcher.
 # The Python major version (2 or 3) is simply '$(USE_PY_BINDING)'.
 #
-PY_ROOT    = $(subst \,/,$(shell py -$(USE_PY_BINDING) -c "import sys; print(sys.prefix)"))
-PY_WRAPPER = HamlibPy$(USE_PY_BINDING)_wrap
+PY_ROOT = $(subst \,/,$(shell py -$(USE_PY_BINDING) -c "import sys; print(sys.prefix)"))
+
+ifeq ($(USE_PY_BINDING),2)
+  PY_WRAPPER_C = $(OBJ_DIR)/HamlibPy2_wrap.c
+  PY_WRAPPER_O = $(OBJ_DIR)/HamlibPy2_wrap.$(O)
+
+else ifeq ($(USE_PY_BINDING),3)
+  PY_WRAPPER_C = $(OBJ_DIR)/HamlibPy3_wrap.c
+  PY_WRAPPER_O = $(OBJ_DIR)/HamlibPy3_wrap.$(O)
+endif
 
 ifeq ($(CC),gcc)
   PYD_LIBS = $(PY_ROOT)/libs/libpython$(USE_PY_BINDING)*.a
 endif
 
-_Hamlib_PYD_deps = $(OBJ_DIR)/$(PY_WRAPPER).$(O) $(OBJ_DIR)/HamlibPy.res
-py_module_deps   = Hamlib.py $(_Hamlib_PYD)
-PY_CFLAGS        = -I$(PY_ROOT)/include
+_Hamlib_PYD_deps = $(PY_WRAPPER_O) $(OBJ_DIR)/HamlibPy.res
+py_module_deps   = $(_Hamlib_PYD)  $(OBJ_DIR)/Hamlib.py
+PY_CFLAGS        = -I$(PY_ROOT)/include -DNO_SSIZE_T
 
 ifeq ($(USE_STATIC),1)
   _Hamlib_PYD_deps += $(Hamlib_STAT_LIB) $(misc_LIB)
@@ -1209,39 +1210,39 @@ else
   PY_CFLAGS        += -DDLL_EXPORT
 endif
 
-$(PY_WRAPPER).i: EXTRA_CFLAGS += $(PY_CFLAGS)
-
 py_module: $(py_module_deps)
 	$(COPY) $^ $(PY_ROOT)/Lib/site-packages
 ifneq ($(CC),gcc)
 	$(COPY) _Hamlib.pdb $(PY_ROOT)/Lib/site-packages
 endif
 
-Hamlib.py: $(PY_WRAPPER).c
+$(OBJ_DIR)/Hamlib.py: $(PY_WRAPPER_C)
 
-$(PY_WRAPPER).c: bindings/Hamlib.swg
-	$(call green_message, Generating $@ and Hamlib.py)
+$(PY_WRAPPER_C): bindings/Hamlib.swg
+	$(call green_message, Generating $@ and $(OBJ_DIR)/Hamlib.py)
 	swig -python -I./include -I./bindings -o $@ $<
 
-$(OBJ_DIR)/$(PY_WRAPPER).$(O): $(PY_WRAPPER).c | $(CC).args
+$(PY_WRAPPER_C:.c=.i): EXTRA_CFLAGS += $(PY_CFLAGS)
+
+$(PY_WRAPPER_O): $(PY_WRAPPER_C) | $(CC).args
 	$(call Compile, $(PY_CFLAGS) $<, $@)
 
 $(_Hamlib_PYD): $(_Hamlib_PYD_deps)
 ifeq ($(USE_PY_BINDING),3)
-	$(call link_PYD, $@, PyInit__Hamlib, $^ $(PYD_LIBS))
+	$(call link_PYD, $@, $^ $(PYD_LIBS), PyInit__Hamlib)
 else ifeq ($(USE_PY_BINDING),2)
-	$(call link_PYD, $@, init_Hamlib, $^ $(PYD_LIBS))
+	$(call link_PYD, $@, $^ $(PYD_LIBS), init_Hamlib)
 else
 	$(error Use 'USE_PY_BINDING=[2|3]'.)
 endif
 
-py_JUNK = Hamlib.py                \
+py_JUNK = $(OBJ_DIR)/Hamlib.py     \
           $(_Hamlib_PYD)           \
           $(_Hamlib_PYD:.pyd=.map) \
           $(_Hamlib_PYD:.pyd=.pdb) \
           $(_Hamlib_PYD:.pyd=.exp) \
           $(_Hamlib_PYD:.pyd=.lib) \
-          $(PY_WRAPPER).c          \
+          $(PY_WRAPPER_C)          \
           $(OBJ_DIR)/HamlibPy.res
 
 py_clean:
@@ -1256,7 +1257,7 @@ lua_module: $(HamlibLua_DLL)
 	$(call green_message, Remember to update your 'LUA_CPATH' for '$(HamlibLua_DLL)'. And your 'PATH' for the needed '$(Hamlib_DLL)')
 #	$(COPY) $^ $(some_where_on_PATH_and_LUA_CPATH)
 
-$(OBJ_DIR)/hamliblua_wrap.c: bindings/Hamlib.swg
+$(OBJ_DIR)/HamlibLua_wrap.c: bindings/Hamlib.swg
 	$(call green_message, Generating $@)
 	swig -lua -I./include -I./bindings -o $@ $<
 
@@ -1264,11 +1265,12 @@ HamlibLua_DLL_deps = $(OBJ_DIR)/HamlibLua_wrap.$(O) \
                      $(OBJ_DIR)/HamlibLua.res
 
 ifeq ($(USE_STATIC),1)
+  export_to_LUA       =
   HamlibLua_DLL_deps += $(Hamlib_STAT_LIB) $(misc_LIB)
   LUA_LIB            += $(EX_LIBS)
 else
-  HamlibLua_DLL_deps += $(Hamlib_IMP_LIB)
   export_to_LUA       = -DDLL_EXPORT
+  HamlibLua_DLL_deps += $(Hamlib_IMP_LIB)
 endif
 
 $(OBJ_DIR)/HamlibLua_wrap.$(O) HamlibLua_wrap.i: EXTRA_CFLAGS = -I$(LUA_ROOT)/src $(export_to_LUA)
@@ -1300,16 +1302,16 @@ lua_clean:
 	rm -f $(lua_JUNK)
 
 $(OBJ_DIR)/Hamlib.rc: $(THIS_FILE)
-	$(call make_rc, $@, $(Hamlib_DLL), "Min Ham Radio Control Library", VFT_DLL)
+	$(call make_rc, $@, $(Hamlib_DLL), "Ham Radio Control Library for C", VFT_DLL)
 
 $(OBJ_DIR)/Hamlib++.rc: $(THIS_FILE)
 	$(call make_rc, $@, $(Hamlib++_DLL), "Ham Radio Control Library for C++", VFT_DLL)
 
 $(OBJ_DIR)/HamlibPy.rc: $(THIS_FILE)
-	$(call make_rc, $@, $(_Hamlib_PYD), "Python v$(USE_PY_BINDING).x module for Hamlib", VFT_DLL)
+	$(call make_rc, $@, $(_Hamlib_PYD), "Hamlib module for Python v$(USE_PY_BINDING).x", VFT_DLL)
 
 $(OBJ_DIR)/HamlibLua.rc: $(THIS_FILE)
-	$(call make_rc, $@, $(HamlibLua_DLL), "Lua module for Hamlib", VFT_DLL)
+	$(call make_rc, $@, $(HamlibLua_DLL), "Hamlib module for LuaJIT", VFT_DLL)
 
 $(OBJ_DIR)/%.res: $(OBJ_DIR)/%.rc config.h
 	$(call make_res, $<, $@)
@@ -1383,8 +1385,10 @@ link_DLL_gcc      = $(CC) -shared $(LDFLAGS) -o $(1) -Wl,--out-implib,$(strip $(
 #
 # Macro to create a PYD from objects.
 #   arg1, $(1): The .pyd file.
-#   arg2, $(2): The name of the Python init function (not for MinGW)
-#   arg3, $(3): The .obj file(s), extra args and libs.
+#   arg2, $(2): The .obj file(s), extra args and libs.
+#   arg3, $(3): The name of the Python init function.
+#         Not used by MinGW. It exports the 'SWIGEXPORT SWIG_init()' function
+#         in the 'HamlibPyX_wrap.c' code.
 #
 define link_PYD
   $(call green_message, Linking $(1))
@@ -1393,13 +1397,13 @@ define link_PYD
 endef
 
 define link_PYD_cl
-  link -dll $(LDFLAGS) -libpath:$(PY_ROOT)/libs -export:$(strip $(2)) -out:$(strip $(1)) $(3) > link.tmp
+  link -dll $(LDFLAGS) -libpath:$(PY_ROOT)/libs -export:$(strip $(3)) -out:$(strip $(1)) $(2) > link.tmp
   @cat link.tmp >> $(1:.pyd=.map)
   @rm -f $(1:.pyd=.exp) $(1:.pyd=.lib) link.tmp
 endef
 
 link_PYD_clang-cl = $(call link_PYD_cl, $(1), $(2), $(3))
-link_PYD_gcc      = $(CC) -shared $(LDFLAGS) -o $(1) $(3) > $(1:.pyd=.map)
+link_PYD_gcc      = $(CC) -shared $(LDFLAGS) -o $(1) $(2) > $(1:.pyd=.map)
 
 define make_res
   $(call green_message, Creating $(2))
@@ -1490,6 +1494,7 @@ define CONFIG_H
     #define HAVE_SELECT           1
     #define HAVE_SSLEEP           1
     #define HAVE_SYS_TIME_H       1
+
     #include <sys/time.h>         /* 'gettimeofday()' */
   #endif
 
@@ -1540,7 +1545,7 @@ define CONFIG_H
   #define _TIMESPEC_DEFINED
   #define  _USE_MATH_DEFINES  /* 'M_PI' etc. */
 
-  #if !defined(_SSIZE_T_DEFINED)
+  #if !defined(_SSIZE_T_DEFINED) && !defined(NO_SSIZE_T)
     #include <basetsd.h>
 
     typedef SSIZE_T ssize_t;
@@ -1577,13 +1582,61 @@ define CONFIG_H
 
   /* Functions in 'lib/win-misc.c':
    */
-  #if defined(_MSC_VER)
-    #define CLOCK_REALTIME  0
-    extern int clock_gettime (int clock_id, struct timespec *ts);
+  #ifndef CLOCK_REALTIME
+  #define CLOCK_REALTIME  0
+  #endif
 
+  extern int clock_gettime (int clock_id, struct timespec *ts);
+
+  #ifndef HAVE_STRTOK_R
     extern char *strtok_r (char *s, const char *delim, char **ptrptr);
   #endif
 
+endef
+
+#
+# The contents of 'doc/Hamlib.cfg' used by Doxygen.
+#
+define hamlib_CFG
+  #
+  # All paths are relative to './doc'.
+  #
+  PROJECT_NAME     = "Hamlib"
+  PROJECT_NUMBER   = $(VERSION)
+  OUTPUT_DIRECTORY = .
+  PREDEFINED       = __GNUC__ DOXYGEN DOC_HIDDEN
+  OUTPUT_LANGUAGE  = English
+  GENERATE_HTML    = YES
+  GENERATE_LATEX   = NO
+  GENERATE_RTF     = NO
+  GENERATE_MAN     = NO
+  MAN_EXTENSION    = .3
+  TAB_SIZE         = 4
+  CASE_SENSE_NAMES = NO
+  FULL_PATH_NAMES  = NO
+  INPUT            = index.doxygen ../src/ ../include/hamlib/
+  INCLUDE_PATH     = ../include
+  EXAMPLE_PATH     = ../tests/testrig.c
+  QUIET            = YES
+  HTML_STYLESHEET  = hamlib.css
+  HTML_FOOTER      = footer.html
+
+  EXTRACT_ALL           = NO
+  EXTRACT_STATIC        = NO
+  HIDE_UNDOC_MEMBERS    = NO
+  SHOW_INCLUDE_FILES    = YES
+  INHERIT_DOCS          = YES
+  ENABLED_SECTIONS      = ""
+  JAVADOC_AUTOBRIEF     = NO
+  OPTIMIZE_OUTPUT_FOR_C = YES
+  MAN_LINKS             = NO
+  MACRO_EXPANSION       = YES
+  FILE_PATTERN          = *.c *.h *.cc
+  SOURCE_BROWSER        = YES
+  STRIP_CODE_COMMENTS   = NO
+  GENERATE_HTMLHELP     = YES
+  CHM_FILE              = Hamlib.chm
+  SEARCHENGINE          = NO
 endef
 
 define RC_COMMON
