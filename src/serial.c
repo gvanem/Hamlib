@@ -228,6 +228,7 @@ int HAMLIB_API serial_open(hamlib_port_t *rp)
     }
 
     serial_flush(rp); // ensure nothing is there when we open
+    hl_usleep(50 * 1000); // give a little time for MicroKeyer to finish
 
     return RIG_OK;
 }
@@ -335,6 +336,13 @@ int HAMLIB_API serial_setup(hamlib_port_t *rp)
         speed = B115200;    /* awesome! */
         break;
 
+#ifdef B230400
+
+    case 230400:
+        speed = B230400;    /* super awesome! */
+        break;
+#endif
+
     default:
         rig_debug(RIG_DEBUG_ERR,
                   "%s: unsupported rate specified: %d\n",
@@ -346,9 +354,11 @@ int HAMLIB_API serial_setup(hamlib_port_t *rp)
     }
 
     /* TODO */
-    rig_debug(RIG_DEBUG_TRACE, "%s: cfsetispeed\n", __func__);
+    rig_debug(RIG_DEBUG_TRACE, "%s: cfsetispeed=%d,0x%04x\n", __func__,
+              rp->parm.serial.rate, speed);
     cfsetispeed(&options, speed);
-    rig_debug(RIG_DEBUG_TRACE, "%s: cfsetospeed\n", __func__);
+    rig_debug(RIG_DEBUG_TRACE, "%s: cfsetospeed=%d,0x%04x\n", __func__,
+              rp->parm.serial.rate, speed);
     cfsetospeed(&options, speed);
 
     /*
@@ -365,6 +375,9 @@ int HAMLIB_API serial_setup(hamlib_port_t *rp)
      * Set data to requested values.
      *
      */
+    rig_debug(RIG_DEBUG_TRACE, "%s: data_bits=%d\n", __func__,
+              rp->parm.serial.data_bits);
+
     switch (rp->parm.serial.data_bits)
     {
     case 7:
@@ -417,6 +430,8 @@ int HAMLIB_API serial_setup(hamlib_port_t *rp)
      * Set parity to requested values.
      *
      */
+    rig_debug(RIG_DEBUG_TRACE, "%s: parity=%d\n", __func__, rp->parm.serial.parity);
+
     switch (rp->parm.serial.parity)
     {
     case RIG_PARITY_NONE:
@@ -506,7 +521,7 @@ int HAMLIB_API serial_setup(hamlib_port_t *rp)
 #endif
 
     /*
-     * VTIME in deciseconds, rp->timeout in miliseconds
+     * VTIME in deciseconds, rp->timeout in milliseconds
      */
     options.c_cc[VTIME] = (rp->timeout + 99) / 100;
     options.c_cc[VMIN] = 1;

@@ -221,7 +221,7 @@ const struct confparams kenwood_cfg_params[] =
  *
  * returns:
  *   RIG_OK -   if no error occurred.
- *   RIG_EIO -    if an I/O error occured while sending/receiving data.
+ *   RIG_EIO -    if an I/O error occurred while sending/receiving data.
  *   RIG_ETIMEOUT - if timeout expires without any characters received.
  *   RIG_REJECTED - if a negative acknowledge was received or command not
  *          recognized by rig.
@@ -566,7 +566,7 @@ transaction_quit:
  *  expected  Value of expected string length
  *
  * Returns:
- *   RIG_OK -   if no error occured.
+ *   RIG_OK -   if no error occurred.
  *   RIG_EPROTO   if returned string and expected are not equal
  *   Error from kenwood_transaction() if any
  *
@@ -757,7 +757,7 @@ int kenwood_open(RIG *rig)
     if (RIG_OK != err)
     {
         rig_debug(RIG_DEBUG_ERR,
-                  "%s: no response to get_id from rig...contintuing anyways.\n", __func__);
+                  "%s: no response to get_id from rig...continuing anyways.\n", __func__);
     }
 
     if (RIG_IS_TS2000

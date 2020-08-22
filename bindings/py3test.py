@@ -58,7 +58,7 @@ def StartUp(verbose):
 
     print("mode:\t\t\t%s\nbandwidth:\t\t%s" % (Hamlib.rig_strrmode(mode), width))
 
-    print("ITU_region:\t\t%s" % my_rig.state.itu_region)
+    print("ITU_region:\t\t%s" % my_rig.state.deprecated_itu_region)
     print("Backend copyright:\t%s" % my_rig.caps.copyright)
     print("Model:\t\t\t%s" % my_rig.caps.model_name)
     print("Manufacturer:\t\t%s" % my_rig.caps.mfg_name)

@@ -1493,7 +1493,7 @@ int thd72_get_chan_all_cb(RIG *rig, chan_cb_t chan_cb, rig_ptr_t arg)
     hamlib_port_t *rp = &rig->state.rigport;
     channel_t *chan;
     chan_t *chan_list = rig->state.chan_list;
-    int chan_next = chan_list[0].startc;
+    int chan_next = chan_list[0].start;
     char block[BLOCK_SZ];
     char resp[CMD_SZ];
 
@@ -1580,7 +1580,7 @@ int thd72_get_chan_all_cb(RIG *rig, chan_cb_t chan_cb, rig_ptr_t arg)
             }
 
             /* notify the end? */
-            chan_next = chan_next < chan_list[i].endc ? chan_next + 1 : chan_next;
+            chan_next = chan_next < chan_list[i].end ? chan_next + 1 : chan_next;
 
             /*
              * provide application with channel data,
