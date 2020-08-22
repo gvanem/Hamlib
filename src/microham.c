@@ -725,7 +725,7 @@ static void writeControl(unsigned char *data, int len)
 }
 
 
-#if defined(HAVE_PTHREAD) && defined(HAVE_SOCKETPAIR) && defined(HAVE_SELECT)
+#if defined(HAVE_SELECT)
 //
 // send a heartbeat and record time
 // The "last heartbeat" time is recorded in a global variable
@@ -741,10 +741,7 @@ static void heartbeat()
     writeControl(seq, 2);
     lastbeat = time(NULL);
 }
-#endif /* defined(HAVE_PTHREAD) && defined(HAVE_SOCKETPAIR) && defined(HAVE_SELECT) */
 
-
-#if defined(HAVE_SELECT)
 //
 // This thread reads from the microHam device and puts data on the sockets
 // it also issues periodic heartbeat messages
