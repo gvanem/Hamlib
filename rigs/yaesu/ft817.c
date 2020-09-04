@@ -111,7 +111,7 @@ static const yaesu_cmd_set_t ncmd[] =
     { 1, { 0x00, 0x00, 0x00, 0x00, 0xe7 } }, /* get RX status  */
     { 1, { 0x00, 0x00, 0x00, 0x00, 0xf7 } }, /* get TX status  */
     { 1, { 0x00, 0x00, 0x00, 0x00, 0x03 } }, /* get FREQ and MODE status */
-    { 1, { 0x00, 0x00, 0x00, 0x00, 0x00 } }, /* pwr wakeup sequence */
+    { 1, { 0xff, 0xff, 0xff, 0xff, 0xff } }, /* pwr wakeup sequence */
     { 1, { 0x00, 0x00, 0x00, 0x00, 0x0f } }, /* pwr on */
     { 1, { 0x00, 0x00, 0x00, 0x00, 0x8f } }, /* pwr off */
     { 0, { 0x00, 0x00, 0x00, 0x00, 0xbb } }, /* eeprom read */
@@ -164,7 +164,7 @@ const struct rig_caps ft817_caps =
     RIG_MODEL(RIG_MODEL_FT817),
     .model_name =          "FT-817",
     .mfg_name =            "Yaesu",
-    .version =             "20200821.0",
+    .version =             "20200903.0",
     .copyright =           "LGPL",
     .status =              RIG_STATUS_STABLE,
     .rig_type =            RIG_TYPE_TRANSCEIVER,
@@ -443,10 +443,8 @@ int ft817_init(RIG *rig)
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
 
-    // cppcheck-suppress *
     if ((rig->state.priv = calloc(1, sizeof(struct ft817_priv_data))) == NULL)
     {
-        // cppcheck-suppress *
         return -RIG_ENOMEM;
     }
 
@@ -455,7 +453,6 @@ int ft817_init(RIG *rig)
     /* Copy complete native cmd set to private cmd storage area */
     memcpy(priv->pcs, ncmd, sizeof(ncmd));
 
-    // cppcheck-suppress *
     return RIG_OK;
 }
 
@@ -1386,6 +1383,7 @@ int ft817_set_powerstat(RIG *rig, powerstat_t status)
         return ft817_send_cmd(rig, FT817_NATIVE_CAT_PWR_OFF);
 
     case RIG_POWER_ON:
+        ft817_send_cmd(rig, FT817_NATIVE_CAT_PWR_WAKE);
         return ft817_send_cmd(rig, FT817_NATIVE_CAT_PWR_ON);
 
     case RIG_POWER_STANDBY:

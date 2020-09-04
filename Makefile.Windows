@@ -1,7 +1,7 @@
 #
 # GNU Makefile for Hamlib (MSVC / clang-cl / MinGW).
 #
-# G. Vanem <gvanem@yahoo.no> 2019.
+# G. Vanem <gvanem@yahoo.no> 2019 - 2020.
 #
 THIS_FILE = Makefile.Windows
 
@@ -17,10 +17,9 @@ VERSION   = $(MAJOR_VER).$(MINOR_VER)
 #
 # Must use 'CC=clang-cl' until all the gcc centric stuff is gone.
 #
-USE_MP_COMPILE  ?= 0
+USE_MP_COMPILE  ?= 1
 USE_LIBUSB      ?= 1
 USE_USRP        ?= 0
-USE_WSOCK_TRACE ?= 1
 USE_LIBXML2     ?= 1
 USE_LIBGD       ?= 1
 USE_LIBREADLINE ?= 0
@@ -28,9 +27,15 @@ USE_LUAJIT      ?= 1
 
 #
 # Add support for a 'GnuRadio' device.
-# Impossible as it is not up-to-date with current GnuRadio 3.8 (?) API.
+# Impossible as it is not up-to-date with current GnuRadio 3.8 (or 3.9) API.
 #
 USE_GNURADIO ?= 0
+
+#
+# Use the Winsock tracing library (no for MinGW):
+#   https://github.com/gvanem/wsock-trace
+#
+USE_WSOCK_TRACE ?= 1
 
 #
 # Use only static external libraries to create '$(Hamlib_DLL)', '$(_Hamlib_PYD)'
@@ -54,7 +59,6 @@ USE_CLANG_FORMAT ?= 1
 # Could be set in 'appveyor.yml'
 #
 HAVE_MODE_T ?= 0
-
 
 #
 # Change these as needed:
@@ -106,10 +110,10 @@ endef
 ifeq ($(CPU),)
   CPU = x86
 endif
+
 ifeq ($(CPU),X86)
   CPU = x86
-endif
-ifeq ($(CPU),X64)
+else ifeq ($(CPU),X64)
   CPU = x64
 endif
 
@@ -981,7 +985,7 @@ $(OBJ_DIR) $(OBJ_DIR)/sys:
 	- $(MKDIR) $@
 
 epilogue:
-	$(call white_message, Welcome to $(Hamlib_DLL) and $(Hamlib++_DLL).)
+	$(call white_message, Welcome to $(Hamlib_DLL) and $(Hamlib++_DLL) (CPU = $(CPU)).)
 	$(call green_message, You could also do a 'make -f $(THIS_FILE) [doxy_docs | py_module | lua_module]'.)
 	@echo
 
