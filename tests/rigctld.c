@@ -27,7 +27,7 @@
 #  include "config.h"
 #endif
 
-#ifdef _WIN32
+#ifdef WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
@@ -164,7 +164,7 @@ static void sync_callback(int lock)
 #endif
 }
 
-#ifdef _WIN32
+#ifdef WIN32
 static BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
@@ -199,7 +199,7 @@ static void signal_handler(int sig)
 static void handle_error(enum rig_debug_level_e lvl, const char *msg)
 {
     int e;
-#ifdef _WIN32
+#ifdef __MINGW32__
     LPVOID lpMsgBuf;
 
     lpMsgBuf = (LPVOID)"Unknown error";
@@ -658,7 +658,7 @@ int main(int argc, char *argv[])
 
 #endif
 
-#ifdef _WIN32
+#ifdef __MINGW32__
 #  ifndef SO_OPENTYPE
 #    define SO_OPENTYPE     0x7008
 #  endif
@@ -768,7 +768,7 @@ int main(int argc, char *argv[])
         }
 
         handle_error(RIG_DEBUG_WARN, "binding failed (trying next interface)");
-#ifdef _WIN32
+#ifdef __MINGW32__
         closesocket(sock_listen);
 #else
         close(sock_listen);
@@ -804,6 +804,7 @@ int main(int argc, char *argv[])
     {
         handle_error(RIG_DEBUG_ERR, "sigaction SIGPIPE");
     }
+
 #endif
 
 #ifdef SIGINT
@@ -814,9 +815,9 @@ int main(int argc, char *argv[])
     {
         handle_error(RIG_DEBUG_ERR, "sigaction SIGINT");
     }
-#endif
 
-#elif defined(_WIN32)
+#endif
+#elif defined (WIN32)
 
     if (!SetConsoleCtrlHandler(CtrlHandler, TRUE))
     {
@@ -945,7 +946,7 @@ int main(int argc, char *argv[])
 #endif
     rig_cleanup(my_rig); /* if you care about memory */
 
-#ifdef _WIN32
+#ifdef __MINGW32__
     WSACleanup();
 #endif
 
@@ -968,7 +969,7 @@ void *handle_socket(void *arg)
     int ext_resp = 0;
     char resp_sep = '\n';
 
-#ifdef _WIN32
+#ifdef __MINGW32__
     int sock_osfhandle = _open_osfhandle(handle_data_arg->sock, _O_RDONLY);
 
     if (sock_osfhandle == -1)
@@ -989,7 +990,7 @@ void *handle_socket(void *arg)
         goto handle_exit;
     }
 
-#ifdef _WIN32
+#ifdef __MINGW32__
     fsockout = _fdopen(sock_osfhandle, "wb");
 #else
     fsockout = fdopen(handle_data_arg->sock, "wb");
@@ -1048,7 +1049,7 @@ void *handle_socket(void *arg)
 
         if (retcode == -1)
         {
-            sleep(1);
+            //sleep(1); // probably don't need this delay
             continue;
         }
 
@@ -1117,25 +1118,21 @@ void *handle_socket(void *arg)
 
 handle_exit:
 
-// for Windows we close the handle before fclose
-#ifdef _WIN32
+// for MINGW we close the handle before fclose
+#ifdef __MINGW32__
     retcode = closesocket(handle_data_arg->sock);
-    if (retcode != 0)
-    {
-        rig_debug(RIG_DEBUG_ERR, "%s: fclose(fsockin) %s\n", __func__, strerror(retcode));
-    }
+
+    if (retcode != 0) { rig_debug(RIG_DEBUG_ERR, "%s: fclose(fsockin) %s\n", __func__, strerror(retcode)); }
 
 #endif
     fclose(fsockin);
     fclose(fsockout);
 
 // for everybody else we close the handle after fclose
-#ifndef _WIN32
+#ifndef __MINGW32__
     retcode = close(handle_data_arg->sock);
-    if (retcode != 0 && errno != EBADF)
-    {
-        rig_debug(RIG_DEBUG_ERR, "%s: close(handle_data_arg->sock) %s\n", __func__, strerror(errno));
-    }
+
+    if (retcode != 0 && errno != EBADF) { rig_debug(RIG_DEBUG_ERR, "%s: close(handle_data_arg->sock) %s\n", __func__, strerror(errno)); }
 
 #endif
 

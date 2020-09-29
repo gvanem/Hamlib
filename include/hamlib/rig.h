@@ -1997,7 +1997,7 @@ struct rig_cache {
     // Main is the Main VFO and Sub is for the 2nd VFO
     // Most rigs have MainA and MainB
     // Dual VFO rigs can have SubA and SubB too
-    // For dual VFO rigs simplex opeations are all done on MainA/MainB -- ergo this abstraction
+    // For dual VFO rigs simplex operations are all done on MainA/MainB -- ergo this abstraction
     freq_t freqMainA; // VFO_A, VFO_MAIN, and VFO_MAINA
     freq_t freqMainB; // VFO_B, VFO_SUB, and VFO_MAINB
     freq_t freqSubA;  // VFO_SUBA
@@ -2464,6 +2464,12 @@ rig_get_ext_parm HAMLIB_PARAMS((RIG *rig,
                                 value_t *val));
 
 extern HAMLIB_EXPORT(int)
+rig_ext_func_foreach HAMLIB_PARAMS((RIG *rig,
+                                     int (*cfunc)(RIG *,
+                                                  const struct confparams *,
+                                                  rig_ptr_t),
+                                     rig_ptr_t data));
+extern HAMLIB_EXPORT(int)
 rig_ext_level_foreach HAMLIB_PARAMS((RIG *rig,
                                      int (*cfunc)(RIG *,
                                                   const struct confparams *,
@@ -2746,15 +2752,14 @@ rig_set_debug_time_stamp HAMLIB_PARAMS((int flag));
 extern HAMLIB_EXPORT(int)
 rig_need_debug HAMLIB_PARAMS((enum rig_debug_level_e debug_level));
 
-
 #ifndef __cplusplus
   #if defined(__GNUC__) || defined(__clang__)
     // doing the debug macro with a dummy sprintf allows gcc / clang to check the format string
-    #define rig_debug(debug_level,fmt,...)                     \
-            do {                                               \
-              char xxxbuf[16384] = "";                         \
-              snprintf(xxxbuf,sizeof(xxxbuf),fmt,__VA_ARGS__); \
-              rig_debug(debug_level,fmt,##__VA_ARGS__);        \
+    #define rig_debug(debug_level, fmt, ...)                       \
+            do {                                                   \
+              char xxxbuf [16384] = "";                            \
+              snprintf (xxxbuf, sizeof(xxxbuf), fmt, __VA_ARGS__); \
+              rig_debug (debug_level, fmt, ##__VA_ARGS__);         \
             } while (0)
   #endif
 #endif

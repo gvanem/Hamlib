@@ -36,6 +36,7 @@
 #define TOK_EL_MAGICOP     TOKEN_BACKEND(3)
 #define TOK_EP_MAGICPARM   TOKEN_BACKEND(4)
 #define TOK_EL_MAGICCOMBO  TOKEN_BACKEND(5)
+#define TOK_EL_MAGICEXTFUNC  TOKEN_BACKEND(6)
 
 
 extern struct rig_caps dummy_caps;

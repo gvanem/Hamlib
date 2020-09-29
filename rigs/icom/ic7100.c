@@ -108,11 +108,11 @@ int ic7100_tokens[] = { TOK_DSTAR_CODE, TOK_DSTAR_DSQL, TOK_DSTAR_CALL_SIGN, TOK
 
 struct cmdparams ic7100_extcmds[] =
 {
-    { {.s = RIG_PARM_BEEP}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x03}, CMD_DAT_BOL, 1 },
-    { {.s = RIG_PARM_BACKLIGHT}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x04}, CMD_DAT_LVL, 2 },
-    { {.s = RIG_PARM_KEYLIGHT}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x05}, CMD_DAT_LVL, 2 },
-    { {.s = RIG_PARM_TIME}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x21}, CMD_DAT_TIM, 2 },
-    { {.s = RIG_LEVEL_VOXDELAY}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x65}, CMD_DAT_INT, 1 },
+    { {.s = RIG_PARM_BEEP}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x03}, CMD_DAT_BOL, 1 },
+    { {.s = RIG_PARM_BACKLIGHT}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x04}, CMD_DAT_LVL, 2 },
+    { {.s = RIG_PARM_KEYLIGHT}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x05}, CMD_DAT_LVL, 2 },
+    { {.s = RIG_PARM_TIME}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x21}, CMD_DAT_TIM, 2 },
+    { {.s = RIG_LEVEL_VOXDELAY}, CMD_PARAM_TYPE_LEVEL, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x65}, CMD_DAT_INT, 1 },
     { {.s = RIG_PARM_NONE} }
 };
 
@@ -220,6 +220,7 @@ const struct rig_caps ic7100_caps =
     .has_get_parm =  IC7100_PARM_ALL,
     .has_set_parm =  IC7100_PARM_ALL,
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },

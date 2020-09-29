@@ -125,8 +125,8 @@ const struct rig_caps pihpsdr_caps =
     .has_set_level =  RIG_LEVEL_SET(PIHPSDR_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,    /* FIXME: parms */
-    .level_gran =  { 0 },              /* FIXME: granularity */
-    .parm_gran  =  { 0 },
+    .level_gran =  { 0 },                 /* FIXME: granularity */
+    .parm_gran =  { 0 },
     .vfo_ops =  PIHPSDR_VFO_OP,
     .scan_ops =  PIHPSDR_SCAN_OP,
     .ctcss_list =  static_common_ctcss_list,
@@ -1033,25 +1033,7 @@ int pihpsdr_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_AF:
-        retval = kenwood_transaction(rig, "AG0", lvlbuf, sizeof(lvlbuf));
-
-        if (retval != RIG_OK)
-        {
-            return retval;
-        }
-
-        lvl_len = strlen(lvlbuf);
-
-        if (lvl_len != 6)
-        {
-            rig_debug(RIG_DEBUG_ERR, "%s: unexpected answer len=%d\n", __func__,
-                      (int)lvl_len);
-            return -RIG_ERJCTED;
-        }
-
-        sscanf(lvlbuf + 2, "%d", &lvl);
-        val->f = lvl / 255.0;
-        break;
+        return kenwood_get_level(rig, vfo, level, val);
 
     case RIG_LEVEL_RF:
         retval = kenwood_transaction(rig, "RG", lvlbuf, sizeof(lvlbuf));

@@ -68,9 +68,9 @@ struct confparams icr30_ext[] =
 
 struct cmdparams icr30_extcmds[] =
 {
-    { {.t = TOK_ANL}, C_CTL_MEM, S_MEM_ANL, SC_MOD_RW, 0, { 0 }, CMD_DAT_BOL, 1 },
-    { {.t = TOK_EAR}, C_CTL_MEM, S_MEM_EAR, SC_MOD_RW, 0, { 0 }, CMD_DAT_BOL, 1 },
-    { {.t = TOK_REC}, C_CTL_MEM, S_MEM_REC, SC_MOD_WR, 0, { 0 }, CMD_DAT_BOL, 1 },
+    { {.t = TOK_ANL}, CMD_PARAM_TYPE_TOKEN, C_CTL_MEM, S_MEM_ANL, SC_MOD_RW, 0, { 0 }, CMD_DAT_BOL, 1 },
+    { {.t = TOK_EAR}, CMD_PARAM_TYPE_TOKEN, C_CTL_MEM, S_MEM_EAR, SC_MOD_RW, 0, { 0 }, CMD_DAT_BOL, 1 },
+    { {.t = TOK_REC}, CMD_PARAM_TYPE_TOKEN, C_CTL_MEM, S_MEM_REC, SC_MOD_WR, 0, { 0 }, CMD_DAT_BOL, 1 },
     { {0} }
 };
 
@@ -158,6 +158,7 @@ const struct rig_caps icr30_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .parm_gran =  { 0 },

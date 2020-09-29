@@ -31,7 +31,7 @@
 #include <sys/time.h>
 #endif
 
-#define BACKEND_VER "20200720"
+#define BACKEND_VER "20200912"
 
 /*
  * defines used by comp_cal_str in rig.c
@@ -106,11 +106,21 @@ struct icom_agc_level
     icom_level; /* Icom AGC level for C_CTL_FUNC (0x16), S_FUNC_AGC (0x12) command */
 };
 
+typedef enum
+{
+    CMD_PARAM_TYPE_NONE,
+    CMD_PARAM_TYPE_LEVEL,
+    CMD_PARAM_TYPE_PARM,
+    CMD_PARAM_TYPE_TOKEN,
+    CMD_PARAM_TYPE_FUNC,
+} cmd_param_t;
+
 struct cmdparams {      /* Lookup table item for levels & parms */
     union {
         setting_t s;    /* Level or parm */
         token_t t;      /* TOKEN_BACKEND */
     } id;
+    cmd_param_t cmdparamtype;  /* CMD_PARAM_TYPE_LEVEL or CMD_PARAM_TYPE_PARM */
     int command;        /* CI-V command */
     int subcmd;         /* CI-V Subcommand */
     int submod;         /* Subcommand modifier */
@@ -202,6 +212,7 @@ extern const struct ts_sc_list r9000_ts_sc_list[];
 extern const struct ts_sc_list r9500_ts_sc_list[];
 extern const struct ts_sc_list ic756_ts_sc_list[];
 extern const struct ts_sc_list ic756pro_ts_sc_list[];
+extern const struct ts_sc_list ic705_ts_sc_list[];
 extern const struct ts_sc_list ic706_ts_sc_list[];
 extern const struct ts_sc_list ic7000_ts_sc_list[];
 extern const struct ts_sc_list ic7100_ts_sc_list[];
@@ -322,6 +333,7 @@ extern const struct confparams icom_ext_parms[];
 extern const struct cmdparams icom_ext_cmds[];
 
 extern const struct rig_caps ic703_caps;
+extern const struct rig_caps ic705_caps;
 extern const struct rig_caps ic706_caps;
 extern const struct rig_caps ic706mkii_caps;
 extern const struct rig_caps ic706mkiig_caps;

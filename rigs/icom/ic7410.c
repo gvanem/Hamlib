@@ -85,8 +85,11 @@
          { 213, 1.0f } \
     } }
 
-int ic7410_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val);
-int ic7410_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
+struct cmdparams ic7410_extcmds[] =
+{
+    { {.s = RIG_LEVEL_VOXDELAY}, CMD_PARAM_TYPE_LEVEL, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 1, {0x75 }, CMD_DAT_INT, 1 },
+    { {0} }
+};
 
 /*
  * IC-7410 rig capabilities.
@@ -139,6 +142,7 @@ const struct rig_caps ic7410_caps =
     .has_get_parm =  IC7410_PARMS,
     .has_set_parm =  RIG_PARM_SET(IC7410_PARMS),    /* FIXME: parms */
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
@@ -240,8 +244,8 @@ const struct rig_caps ic7410_caps =
     .get_ant =  icom_get_ant,
 
     .decode_event =  icom_decode_event,
-    .set_level =  ic7410_set_level,
-    .get_level =  ic7410_get_level,
+    .set_level =  icom_set_level,
+    .get_level =  icom_get_level,
     .set_func =  icom_set_func,
     .get_func =  icom_get_func,
     .set_parm =  icom_set_parm,
@@ -272,36 +276,3 @@ const struct rig_caps ic7410_caps =
 
 };
 
-int ic7410_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
-{
-    unsigned char cmdbuf[MAXFRAMELEN];
-
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
-
-    switch (level)
-    {
-    case RIG_LEVEL_VOXDELAY:
-        cmdbuf[0] = 0x75;
-        return icom_set_level_raw(rig, level, C_CTL_MEM, 0x05, 1, cmdbuf, 1, val);
-
-    default:
-        return icom_set_level(rig, vfo, level, val);
-    }
-}
-
-int ic7410_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
-{
-    unsigned char cmdbuf[MAXFRAMELEN];
-
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
-
-    switch (level)
-    {
-    case RIG_LEVEL_VOXDELAY:
-        cmdbuf[0] = 0x75;
-        return icom_get_level_raw(rig, level, C_CTL_MEM, 0x05, 1, cmdbuf, val);
-
-    default:
-        return icom_get_level(rig, vfo, level, val);
-    }
-}

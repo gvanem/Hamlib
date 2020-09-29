@@ -4,12 +4,14 @@
 # G. Vanem <gvanem@yahoo.no> 2019 - 2020.
 #
 THIS_FILE = Makefile.Windows
-
-DATE = $(shell date +%d-%B-%Y)
-
+DATE      = $(shell date +%d-%B-%Y)
 ABI_VER   = 4
+
+#
+# From 'configure.ac':
+#
 MAJOR_VER = 4
-MINOR_VER = 0
+MINOR_VER = 1
 VERSION   = $(MAJOR_VER).$(MINOR_VER)
 
 #
@@ -17,7 +19,7 @@ VERSION   = $(MAJOR_VER).$(MINOR_VER)
 #
 # Must use 'CC=clang-cl' until all the gcc centric stuff is gone.
 #
-USE_MP_COMPILE  ?= 1
+USE_MP_COMPILE  ?= 0
 USE_LIBUSB      ?= 1
 USE_USRP        ?= 0
 USE_LIBXML2     ?= 1

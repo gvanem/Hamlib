@@ -1,7 +1,6 @@
 
-#include "hamlib/rig.h"
-
 #ifdef HAVE_CONFIG_H
+#include "hamlib/rig.h"
 #include <config.h>
 #endif
 
@@ -1137,7 +1136,7 @@ static struct termios_list *find_port(int fd)
 fail:
     sprintf(message, "No info known about the port. %i\n", fd);
     report(message);
-    set_errno(EBADFD);
+    set_errno(EBADF);
     LEAVE("find_port");
     return NULL;
 }
