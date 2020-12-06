@@ -89,6 +89,8 @@ int main(int argc, char *argv[])
 {
     int status;
 
+    rig_set_debug(RIG_DEBUG_WARN);
+
     rig_load_all_backends();
 
     printf(" Rig#  \tMfg                    \tModel                  \tVersion    \tStatus   \tType         \tMacro\n");
