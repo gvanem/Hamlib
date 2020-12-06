@@ -2804,14 +2804,14 @@ rig_need_debug HAMLIB_PARAMS((enum rig_debug_level_e debug_level));
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
-  #define HAMLIB_ATTR_23()  __attribute__((format(gnu_printf, 2, 3)))
+  #define HAMLIB_ATTR(_1, _2)  __attribute__((format(gnu_printf, _1, _2)))
 #else
-  #define HAMLIB_ATTR_23()
+  #define HAMLIB_ATTR(_1, _2)
 #endif
 
 extern HAMLIB_EXPORT(void)
 rig_debug HAMLIB_PARAMS((enum rig_debug_level_e debug_level,
-                         _Printf_format_string_ const char *fmt, ...)) HAMLIB_ATTR_23();
+                         _Printf_format_string_ const char *fmt, ...)) HAMLIB_ATTR (2, 3);
 
 extern HAMLIB_EXPORT(vprintf_cb_t)
 rig_set_debug_callback HAMLIB_PARAMS((vprintf_cb_t cb,
