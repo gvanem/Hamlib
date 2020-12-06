@@ -27,5 +27,5 @@ install:
 build_script:
   - set MAKE=make -f Makefile.Windows USE_LIBUSB=0 USE_USRP=0 USE_WSOCK_TRACE=0 USE_LIBXML2=0 USE_LIBGD=0 USE_LIBREADLINE=0 USE_LUAJIT=0 USE_GNURADIO=0
   - if %BUILDER%. == msvc.  %MAKE% CPU=%CPU% CC=cl
-  - if %BUILDER%. == mingw. %MAKE% CPU=%CPU% CC=gcc HAVE_MODE_T=1
+  - if %BUILDER%. == mingw. %MAKE% CPU=%CPU% CC=gcc
 

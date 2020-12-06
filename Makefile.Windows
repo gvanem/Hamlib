@@ -59,11 +59,6 @@ USE_PY_BINDING ?= 3
 USE_CLANG_FORMAT ?= 1
 
 #
-# Could be set in 'appveyor.yml'
-#
-HAVE_MODE_T ?= 0
-
-#
 # Change these as needed:
 # (or create env-vars like 'LIBXML2_ROOT=c:/whatever/xml2').
 #
@@ -171,10 +166,6 @@ else
   ifeq ($(CC),clang-cl)
     CFLAGS += -fms-compatibility -ferror-limit=5
   endif
-endif
-
-ifeq ($(HAVE_MODE_T),1)
-  CFLAGS += -DHAVE_MODE_T
 endif
 
 ifeq ($(CC),gcc)
@@ -414,7 +405,8 @@ TESTS_PROGS = ampctl.exe    \
 
 ifneq ($(APPVEYOR_PROJECT_NAME),)
   #
-  # TODO: build with 'LIBUSB_ROOT = ./CI/libusb' etc. when running via 'appveoyr.yml'
+  # TODO: build with 'LIBUSB_ROOT = ./CI/libusb', 'LIBXML2_ROOT = ./CI/libxml2' etc.
+  #       when running via 'appveyor.yml'
   #
 endif
 
@@ -446,8 +438,7 @@ TESTS_PROGS += testcpp.exe
 
 #
 # All .c-files for '$(Hamlib_DLL)'.
-# Except for those in '$(hamlib_misc_SRC)' which do not need to be exported
-# (i.e. they have no '-DIN_HAMLIB' in 'CFLAGS').
+# Except for those in '$(hamlib_misc_SRC)' which do not need to be exported.
 #
 hamlib_C_SRC = $(addprefix src/, \
                  amp_conf.c      \
@@ -830,6 +821,11 @@ hamlib_C_SRC += $(addprefix rotators/,  \
                   spid/spid.c           \
                   ts7400/ts7400.c)
 
+hamlib_C_SRC += $(addprefix rotators/gs232a/, \
+                  gs232.c                     \
+                  gs232a.c                    \
+                  gs232b.c)
+
 #
 # Untested.
 #
@@ -849,10 +845,17 @@ ifeq ($(USE_LIBINDI),1)
                      indiproperty.cpp)
 endif
 
-hamlib_C_SRC += $(addprefix rotators/gs232a/, \
-                  gs232.c                     \
-                  gs232a.c                    \
-                  gs232b.c)
+ifeq ($(USE_GNURADIO),1)
+  VPATH  += extra/gnuradio
+  CFLAGS += -I./extra/gnuradio -I$(GNURADIO_ROOT)/include
+
+  hamlib_C_SRC += $(addprefix extra/gnuradio/, \
+                    gr.c                       \
+                    graudio.c                  \
+                    mc4020.c)
+
+  hamlib_CC_SRC += gnuradio/gnuradio.cc
+endif
 
 #
 # Various support code for Hamlib's internal use:
@@ -866,18 +869,6 @@ ifneq ($(CC),gcc)
                        getopt_long.c   \
                        gettimeofday.c  \
                        usleep.c)
-endif
-
-ifeq ($(USE_GNURADIO),1)
-  VPATH  += extra/gnuradio
-  CFLAGS += -I./extra/gnuradio -I$(GNURADIO_ROOT)/include
-
-  hamlib_C_SRC += $(addprefix extra/gnuradio/, \
-                    gr.c                       \
-                    graudio.c                  \
-                    mc4020.c)
-
-  hamlib_CC_SRC += gnuradio/gnuradio.cc
 endif
 
 #
@@ -894,34 +885,29 @@ hamlib++_SRC = $(addprefix c++/, \
 ampctl_SRC = $(addprefix tests/, \
                ampctl.c          \
                ampctl_parse.c    \
-               dumpcaps_amp.c    \
-               sprintflst.c)
+               dumpcaps_amp.c)
 
 ampctld_SRC = $(addprefix tests/, \
                 ampctld.c         \
                 ampctl_parse.c    \
-                dumpcaps_amp.c    \
-                sprintflst.c)
+                dumpcaps_amp.c)
 
 rigctlcom_SRC = $(addprefix tests/, \
                   dumpcaps.c        \
                   rigctlcom.c       \
-                  rigctl_parse.c    \
-                  sprintflst.c)
+                  rigctl_parse.c)
 
 rigctl_SRC = $(addprefix tests/, \
                dumpcaps.c        \
                dumpcaps_rot.c    \
                rigctl.c          \
-               rigctl_parse.c    \
-               sprintflst.c)
+               rigctl_parse.c)
 
 rigctld_SRC = $(addprefix tests/, \
                 dumpcaps.c        \
                 dumpcaps_rot.c    \
                 rigctld.c         \
-                rigctl_parse.c    \
-                sprintflst.c)
+                rigctl_parse.c)
 
 rigmem_SRC = $(addprefix tests/, \
                rigmem.c          \
@@ -933,15 +919,13 @@ rotctl_SRC = $(addprefix tests/, \
                rotctl.c          \
                rotctl_parse.c    \
                dumpcaps.c        \
-               dumpcaps_rot.c    \
-               sprintflst.c)
+               dumpcaps_rot.c)
 
 rotctld_SRC = $(addprefix tests/, \
                 rotctld.c         \
                 rotctl_parse.c    \
                 dumpcaps.c        \
-                dumpcaps_rot.c    \
-                sprintflst.c)
+                dumpcaps_rot.c)
 
 hamlib_C_OBJ    = $(call c_to_obj, $(hamlib_C_SRC))
 hamlib_amp_OBJ  = $(OBJ_DIR)/amp_kpa.$(O) \
@@ -1612,11 +1596,9 @@ define CONFIG_H
     #define _UINT_DEFINED
   #endif
 
-  #if !defined(_MODE_T_DEFINED) && !defined(HAVE_MODE_T)
+  #if !defined(_MODE_T_DEFINED) && !defined(__MINGW32__)
     typedef unsigned short mode_t;
-
     #define _MODE_T_DEFINED
-    #define HAVE_MODE_T
   #endif
 
   #if !defined(timersub)
