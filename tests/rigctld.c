@@ -200,7 +200,7 @@ static void signal_handler(int sig)
 static void handle_error(enum rig_debug_level_e lvl, const char *msg)
 {
     int e;
-#ifdef __MINGW32__
+#ifdef _WIN32
     LPVOID lpMsgBuf;
 
     lpMsgBuf = (LPVOID)"Unknown error";
@@ -674,7 +674,7 @@ int main(int argc, char *argv[])
 
 #endif
 
-#ifdef __MINGW32__
+#ifdef _WIN32
 #  ifndef SO_OPENTYPE
 #    define SO_OPENTYPE     0x7008
 #  endif
@@ -784,7 +784,7 @@ int main(int argc, char *argv[])
         }
 
         handle_error(RIG_DEBUG_WARN, "binding failed (trying next interface)");
-#ifdef __MINGW32__
+#ifdef _WIN32
         closesocket(sock_listen);
 #else
         close(sock_listen);
@@ -962,7 +962,7 @@ int main(int argc, char *argv[])
 #endif
     rig_cleanup(my_rig); /* if you care about memory */
 
-#ifdef __MINGW32__
+#ifdef _WIN32
     WSACleanup();
 #endif
 
@@ -985,7 +985,7 @@ void *handle_socket(void *arg)
     int ext_resp = 0;
     char resp_sep = '\n';
 
-#ifdef __MINGW32__
+#ifdef _WIN32
     int sock_osfhandle = _open_osfhandle(handle_data_arg->sock, _O_RDONLY);
 
     if (sock_osfhandle == -1)
@@ -1006,7 +1006,7 @@ void *handle_socket(void *arg)
         goto handle_exit;
     }
 
-#ifdef __MINGW32__
+#ifdef _WIN32
     fsockout = _fdopen(sock_osfhandle, "wb");
 #else
     fsockout = fdopen(handle_data_arg->sock, "wb");
@@ -1134,8 +1134,8 @@ void *handle_socket(void *arg)
 
 handle_exit:
 
-// for MINGW we close the handle before fclose
-#ifdef __MINGW32__
+// for Windows we close the handle before fclose
+#ifdef _WIN32
     retcode = closesocket(handle_data_arg->sock);
 
     if (retcode != 0) { rig_debug(RIG_DEBUG_ERR, "%s: fclose(fsockin) %s\n", __func__, strerror(retcode)); }
@@ -1145,7 +1145,7 @@ handle_exit:
     fclose(fsockout);
 
 // for everybody else we close the handle after fclose
-#ifndef __MINGW32__
+#ifndef _WIN32
     retcode = close(handle_data_arg->sock);
 
     if (retcode != 0 && errno != EBADF) { rig_debug(RIG_DEBUG_ERR, "%s: close(handle_data_arg->sock) %s\n", __func__, strerror(errno)); }
