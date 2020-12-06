@@ -19,7 +19,7 @@ VERSION   = $(MAJOR_VER).$(MINOR_VER)
 #
 # Must use 'CC=clang-cl' until all the gcc centric stuff is gone.
 #
-USE_MP_COMPILE  ?= 0
+USE_MP_COMPILE  ?= 1
 USE_LIBUSB      ?= 1
 USE_USRP        ?= 0
 USE_LIBXML2     ?= 1
@@ -44,7 +44,7 @@ USE_WSOCK_TRACE ?= 1
 # Use only static external libraries to create '$(Hamlib_DLL)', '$(_Hamlib_PYD)'
 # and '$(HamlibLua_DLL)'.
 #
-USE_STATIC ?= 0
+USE_STATIC ?= 1
 
 #
 # Set to 0 for no Python module.
@@ -136,14 +136,13 @@ else
   X_SUFFIX =
 endif
 
-
 ifeq ($(CC),gcc)
   OBJ_DIR = MinGW_obj
-  USE_MP_COMPILE = 0
+  USE_MP_COMPILE := 0
 
 else ifeq ($(CC),clang-cl)
   OBJ_DIR = clang_obj
-  USE_MP_COMPILE = 0
+  USE_MP_COMPILE := 0
 
 else ifeq ($(CC),cl)
   OBJ_DIR = MSVC_obj
@@ -1170,21 +1169,16 @@ tests/hamlibdatetime.h: $(THIS_FILE)
 	$(file >> $@, #define HAMLIBDATETIME "__DATE__")
 
 $(OBJ_DIR)/unistd.h: $(THIS_FILE)
-	$(call Generate, $@, //)
-	$(file >> $@, // fake <$@> for MSVC/clang-cl)
-	$(file >> $@, #include "lib/getopt.h")
+	$(call Generate_fake, $@, #include "lib/getopt.h")
 
 $(OBJ_DIR)/sys/time.h: $(THIS_FILE)
-	$(call Generate, $@, //)
-	$(file >> $@, // fake <$@> for MSVC/clang-cl)
+	$(call Generate_fake, $@)
 
 $(OBJ_DIR)/termios.h: $(THIS_FILE)
-	$(call Generate, $@, //)
-	$(file >> $@, // fake <$@> for MSVC/clang-cl)
+	$(call Generate_fake, $@)
 
 $(OBJ_DIR)/sys/ioctl.h: $(THIS_FILE)
-	$(call Generate, $@, //)
-	$(file >> $@, // fake <$@> for MSVC/clang-cl)
+	$(call Generate_fake, $@)
 
 %.i: %.c FORCE $(GENERATED) cpp_filter.py
 	$(call C_preprocess, $@, $<)
@@ -1270,11 +1264,11 @@ endif
 
 $(OBJ_DIR)/Hamlib.py: $(PY_WRAPPER_C)
 
-SWIG_FLAGS = -I./include -I./bindings -macroerrors # -DHAVE_CONFIG_H
+SWIG_FLAGS = -I./include -I./bindings -macroerrors
 
 $(PY_WRAPPER_C): bindings/Hamlib.swg include/hamlib/rig.h
 	$(call green_message, Generating $@ and $(OBJ_DIR)/Hamlib.py)
-	swig.exe -python $(SWIG_FLAGS) -o $@ $<
+	swig -python $(SWIG_FLAGS) -o $@ $<
 
 $(PY_WRAPPER_C:.c=.i): EXTRA_CFLAGS += $(PY_CFLAGS)
 
@@ -1337,11 +1331,11 @@ $(OBJ_DIR)/HamlibLua_wrap.$(O): $(OBJ_DIR)/HamlibLua_wrap.c | $(CC).args
 # but it's not needed for anything.
 #
 ifeq ($(USE_STATIC),1)
-$(HamlibLua_DLL): $(HamlibLua_DLL_deps)
+  $(HamlibLua_DLL): $(HamlibLua_DLL_deps)
 	$(call link_DLL, $@, $(HamlibLua_DLL:.dll=.lib), $^ $(LUA_LIB))
 
 else
-$(HamlibLua_DLL): $(OBJ_DIR)/HamlibLua_wrap.$(O) $(Hamlib_IMP_LIB) $(OBJ_DIR)/HamlibLua.res
+  $(HamlibLua_DLL): $(OBJ_DIR)/HamlibLua_wrap.$(O) $(Hamlib_IMP_LIB) $(OBJ_DIR)/HamlibLua.res
 	$(call link_DLL, $@, $(HamlibLua_DLL:.dll=.lib), $^ $(LUA_LIB))
 endif
 
@@ -1509,6 +1503,12 @@ endef
 define Generate
   $(call green_message, Generating $(1))
   $(file > $(1),$(call Warning,$(strip $(2))))
+endef
+
+define Generate_fake
+  $(call Generate, $(1), //)
+  $(file >> $(1), // fake <$(strip $(1))> for MSVC/clang-cl)
+  $(file >> $(1), $(2))
 endef
 
 define CONFIG_H
