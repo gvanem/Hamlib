@@ -30,6 +30,7 @@
 #include <windows.h>
 #include <sys/types.h>
 #include <io.h>
+#include <stdint.h>
 
 #ifdef TRACE
 #define ENTER(x) report("entering "x" \n");
@@ -54,9 +55,9 @@
         LocalFree (allocTextBuf);                                 \
       } while (0)
 
-typedef unsigned char   cc_t;
-typedef unsigned int    speed_t;
-typedef unsigned int    tcflag_t;
+typedef unsigned char  cc_t;
+typedef int32_t        speed_t;
+typedef int32_t        tcflag_t;
 
 /* structs are from linux includes or linux man pages to match
    interfaces.
@@ -107,7 +108,7 @@ struct serial_icounter_struct {
     int dsr;            /* data set ready count */
     int rng;            /* ring count */
     int dcd;            /* carrier detect count */
-    int rx;             /* recieved byte count */
+    int rx;             /* received byte count */
     int tx;             /* transmitted byte count */
     int frame;          /* frame error count */
     int overrun;        /* hardware overrun error count */
@@ -170,13 +171,11 @@ int tcdrain ( int );
 int tcflow ( int , int );
 int tcsendbreak ( int , int );
 
-// int fstat(int fd, ... );
-
 void cfmakeraw(struct termios *s_termios);
 
 #if 0
-int termiosGetParityErrorChar( int );
-void termiosSetParityError( int, char );
+  int termiosGetParityErrorChar (int);
+  void termiosSetParityError (int, char);
 #endif
 
 /* A lot of these could be already defined in some MinGW.

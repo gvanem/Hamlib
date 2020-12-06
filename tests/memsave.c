@@ -36,7 +36,7 @@
 #  include <libxml/tree.h>
 
 static int dump_xml_chan(RIG *rig,
-                         channel_t **chan,
+                         channel_t **chan_pp,
                          int channel_num,
                          const chan_t *chan_list,
                          rig_ptr_t arg);
@@ -61,7 +61,7 @@ int xml_save(RIG *rig, const char *outfilename)
         printf("About to save data, enter cloning mode: %s\n",
                rig->caps->clone_combo_get);
 
-    retval = rig_get_chan_all_cb(rig, dump_xml_chan, root);
+    retval = rig_get_chan_all_cb(rig, RIG_VFO_NONE, dump_xml_chan, root);
 
     if (retval != RIG_OK)
     {
@@ -247,7 +247,7 @@ int dump_xml_chan(RIG *rig,
 
     if (mem_caps->funcs)
     {
-        sprintf(attrbuf, "%lx", chan.funcs);
+        sprintf(attrbuf, "%llx", chan.funcs);
         xmlNewProp(node, (unsigned char *) "funcs", (unsigned char *) attrbuf);
     }
 

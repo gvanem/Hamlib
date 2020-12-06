@@ -24,7 +24,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
-#include "hamlibdatetime.h"
+#include <hamlibdatetime.h>
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
@@ -49,7 +49,6 @@ extern char *readline();
 #else
 /* no readline */
 #endif                              /* HAVE_LIBREADLINE */
-
 #ifdef HAVE_READLINE_HISTORY
 #  include <sys/stat.h>
 #  define HST_SHRT_OPTS "iI"

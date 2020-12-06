@@ -99,7 +99,7 @@ int xml_load(RIG *my_rig, const char *infilename)
 
         set_chan(my_rig, &chan, node);
 
-        status = rig_set_channel(my_rig, &chan);
+        status = rig_set_channel(my_rig, RIG_VFO_NONE, &chan);
 
         if (status != RIG_OK)
         {
@@ -343,7 +343,7 @@ int set_chan(RIG *rig, channel_t *chan, xmlNodePtr node)
 
         if (prop != NULL)
         {
-            sscanf((char *) prop, "%lx", &chan->funcs);
+            sscanf((char *) prop, "%llx", &chan->funcs);
         }
     }
 

@@ -31,11 +31,11 @@
 
 
 /* ext_level's and ext_parm's tokens */
-#define TOK_EL_MAGICLEVEL  TOKEN_BACKEND(1)
-#define TOK_EL_MAGICFUNC   TOKEN_BACKEND(2)
-#define TOK_EL_MAGICOP     TOKEN_BACKEND(3)
-#define TOK_EP_MAGICPARM   TOKEN_BACKEND(4)
-#define TOK_EL_MAGICCOMBO  TOKEN_BACKEND(5)
+#define TOK_EL_MAGICLEVEL    TOKEN_BACKEND(1)
+#define TOK_EL_MAGICFUNC     TOKEN_BACKEND(2)
+#define TOK_EL_MAGICOP       TOKEN_BACKEND(3)
+#define TOK_EP_MAGICPARM     TOKEN_BACKEND(4)
+#define TOK_EL_MAGICCOMBO    TOKEN_BACKEND(5)
 #define TOK_EL_MAGICEXTFUNC  TOKEN_BACKEND(6)
 
 
@@ -45,6 +45,6 @@ extern struct rig_caps netrigctl_caps;
 extern const struct rig_caps flrig_caps;
 extern const struct rig_caps trxmanager_caps;
 
-HAMLIB_EXPORT(int) netrigctl_get_vfo_mode(RIG *);
+int netrigctl_get_vfo_mode(RIG *);
 
 #endif /* _DUMMY_H */

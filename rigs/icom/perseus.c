@@ -58,7 +58,7 @@
     } }
 
 
-static int perseus_r2i_mode(RIG *rig, rmode_t mode, pbwidth_t width,
+static int perseus_r2i_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width,
                             unsigned char *md, signed char *pd);
 static void perseus_i2r_mode(RIG *rig, unsigned char md, int pd,
                              rmode_t *mode, pbwidth_t *width);
@@ -109,7 +109,7 @@ const struct rig_caps perseus_caps =
     .has_get_parm =  PERSEUS_PARMS,
     .has_set_parm =  PERSEUS_PARMS,
     .level_gran =  { 0 },
-    .parm_gran  =  { 0 },
+    .parm_gran =  { 0 },
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
     .preamp =   { RIG_DBLST_END, },
@@ -184,12 +184,12 @@ const struct rig_caps perseus_caps =
  *
  * NB: the filter width will be ignored.
  */
-static int perseus_r2i_mode(RIG *rig, rmode_t mode, pbwidth_t width,
+static int perseus_r2i_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width,
                             unsigned char *md, signed char *pd)
 {
     int err;
 
-    err = rig2icom_mode(rig, mode, width, md, pd);
+    err = rig2icom_mode(rig, vfo, mode, width, md, pd);
 
     if (err == 0 && mode == RIG_MODE_SAM)
     {

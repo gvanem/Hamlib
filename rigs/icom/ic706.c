@@ -38,12 +38,12 @@
  *  and IC-706MKIIG
  *  (0 - wide, 1 - normal, 2 - narrow)
  */
-static int ic706_r2i_mode(RIG *rig, rmode_t mode, pbwidth_t width,
+static int ic706_r2i_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width,
                           unsigned char *md, signed char *pd)
 {
     int err;
 
-    err = rig2icom_mode(rig, mode, width, md, pd);
+    err = rig2icom_mode(rig, vfo, mode, width, md, pd);
 
     if (err != RIG_OK)
     {
@@ -177,7 +177,7 @@ const struct rig_caps ic706_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE, /* FIXME: parms */
     .level_gran =  { 0 },      /* granularity */
-    .parm_gran  =  { 0 },
+    .parm_gran =  { 0 },
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
     .preamp =   { 10, RIG_DBLST_END, },
@@ -315,7 +315,7 @@ const struct rig_caps ic706mkii_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE, /* FIXME: parms */
     .level_gran =  { 0 },      /* granularity */
-    .parm_gran  =  { 0 },
+    .parm_gran =  { 0 },
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
     .preamp =   { 10, RIG_DBLST_END, },

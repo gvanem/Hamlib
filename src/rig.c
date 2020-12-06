@@ -1160,11 +1160,11 @@ int HAMLIB_API rig_cleanup(RIG *rig)
  * timeout seconds to stop rigctld when VFO is manually changed
  * turns on/off the radio.
  *
- * \return RIG_OK if the operation has been successful, ortherwise
+ * \return RIG_OK if the operation has been successful, otherwise
  * a negative value if an error occurred (in which case, cause is
  * set appropriately).
  *
- * \sa rig_get_twiddle()
+ * \sa rig_set_twiddle()
  */
 int HAMLIB_API rig_set_twiddle(RIG *rig, int seconds)
 {
@@ -1179,6 +1179,32 @@ int HAMLIB_API rig_set_twiddle(RIG *rig, int seconds)
 
     return RIG_OK;
 }
+
+/**
+ * \brief For GPredict to avoid reading frequency on uplink VFO
+ * \param rig   The rig handle
+ * \param seconds    1=Ignore Sub, 2=Ignore Main
+ *
+ * \return RIG_OK if the operation has been successful, otherwise
+ * a negative value if an error occurred (in which case, cause is
+ * set appropriately).
+ *
+ * \sa rig_set_uplink()
+ */
+int HAMLIB_API rig_set_uplink(RIG *rig, int val)
+{
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    if (CHECK_RIG_ARG(rig))
+    {
+        return -RIG_EINVAL;
+    }
+
+    rig->state.uplink = val;
+
+    return RIG_OK;
+}
+
 
 /**
  * \brief get the twiddle timeout value (secs)
@@ -1250,6 +1276,94 @@ int twiddling(RIG *rig)
     }
 
     return 0; //
+}
+
+/* caching prototype to be fully implemented in 4.1 */
+static int set_cache_freq(RIG *rig, vfo_t vfo, freq_t freq)
+{
+    switch (vfo)
+    {
+    case RIG_VFO_CURR:
+        rig->state.cache.freqCurr = freq;
+        elapsed_ms(&rig->state.cache.time_freqCurr, HAMLIB_ELAPSED_SET);
+        break;
+
+    case RIG_VFO_A:
+    case RIG_VFO_MAIN:
+    case RIG_VFO_MAIN_A:
+        rig->state.cache.freqMainA = freq;
+        elapsed_ms(&rig->state.cache.time_freqMainA, HAMLIB_ELAPSED_SET);
+        break;
+
+    case RIG_VFO_B:
+    case RIG_VFO_MAIN_B:
+    case RIG_VFO_SUB:
+        rig->state.cache.freqMainB = freq;
+        elapsed_ms(&rig->state.cache.time_freqMainB, HAMLIB_ELAPSED_SET);
+        break;
+
+    case RIG_VFO_C: // is there a MainC/SubC we need to cover?
+        rig->state.cache.freqMainC = freq;
+        elapsed_ms(&rig->state.cache.time_freqMainC, HAMLIB_ELAPSED_SET);
+        break;
+
+    case RIG_VFO_SUB_A:
+        rig->state.cache.freqSubA = freq;
+        elapsed_ms(&rig->state.cache.time_freqSubA, HAMLIB_ELAPSED_SET);
+        break;
+
+    case RIG_VFO_SUB_B:
+        rig->state.cache.freqSubB = freq;
+        elapsed_ms(&rig->state.cache.time_freqSubB, HAMLIB_ELAPSED_SET);
+        break;
+
+    default:
+        rig_debug(RIG_DEBUG_ERR, "%s: unknown vfo?, vfo=%s\n", __func__,
+                  rig_strvfo(vfo));
+        return -RIG_EINVAL;
+    }
+
+    return RIG_OK;
+}
+
+/* caching prototype to be fully implemented in 4.1 */
+static int get_cache_freq(RIG *rig, vfo_t vfo, freq_t *freq, int *cache_ms)
+{
+    // VFO_C to be implemented
+    switch (vfo)
+    {
+    case RIG_VFO_CURR:
+        *freq = rig->state.cache.freqCurr;
+        break;
+
+    case RIG_VFO_A:
+    case RIG_VFO_MAIN:
+    case RIG_VFO_MAIN_A:
+        *freq = rig->state.cache.freqMainA;
+        break;
+
+    case RIG_VFO_B:
+    case RIG_VFO_SUB:
+        *freq = rig->state.cache.freqMainB;
+        break;
+
+    case RIG_VFO_SUB_A:
+        *freq = rig->state.cache.freqSubA;
+        break;
+
+    case RIG_VFO_SUB_B:
+        *freq = rig->state.cache.freqSubB;
+        break;
+
+    default:
+        rig_debug(RIG_DEBUG_ERR, "%s: unknown vfo?, vfo=%s\n", __func__,
+                  rig_strvfo(vfo));
+        return -RIG_EINVAL;
+    }
+
+    rig_debug(RIG_DEBUG_TRACE, "%s: vfo=%s, freq=%g\n", __func__, rig_strvfo(vfo),
+              (double)*freq);
+    return RIG_OK;
 }
 
 /**
@@ -1390,6 +1504,8 @@ int HAMLIB_API rig_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
         elapsed_ms(&rig->state.cache.time_ptt, HAMLIB_ELAPSED_SET);
         rig->state.cache.freq = freq_new;
+        //future 4.1 caching
+        set_cache_freq(rig, vfo, freq_new);
         rig->state.cache.vfo_freq = vfo;
     }
 
@@ -1432,6 +1548,20 @@ int HAMLIB_API rig_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 
     vfo = vfo_fixup(rig, vfo);
 
+    // we ignore get_freq for the uplink VFO for gpredict to behave better
+    if ((rig->state.uplink == 1 && vfo == RIG_VFO_SUB)
+            || (rig->state.uplink == 2 && vfo == RIG_VFO_MAIN))
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s: uplink=%d, ignoring get_freq\n", __func__,
+                  rig->state.uplink);
+        rig_debug(RIG_DEBUG_TRACE, "%s: split=%d, satmode=%d, tx_vfo=%s\n", __func__,
+                  rig->state.cache.split, rig->state.cache.satmode,
+                  rig_strvfo(rig->state.tx_vfo));
+        // always return the cached freq for this clause
+        get_cache_freq(rig, vfo, freq, &cache_ms);
+        return RIG_OK;
+    }
+
     // there are some rigs that can't get VFOA freq while VFOB is transmitting
     // so we'll return the cached VFOA freq for them
     // should we use the cached ptt maybe? No -- we have to be 100% sure we're in PTT to ignore this request
@@ -1459,6 +1589,9 @@ int HAMLIB_API rig_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
     }
 
 
+    //future 4.1 caching
+    get_cache_freq(rig, vfo, freq, &cache_ms);
+    //future 4.1 caching needs to check individual VFO timeouts
     cache_ms = elapsed_ms(&rig->state.cache.time_freq, HAMLIB_ELAPSED_GET);
     rig_debug(RIG_DEBUG_TRACE, "%s: cache check age=%dms\n", __func__, cache_ms);
 
@@ -1501,35 +1634,8 @@ int HAMLIB_API rig_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
         if (retcode == RIG_OK)
         {
             rig->state.cache.freq = *freq;
-
-            switch (vfo)
-            {
-            case RIG_VFO_A:
-            case RIG_VFO_MAIN:
-            case RIG_VFO_MAIN_A:
-                rig->state.cache.freqMainA = *freq;
-                elapsed_ms(&rig->state.cache.time_freqMainA, HAMLIB_ELAPSED_SET);
-                rig->state.cache.freqMainA = *freq;
-                break;
-
-            case RIG_VFO_B:
-            case RIG_VFO_SUB:
-            case RIG_VFO_MAIN_B:
-                rig->state.cache.freqMainB = *freq;
-                elapsed_ms(&rig->state.cache.time_freqMainB, HAMLIB_ELAPSED_SET);
-                break;
-
-            case RIG_VFO_SUB_A:
-                rig->state.cache.freqSubA = *freq;
-                elapsed_ms(&rig->state.cache.time_freqSubA, HAMLIB_ELAPSED_SET);
-                break;
-
-            case RIG_VFO_SUB_B:
-                rig->state.cache.freqSubB = *freq;
-                elapsed_ms(&rig->state.cache.time_freqSubB, HAMLIB_ELAPSED_SET);
-                break;
-            }
-
+            //future 4.1 caching
+            set_cache_freq(rig, vfo, *freq);
             rig->state.cache.vfo_freq = vfo;
         }
     }
@@ -1559,6 +1665,8 @@ int HAMLIB_API rig_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
             rig_debug(RIG_DEBUG_TRACE, "%s: cache reset age=%dms, vfo=%s, freq=%.0f\n",
                       __func__, cache_ms, rig_strvfo(vfo), *freq);
             rig->state.cache.freq = *freq;
+            //future 4.1 caching
+            set_cache_freq(rig, vfo, *freq);
             rig->state.cache.vfo_freq = vfo;
             /* return the first error code */
             retcode = rc2;
@@ -1587,6 +1695,8 @@ int HAMLIB_API rig_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
     rig_debug(RIG_DEBUG_TRACE, "%s: cache reset age=%dms, vfo=%s, freq=%.0f\n",
               __func__, cache_ms, rig_strvfo(vfo), *freq);
     rig->state.cache.freq = *freq;
+    //future 4.1 caching
+    set_cache_freq(rig, vfo, *freq);
     rig->state.cache.vfo_freq = vfo;
 
     return retcode;
@@ -1636,6 +1746,8 @@ int HAMLIB_API rig_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
             || vfo == rig->state.current_vfo)
     {
         retcode = caps->set_mode(rig, vfo, mode, width);
+        rig_debug(RIG_DEBUG_TRACE, "%s: retcode after set_mode=%d\n", __func__,
+                  retcode);
     }
     else
     {
@@ -1743,11 +1855,14 @@ int HAMLIB_API rig_get_mode(RIG *rig,
             || vfo == rig->state.current_vfo)
     {
         retcode = caps->get_mode(rig, vfo, mode, width);
+        rig_debug(RIG_DEBUG_TRACE, "%s: retcode after get_mode=%d\n", __func__,
+                  retcode);
     }
     else
     {
         int rc2;
         vfo_t curr_vfo;
+        rig_debug(RIG_DEBUG_TRACE, "%s(%d): debug", __func__, __LINE__);
 
         if (!caps->set_vfo)
         {
@@ -1776,12 +1891,14 @@ int HAMLIB_API rig_get_mode(RIG *rig,
     if (retcode == RIG_OK
             && (vfo == RIG_VFO_CURR || vfo == rig->state.current_vfo))
     {
+        rig_debug(RIG_DEBUG_TRACE, "%s(%d): debug", __func__, __LINE__);
         rig->state.current_mode = *mode;
         rig->state.current_width = *width;
     }
 
     if (*width == RIG_PASSBAND_NORMAL && *mode != RIG_MODE_NONE)
     {
+        rig_debug(RIG_DEBUG_TRACE, "%s(%d): debug", __func__, __LINE__);
         *width = rig_passband_normal(rig, *mode);
     }
 
@@ -2020,10 +2137,13 @@ int HAMLIB_API rig_set_vfo(RIG *rig, vfo_t vfo)
         rig_debug(RIG_DEBUG_TRACE, "%s: retcode from rig_get_freq = %s\n", __func__,
                   rigerror(retcode));
     }
+    else // don't expire cache if we just read it
+    {
+        elapsed_ms(&rig->state.cache.time_freq, HAMLIB_ELAPSED_INVALIDATE);
+    }
 
     // expire several cached items when we switch VFOs
     elapsed_ms(&rig->state.cache.time_vfo, HAMLIB_ELAPSED_INVALIDATE);
-    elapsed_ms(&rig->state.cache.time_freq, HAMLIB_ELAPSED_INVALIDATE);
     elapsed_ms(&rig->state.cache.time_mode, HAMLIB_ELAPSED_INVALIDATE);
 
     rig_debug(RIG_DEBUG_TRACE, "%s: return %d, vfo=%s\n", __func__, retcode,
@@ -2151,7 +2271,7 @@ int HAMLIB_API rig_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
             return -RIG_ENIMPL;
         }
 
-        if ((caps->targetable_vfo & RIG_TARGETABLE_PURE)
+        if ((caps->targetable_vfo & RIG_TARGETABLE_PTT)
                 || vfo == RIG_VFO_CURR
                 || vfo == rig->state.current_vfo)
         {
@@ -2223,9 +2343,9 @@ int HAMLIB_API rig_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
         retcode = ser_set_dtr(&rig->state.pttport, ptt != RIG_PTT_OFF);
 
         if (strcmp(rs->pttport.pathname, rs->rigport.pathname)
-                && ptt == RIG_PTT_OFF)
+                && ptt == RIG_PTT_OFF && rs->ptt_share != 0)
         {
-
+            rig_debug(RIG_DEBUG_TRACE, "%s: ptt_share=%d\n", __func__, rs->ptt_share);
             /* free the port */
             ser_close(&rs->pttport);
         }
@@ -2270,9 +2390,9 @@ int HAMLIB_API rig_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
         retcode = ser_set_rts(&rig->state.pttport, ptt != RIG_PTT_OFF);
 
         if (strcmp(rs->pttport.pathname, rs->rigport.pathname)
-                && ptt == RIG_PTT_OFF)
+                && ptt == RIG_PTT_OFF && rs->ptt_share != 0)
         {
-
+            rig_debug(RIG_DEBUG_TRACE, "%s: ptt_share=%d\n", __func__, rs->ptt_share);
             /* free the port */
             ser_close(&rs->pttport);
         }
@@ -2366,7 +2486,7 @@ int HAMLIB_API rig_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
             return RIG_OK;
         }
 
-        if ((caps->targetable_vfo & RIG_TARGETABLE_PURE)
+        if ((caps->targetable_vfo & RIG_TARGETABLE_PTT)
                 || vfo == RIG_VFO_CURR
                 || vfo == rig->state.current_vfo)
         {
@@ -3740,7 +3860,7 @@ int HAMLIB_API rig_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit)
         return -RIG_ENAVAIL;
     }
 
-    if ((caps->targetable_vfo & RIG_TARGETABLE_PURE)
+    if ((caps->targetable_vfo & RIG_TARGETABLE_RITXIT)
             || vfo == RIG_VFO_CURR
             || vfo == rig->state.current_vfo)
     {
@@ -3808,7 +3928,7 @@ int HAMLIB_API rig_get_rit(RIG *rig, vfo_t vfo, shortfreq_t *rit)
         return -RIG_ENAVAIL;
     }
 
-    if ((caps->targetable_vfo & RIG_TARGETABLE_PURE)
+    if ((caps->targetable_vfo & RIG_TARGETABLE_RITXIT)
             || vfo == RIG_VFO_CURR
             || vfo == rig->state.current_vfo)
     {
@@ -3876,7 +3996,7 @@ int HAMLIB_API rig_set_xit(RIG *rig, vfo_t vfo, shortfreq_t xit)
         return -RIG_ENAVAIL;
     }
 
-    if ((caps->targetable_vfo & RIG_TARGETABLE_PURE)
+    if ((caps->targetable_vfo & RIG_TARGETABLE_RITXIT)
             || vfo == RIG_VFO_CURR
             || vfo == rig->state.current_vfo)
     {
@@ -3944,7 +4064,7 @@ int HAMLIB_API rig_get_xit(RIG *rig, vfo_t vfo, shortfreq_t *xit)
         return -RIG_ENAVAIL;
     }
 
-    if ((caps->targetable_vfo & RIG_TARGETABLE_PURE)
+    if ((caps->targetable_vfo & RIG_TARGETABLE_RITXIT)
             || vfo == RIG_VFO_CURR
             || vfo == rig->state.current_vfo)
     {
@@ -4978,6 +5098,156 @@ int HAMLIB_API rig_send_morse(RIG *rig, vfo_t vfo, const char *msg)
     }
 
     retcode = caps->send_morse(rig, vfo, msg);
+    /* try and revert even if we had an error above */
+    rc2 = caps->set_vfo(rig, curr_vfo);
+
+    if (RIG_OK == retcode)
+    {
+        /* return the first error code */
+        retcode = rc2;
+    }
+
+    return retcode;
+}
+
+/**
+ * \brief stop morse code
+ * \param rig   The rig handle
+ * \param vfo   The target VFO
+ *
+ *  Stops the send morse message.
+ *
+ * \return RIG_OK if the operation has been successful, otherwise
+ * a negative value if an error occurred (in which case, cause is
+ * set appropriately).
+ *
+ */
+int HAMLIB_API rig_stop_morse(RIG *rig, vfo_t vfo)
+{
+    const struct rig_caps *caps;
+    int retcode, rc2;
+    vfo_t curr_vfo;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    caps = rig->caps;
+
+    if (caps->stop_morse == NULL)
+    {
+        return -RIG_ENAVAIL;
+    }
+
+    if ((caps->targetable_vfo & RIG_TARGETABLE_PURE)
+            || vfo == RIG_VFO_CURR
+            || vfo == rig->state.current_vfo)
+    {
+        return caps->stop_morse(rig, vfo);
+    }
+
+    if (!caps->set_vfo)
+    {
+        return -RIG_ENTARGET;
+    }
+
+    curr_vfo = rig->state.current_vfo;
+    retcode = caps->set_vfo(rig, vfo);
+
+    if (retcode != RIG_OK)
+    {
+        return retcode;
+    }
+
+    retcode = caps->stop_morse(rig, vfo);
+    /* try and revert even if we had an error above */
+    rc2 = caps->set_vfo(rig, curr_vfo);
+
+    if (RIG_OK == retcode)
+    {
+        /* return the first error code */
+        retcode = rc2;
+    }
+
+    return retcode;
+}
+
+/*
+ * wait_morse_ptt
+ * generic routine to wait for ptt=0
+ * should work on any full breakin CW morse send
+ * Assumes rig!=NULL, msg!=NULL
+ */
+static int wait_morse_ptt(RIG *rig, vfo_t vfo)
+{
+    ptt_t pttStatus = RIG_PTT_OFF;
+    int loops = 0;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    hl_usleep(200 * 1000); // give little time for CW to start PTT
+
+    do
+    {
+        int retval;
+        rig_debug(RIG_DEBUG_TRACE, "%s: loop#%d until ptt=0, ptt=%d\n", __func__, loops,
+                  pttStatus);
+        elapsed_ms(&rig->state.cache.time_ptt, HAMLIB_ELAPSED_INVALIDATE);
+        retval = rig_get_ptt(rig, vfo, &pttStatus);
+
+        if (retval != RIG_OK)
+        {
+            return retval;
+        }
+
+        // every 25ms should be short enough
+        hl_usleep(25 * 1000);
+        ++loops;
+    }
+    while (pttStatus == RIG_PTT_ON && loops <= 600);
+
+    return RIG_OK;
+}
+
+/**
+ * \brief wait morse code
+ * \param rig   The rig handle
+ * \param vfo   The target VFO
+ *
+ *  waits for the end of the morse message to be sent.
+ *
+ * \return RIG_OK if the operation has been successful, otherwise
+ * a negative value if an error occurred (in which case, cause is
+ * set appropriately).
+ *
+ */
+int HAMLIB_API rig_wait_morse(RIG *rig, vfo_t vfo)
+{
+    const struct rig_caps *caps;
+    int retcode, rc2;
+    vfo_t curr_vfo;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    caps = rig->caps;
+
+    if ((caps->targetable_vfo & RIG_TARGETABLE_PURE)
+            || vfo == RIG_VFO_CURR
+            || vfo == rig->state.current_vfo)
+    {
+        return wait_morse_ptt(rig, vfo);
+    }
+
+    if (!caps->set_vfo)
+    {
+        return -RIG_ENTARGET;
+    }
+
+    curr_vfo = rig->state.current_vfo;
+    retcode = caps->set_vfo(rig, vfo);
+
+    if (retcode != RIG_OK)
+    {
+        return retcode;
+    }
+
+    retcode = wait_morse_ptt(rig, vfo);
     /* try and revert even if we had an error above */
     rc2 = caps->set_vfo(rig, curr_vfo);
 

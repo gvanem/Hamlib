@@ -25,20 +25,13 @@
 #  include "config.h"
 #endif
 
-// cppcheck-suppress *
 #include <stdio.h>
-// cppcheck-suppress *
 #include <stdlib.h>
-// cppcheck-suppress *
 #include <string.h>
-// cppcheck-suppress *
 #include <unistd.h>
-// cppcheck-suppress *
 #include <ctype.h>
-// cppcheck-suppress *
 #include <errno.h>
 
-// cppcheck-suppress *
 #include <getopt.h>
 
 #include <hamlib/rig.h>
@@ -104,7 +97,7 @@ int csv_save(RIG *rig, const char *outfilename)
                rig->caps->clone_combo_get);
     }
 
-    status = rig_get_chan_all_cb(rig, dump_csv_chan, f);
+    status = rig_get_chan_all_cb(rig, RIG_VFO_NONE, dump_csv_chan, f);
 
     fclose(f);
 
@@ -182,7 +175,7 @@ int csv_load(RIG *rig, const char *infilename)
         set_channel_data(rig, &chan, key_list, value_list);
 
         /* Write a rig memory */
-        status = rig_set_channel(rig, &chan);
+        status = rig_set_channel(rig, RIG_VFO_NONE, &chan);
 
         if (status != RIG_OK)
         {

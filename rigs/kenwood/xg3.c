@@ -128,8 +128,8 @@ const struct rig_caps xg3_caps =
     .has_set_level = RIG_LEVEL_SET(XG3_LEVEL_ALL),
     .has_get_parm = XG3_PARM_ALL,
     .has_set_parm = XG3_PARM_ALL,
-    .level_gran = { 0 },           /* FIXME: granularity */
-    .parm_gran  = { 0 },
+    .level_gran = { 0 },        /* FIXME: granularity */
+    .parm_gran = { 0 },
     .extparms = kenwood_cfg_params,
     .max_ifshift = Hz(0),
     .targetable_vfo = RIG_TARGETABLE_FREQ,
@@ -166,7 +166,6 @@ const struct rig_caps xg3_caps =
     .get_powerstat = xg3_get_powerstat,
     .set_parm = xg3_set_parm,
     .get_parm = xg3_get_parm,
-//  .send_morse =       kenwood_send_morse, // we could do this
 };
 
 

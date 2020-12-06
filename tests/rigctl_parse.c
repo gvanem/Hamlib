@@ -78,7 +78,7 @@ extern int read_history();
 
 #define MAXNAMSIZ 32
 #define MAXNBOPT 100    /* max number of different options */
-#define MAXARGSZ 127
+#define MAXARGSZ 511
 
 #define ARG_IN1  0x01
 #define ARG_OUT1 0x02
@@ -217,6 +217,8 @@ declare_proto_rig(set_ant);
 declare_proto_rig(get_ant);
 declare_proto_rig(reset);
 declare_proto_rig(send_morse);
+declare_proto_rig(stop_morse);
+declare_proto_rig(wait_morse);
 declare_proto_rig(send_voice_mem);
 declare_proto_rig(send_cmd);
 declare_proto_rig(set_powerstat);
@@ -227,6 +229,7 @@ declare_proto_rig(chk_vfo);
 declare_proto_rig(set_vfo_opt);
 declare_proto_rig(set_twiddle);
 declare_proto_rig(get_twiddle);
+declare_proto_rig(set_uplink);
 declare_proto_rig(set_cache);
 declare_proto_rig(get_cache);
 declare_proto_rig(halt);
@@ -311,14 +314,17 @@ static struct test_table test_list[] =
     { 'w',  "send_cmd",         ACTION(send_cmd),       ARG_IN1 | ARG_IN_LINE | ARG_OUT2 | ARG_NOVFO, "Cmd", "Reply" },
     { 'W',  "send_cmd_rx",      ACTION(send_cmd),       ARG_IN | ARG_OUT2 | ARG_NOVFO, "Cmd", "Reply"},
     { 'b',  "send_morse",       ACTION(send_morse),     ARG_IN  | ARG_IN_LINE, "Morse" },
-    { 0x94,  "send_voice_mem",  ACTION(send_voice_mem), ARG_IN, "Voice Mem#" },
+    { 0xbb, "stop_morse",       ACTION(stop_morse),     },
+    { 0xbc, "wait_morse",       ACTION(wait_morse),     },
+    { 0x94, "send_voice_mem",   ACTION(send_voice_mem), ARG_IN, "Voice Mem#" },
     { 0x8b, "get_dcd",          ACTION(get_dcd),        ARG_OUT, "DCD" },
-    { 0x8d, "set_twiddle",      ACTION(set_twiddle),  ARG_IN  | ARG_NOVFO, "Timeout (secs)" },
-    { 0x8e, "get_twiddle",      ACTION(get_twiddle),  ARG_OUT | ARG_NOVFO, "Timeout (secs)" },
+    { 0x8d, "set_twiddle",      ACTION(set_twiddle),    ARG_IN  | ARG_NOVFO, "Timeout (secs)" },
+    { 0x8e, "get_twiddle",      ACTION(get_twiddle),    ARG_OUT | ARG_NOVFO, "Timeout (secs)" },
+    { 0x97, "uplink",           ACTION(set_uplink),     ARG_IN | ARG_NOVFO, "1=Sub, 2=Main" },
     { 0x95, "set_cache",        ACTION(set_cache),      ARG_IN | ARG_NOVFO, "Timeout (msecs)" },
     { 0x96, "get_cache",        ACTION(get_cache),      ARG_OUT | ARG_NOVFO, "Timeout (msecs)" },
     { '2',  "power2mW",         ACTION(power2mW),       ARG_IN1 | ARG_IN2 | ARG_IN3 | ARG_OUT1 | ARG_NOVFO, "Power [0.0..1.0]", "Frequency", "Mode", "Power mW" },
-    { '4',  "mW2power",         ACTION(mW2power),       ARG_IN1 | ARG_IN2 | ARG_IN3 | ARG_OUT1 | ARG_NOVFO, "Power mW", "Frequency", "Mode", "Power [0.0..1.0]" },
+    { '4',  "mW2power",         ACTION(mW2power),       ARG_IN1 | ARG_IN2 | ARG_IN3 | ARG_OUT1 | ARG_NOVFO, "Pwr mW", "Freq", "Mode", "Power [0.0..1.0]" },
     { '1',  "dump_caps",        ACTION(dump_caps),      ARG_NOVFO },
     { '3',  "dump_conf",        ACTION(dump_conf),      ARG_NOVFO },
     { 0x8f, "dump_state",       ACTION(dump_state),     ARG_OUT | ARG_NOVFO },
@@ -982,11 +988,15 @@ int rigctl_parse(RIG *my_rig, FILE *fin, FILE *fout, char *argv[], int argc,
             {
                 rig_debug(RIG_DEBUG_TRACE, "%s: debug7\n", __func__);
 
+#if 0 // was printing Reply: twice
+
                 if (prompt)
                 {
                     rig_debug(RIG_DEBUG_TRACE, "%s: debug8\n", __func__);
                     fprintf_flush(fout, "%s: ", cmd_entry->arg2);
                 }
+
+#endif
 
                 if (scanfc(fin, "%s", arg2) < 1)
                 {
@@ -2068,7 +2078,7 @@ declare_proto_rig(set_mode)
     if (!strcmp(arg1, "?"))
     {
         char s[SPRINTF_MAX_SIZE];
-        sprintf_mode(s, rig->state.mode_list);
+        rig_sprintf_mode(s, rig->state.mode_list);
         fprintf(fout, "%s\n", s);
         return RIG_OK;
     }
@@ -2119,7 +2129,7 @@ declare_proto_rig(set_vfo)
     if (!strcmp(arg1, "?"))
     {
         char s[SPRINTF_MAX_SIZE];
-        sprintf_vfo(s, rig->state.vfo_list);
+        rig_sprintf_vfo(s, rig->state.vfo_list);
         fprintf(fout, "%s\n", s);
         return RIG_OK;
     }
@@ -2513,7 +2523,7 @@ declare_proto_rig(set_split_mode)
     if (!strcmp(arg1, "?"))
     {
         char s[SPRINTF_MAX_SIZE];
-        sprintf_mode(s, rig->state.mode_list);
+        rig_sprintf_mode(s, rig->state.mode_list);
         fprintf(fout, "%s\n", s);
         return RIG_OK;
     }
@@ -2568,7 +2578,7 @@ declare_proto_rig(set_split_freq_mode)
     if (!strcmp(arg1, "?"))
     {
         char s[SPRINTF_MAX_SIZE];
-        sprintf_mode(s, rig->state.mode_list);
+        rig_sprintf_mode(s, rig->state.mode_list);
         fprintf(fout, "%s\n", s);
         return RIG_OK;
     }
@@ -2632,7 +2642,7 @@ declare_proto_rig(set_split_vfo)
     if (!strcmp(arg2, "?"))
     {
         char s[SPRINTF_MAX_SIZE];
-        sprintf_vfo(s, rig->state.vfo_list);
+        rig_sprintf_vfo(s, rig->state.vfo_list);
         fprintf(fout, "%s\n", s);
         return RIG_OK;
     }
@@ -2793,7 +2803,7 @@ declare_proto_rig(set_level)
     if (!strcmp(arg1, "?"))
     {
         char s[SPRINTF_MAX_SIZE];
-        sprintf_level(s, rig->state.has_set_level);
+        rig_sprintf_level(s, rig->state.has_set_level);
         fputs(s, fout);
 
         if (rig->caps->set_ext_level)
@@ -2869,7 +2879,7 @@ declare_proto_rig(get_level)
     if (!strcmp(arg1, "?"))
     {
         char s[SPRINTF_MAX_SIZE];
-        sprintf_level(s, rig->state.has_get_level);
+        rig_sprintf_level(s, rig->state.has_get_level);
         fputs(s, fout);
 
         if (rig->caps->get_ext_level)
@@ -2967,7 +2977,7 @@ declare_proto_rig(set_func)
     if (!strcmp(arg1, "?"))
     {
         char s[SPRINTF_MAX_SIZE];
-        sprintf_func(s, rig->state.has_set_func);
+        rig_sprintf_func(s, rig->state.has_set_func);
         fprintf(fout, "%s\n", s);
         return RIG_OK;
     }
@@ -3005,7 +3015,7 @@ declare_proto_rig(get_func)
     if (!strcmp(arg1, "?"))
     {
         char s[SPRINTF_MAX_SIZE];
-        sprintf_func(s, rig->state.has_get_func);
+        rig_sprintf_func(s, rig->state.has_get_func);
         fprintf(fout, "%s\n", s);
         return RIG_OK;
     }
@@ -3067,7 +3077,7 @@ declare_proto_rig(set_parm)
     if (!strcmp(arg1, "?"))
     {
         char s[SPRINTF_MAX_SIZE];
-        sprintf_parm(s, rig->state.has_set_parm);
+        rig_sprintf_parm(s, rig->state.has_set_parm);
         fprintf(fout, "%s\n", s);
         return RIG_OK;
     }
@@ -3140,7 +3150,7 @@ declare_proto_rig(get_parm)
     if (!strcmp(arg1, "?"))
     {
         char s[SPRINTF_MAX_SIZE];
-        sprintf_parm(s, rig->state.has_get_parm);
+        rig_sprintf_parm(s, rig->state.has_get_parm);
         fprintf(fout, "%s\n", s);
         return RIG_OK;
     }
@@ -3295,7 +3305,7 @@ declare_proto_rig(vfo_op)
     if (!strcmp(arg1, "?"))
     {
         char s[SPRINTF_MAX_SIZE];
-        sprintf_vfop(s, rig->caps->vfo_ops);
+        rig_sprintf_vfop(s, rig->caps->vfo_ops);
         fprintf(fout, "%s\n", s);
         return RIG_OK;
     }
@@ -3320,7 +3330,7 @@ declare_proto_rig(scan)
     if (!strcmp(arg1, "?"))
     {
         char s[SPRINTF_MAX_SIZE];
-        sprintf_scan(s, rig->caps->scan_ops);
+        rig_sprintf_scan(s, rig->caps->scan_ops);
         fprintf(fout, "%s\n", s);
         return RIG_OK;
     }
@@ -3642,7 +3652,7 @@ declare_proto_rig(set_channel)
 
 #endif
 
-    status = rig_set_channel(rig, &chan);
+    status = rig_set_channel(rig, vfo, &chan);
 
     return status;
 }
@@ -3670,7 +3680,7 @@ declare_proto_rig(get_channel)
 
     CHKSCN1ARG(sscanf(arg2, "%d", &read_only));
 
-    status = rig_get_channel(rig, &chan, read_only);
+    status = rig_get_channel(rig, RIG_VFO_NONE, &chan, read_only);
 
     if (status != RIG_OK)
     {
@@ -3884,7 +3894,7 @@ int dump_chan(FILE *fout, RIG *rig, channel_t *chan)
     fprintf(fout, "DCS: %u.%u, ", chan->dcs_code / 10, chan->dcs_code % 10);
     fprintf(fout, "DCSsql: %u.%u\n", chan->dcs_sql / 10, chan->dcs_sql % 10);
 
-    sprintf_func(prntbuf, chan->funcs);
+    rig_sprintf_func(prntbuf, chan->funcs);
     fprintf(fout, "Functions: %s\n", prntbuf);
 
     fprintf(fout, "Levels:");
@@ -3999,7 +4009,7 @@ declare_proto_rig(dump_state)
     fprintf(fout, "%d\n", rig->caps->rig_model);
 #if 0 // deprecated -- not one rig uses this
     fprintf(fout, "%d\n", rs->itu_region);
-#else  // need to print something to maintain backward compatbility
+#else  // need to print something to maintain backward compatibility
     fprintf(fout, "%d\n", 0);
 #endif
 
@@ -4091,6 +4101,7 @@ declare_proto_rig(dump_state)
     {
         fprintf(fout, "vfo_ops=0x%x\n", rig->caps->vfo_ops);
         fprintf(fout, "ptt_type=0x%x\n", rig->state.pttport.type.ptt);
+        fprintf(fout, "targetable_vfo=0x%x\n", rig->caps->targetable_vfo);
         fprintf(fout, "done\n");
     }
 
@@ -4156,7 +4167,7 @@ declare_proto_rig(get_ant)
         fprintf(fout, "%s: ", cmd->arg1);
     }
 
-    sprintf_ant(antbuf, ant_curr);
+    rig_sprintf_ant(antbuf, ant_curr);
     fprintf(fout, "%s%c", antbuf, resp_sep);
     //fprintf(fout, "%d%c", rig_setting2idx(ant_curr)+1, resp_sep);
 
@@ -4172,7 +4183,7 @@ declare_proto_rig(get_ant)
         fprintf(fout, "%s: ", cmd->arg3);
     }
 
-    sprintf_ant(antbuf, ant_tx);
+    rig_sprintf_ant(antbuf, ant_tx);
     fprintf(fout, "%s%c", antbuf, resp_sep);
     //fprintf(fout, "%d%c", rig_setting2idx(ant_tx)+1, resp_sep);
 
@@ -4181,7 +4192,7 @@ declare_proto_rig(get_ant)
         fprintf(fout, "%s: ", cmd->arg4);
     }
 
-    sprintf_ant(antbuf, ant_rx);
+    rig_sprintf_ant(antbuf, ant_rx);
     fprintf(fout, "%s%c", antbuf, resp_sep);
     //fprintf(fout, "%d%c", rig_setting2idx(ant_rx)+1, resp_sep);
 
@@ -4203,6 +4214,17 @@ declare_proto_rig(reset)
 declare_proto_rig(send_morse)
 {
     return rig_send_morse(rig, vfo, arg1);
+}
+
+/* 0xvv */
+declare_proto_rig(stop_morse)
+{
+    return rig_stop_morse(rig, vfo);
+}
+
+declare_proto_rig(wait_morse)
+{
+    return rig_wait_morse(rig, vfo);
 }
 
 /* '8' */
@@ -4278,11 +4300,11 @@ declare_proto_rig(get_powerstat)
     return status;
 }
 
-static int hasbinary(char *s)
+static int hasbinary(char *s, int len)
 {
     int i;
 
-    for (i = 0; s[i] != 0; ++i)
+    for (i = 0; i < len; ++i)
     {
         if (!isascii(s[i])) { return 1; }
     }
@@ -4301,8 +4323,8 @@ declare_proto_rig(send_cmd)
     int retval;
     struct rig_state *rs;
     int backend_num, cmd_len;
-#define BUFSZ 128
-    char bufcmd[BUFSZ];
+#define BUFSZ 512
+    char bufcmd[BUFSZ * 5]; // allow for 5 chars for binary
     unsigned char buf[BUFSZ];
     char eom_buf[4] = { 0xa, 0xd, 0, 0 };
     int binary = 0;
@@ -4407,7 +4429,7 @@ declare_proto_rig(send_cmd)
     rig_flush(&rs->rigport);
 
     rig_debug(RIG_DEBUG_TRACE, "%s: rigport=%d, bufcmd=%s, cmd_len=%d\n", __func__,
-              rs->rigport.fd, hasbinary(bufcmd) ? "BINARY" : bufcmd, cmd_len);
+              rs->rigport.fd, hasbinary(bufcmd, cmd_len) ? "BINARY" : bufcmd, cmd_len);
     retval = write_block(&rs->rigport, (char *)bufcmd, cmd_len);
 
     if (retval != RIG_OK)
@@ -4419,7 +4441,7 @@ declare_proto_rig(send_cmd)
     {
         rig_debug(RIG_DEBUG_TRACE, "%s: debug Cmd\n", __func__);
         fwrite(cmd->arg2, 1, strlen(cmd->arg2), fout); /* i.e. "Frequency" */
-        fwrite(":", 1, 1, fout); /* i.e. "Frequency" */
+        fwrite(": ", 1, 2, fout); /* i.e. "Frequency" */
     }
 
     do
@@ -4429,9 +4451,6 @@ declare_proto_rig(send_cmd)
         if (rxbytes > 0)
         {
             ++rxbytes;  // need length + 1 for end of string
-
-            if (cmd->cmd == 'W') { rxbytes *= 5; }
-
             eom_buf[0] = 0;
         }
 
@@ -4456,10 +4475,10 @@ declare_proto_rig(send_cmd)
             buf[BUFSZ - 1] = '\0';
         }
 
-        if (rig->caps->rig_model != RIG_MODEL_NETRIGCTL)
+        //if (rig->caps->rig_model != RIG_MODEL_NETRIGCTL)
         {
             // see if we have binary being returned
-            binary = hasbinary((char *)buf);
+            binary = hasbinary((char *)buf, retval);
         }
 
         if (binary)   // convert our buf to a hex representation
@@ -4571,6 +4590,16 @@ declare_proto_rig(set_twiddle)
     CHKSCN1ARG(sscanf(arg1, "%d", &seconds));
     return rig_set_twiddle(rig, seconds);
 }
+
+/* '0x97' */
+declare_proto_rig(set_uplink)
+{
+    int val;
+
+    CHKSCN1ARG(sscanf(arg1, "%d", &val));
+    return rig_set_uplink(rig, val);
+}
+
 
 
 /* '0x8e' */

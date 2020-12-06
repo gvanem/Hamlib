@@ -69,6 +69,7 @@
 #include "misc.h"
 #include "tones.h"
 #include "bandplan.h"
+#include "cal.h"
 
 
 /* Native ft817 cmd set prototypes. These are READ ONLY as each */
@@ -159,12 +160,43 @@ enum ft817_digi
                     { 0x0F,  60 }  /* +60 */ \
                 } }
 
+// Thanks to Olivier Schmitt sc.olivier@gmail.com for these tables
+#define FT817_PWR_CAL { 9, \
+                { \
+                    { 0x00, 0 }, \
+                    { 0x01, 10 }, \
+                    { 0x02, 14 }, \
+                    { 0x03, 20 }, \
+                    { 0x04, 34 }, \
+                    { 0x05, 50 }, \
+                    { 0x06, 66 }, \
+                    { 0x07, 82 }, \
+                    { 0x08, 100 } \
+                } }
+
+#define FT817_ALC_CAL { 6, \
+                { \
+                    { 0x00, 0 }, \
+                    { 0x01, 20 }, \
+                    { 0x02, 40 }, \
+                    { 0x03, 60 }, \
+                    { 0x04, 80 }, \
+                    { 0x05, 100 } \
+                } }
+
+#define FT817_SWR_CAL { 2, \
+                { \
+                    { 0, 0 }, \
+                    { 15, 100 } \
+                } }
+
+
 const struct rig_caps ft817_caps =
 {
     RIG_MODEL(RIG_MODEL_FT817),
     .model_name =          "FT-817",
     .mfg_name =            "Yaesu",
-    .version =             "20200903.0",
+    .version =             "20201015.0",
     .copyright =           "LGPL",
     .status =              RIG_STATUS_STABLE,
     .rig_type =            RIG_TYPE_TRANSCEIVER,
@@ -187,7 +219,7 @@ const struct rig_caps ft817_caps =
     .has_set_level =       RIG_LEVEL_NONE,
     .has_get_parm =        RIG_PARM_NONE,
     .has_set_parm =        RIG_PARM_NONE,
-    .level_gran =          { 0 },                     /* granularity */
+    .level_gran =          { 0 },                   /* granularity */
     .parm_gran =           { 0 },
     .ctcss_list =          common_ctcss_list,
     .dcs_list =            common_dcs_list,   /* only 104 out of 106 supported */
@@ -267,7 +299,10 @@ const struct rig_caps ft817_caps =
         RIG_FLT_END,
     },
 
-    .str_cal = FT817_STR_CAL,
+    .str_cal =          FT817_STR_CAL,
+    .swr_cal =          FT817_SWR_CAL,
+    .alc_cal =          FT817_ALC_CAL,
+    .rfpower_meter_cal = FT817_PWR_CAL,
 
     .rig_init =         ft817_init,
     .rig_cleanup =          ft817_cleanup,
@@ -441,7 +476,8 @@ int ft817_init(RIG *rig)
 {
     struct ft817_priv_data *priv;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: called, version %s\n", __func__,
+              rig->caps->version);
 
     if ((rig->state.priv = calloc(1, sizeof(struct ft817_priv_data))) == NULL)
     {
@@ -803,6 +839,37 @@ int ft817_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
     return RIG_OK;
 }
 
+static int ft817_get_alc_level(RIG *rig, value_t *val)
+{
+    struct ft817_priv_data *p = (struct ft817_priv_data *) rig->state.priv;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
+
+    if (check_cache_timeout(&p->tx_status_tv))
+    {
+        int n;
+
+        if ((n = ft817_get_status(rig, FT817_NATIVE_CAT_GET_TX_STATUS)) < 0)
+        {
+            return n;
+        }
+    }
+
+    /* Valid only if PTT is on.
+       FT-817 returns the number of bars in the lowest 4 bits
+    */
+    if ((p->tx_status & 0x80) == 0)
+    {
+        val->f = rig_raw2val_float(p->tx_status >> 4, &rig->caps->alc_cal);
+    }
+    else // not transmitting so zero
+    {
+        val->f = 0.0;
+    }
+
+    return RIG_OK;
+}
+
 static int ft817_get_pometer_level(RIG *rig, value_t *val)
 {
     struct ft817_priv_data *p = (struct ft817_priv_data *) rig->state.priv;
@@ -824,18 +891,15 @@ static int ft817_get_pometer_level(RIG *rig, value_t *val)
     */
     if ((p->tx_status & 0x80) == 0)
     {
-        /* the rig has 10 bars on its display */
-        val->f = (p->tx_status & 0x0F) / 10.0;
-
+        val->f = rig_raw2val_float(p->tx_status >> 4, &rig->caps->rfpower_meter_cal);
     }
-    else
+    else // not transmitting so zero
     {
         val->f = 0.0;
     }
 
     return RIG_OK;
 }
-
 
 /* frontend will always use RAWSTR+cal_table */
 static int ft817_get_smeter_level(RIG *rig, value_t *val)
@@ -917,6 +981,10 @@ int ft817_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
     case RIG_LEVEL_RFPOWER:
         return ft817_get_pometer_level(rig, val);
+        break;
+
+    case RIG_LEVEL_ALC:
+        return ft817_get_alc_level(rig, val);
         break;
 
     default:
@@ -1001,6 +1069,7 @@ static int ft817_send_cmd(RIG *rig, int index)
         return -RIG_EINTERNAL;
     }
 
+    rig_flush(&rig->state.rigport);
     write_block(&rig->state.rigport, (char *) p->pcs[index].nseq, YAESU_CMD_LENGTH);
     return ft817_read_ack(rig);
 }
@@ -1033,6 +1102,7 @@ static int ft817_send_icmd(RIG *rig, int index, unsigned char *data)
 int ft817_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     unsigned char data[YAESU_CMD_LENGTH - 1];
+    int retval;
 
     rig_debug(RIG_DEBUG_VERBOSE, "ft817: requested freq = %"PRIfreq" Hz\n", freq);
 
@@ -1042,7 +1112,9 @@ int ft817_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     rig_force_cache_timeout(
         &((struct ft817_priv_data *)rig->state.priv)->fm_status_tv);
 
-    return ft817_send_icmd(rig, FT817_NATIVE_CAT_SET_FREQ, data);
+    retval = ft817_send_icmd(rig, FT817_NATIVE_CAT_SET_FREQ, data);
+    hl_usleep(50 * 1000); // FT817 needs a little time after setting freq
+    return retval;
 }
 
 int ft817_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
@@ -1375,6 +1447,8 @@ int ft817_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit)
 
 int ft817_set_powerstat(RIG *rig, powerstat_t status)
 {
+    struct ft817_priv_data *p = (struct ft817_priv_data *) rig->state.priv;
+
     rig_debug(RIG_DEBUG_VERBOSE, "%s: called\n", __func__);
 
     switch (status)
@@ -1383,8 +1457,13 @@ int ft817_set_powerstat(RIG *rig, powerstat_t status)
         return ft817_send_cmd(rig, FT817_NATIVE_CAT_PWR_OFF);
 
     case RIG_POWER_ON:
-        ft817_send_cmd(rig, FT817_NATIVE_CAT_PWR_WAKE);
-        return ft817_send_cmd(rig, FT817_NATIVE_CAT_PWR_ON);
+        // send 5 bytes first, snooze a bit, then PWR_ON
+        write_block(&rig->state.rigport,
+                    (char *) p->pcs[FT817_NATIVE_CAT_PWR_WAKE].nseq, YAESU_CMD_LENGTH);
+        hl_usleep(200 * 1000);
+        write_block(&rig->state.rigport, (char *) p->pcs[FT817_NATIVE_CAT_PWR_ON].nseq,
+                    YAESU_CMD_LENGTH);
+        return RIG_OK;
 
     case RIG_POWER_STANDBY:
     default:

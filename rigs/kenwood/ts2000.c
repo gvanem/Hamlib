@@ -58,8 +58,9 @@
 
 /* prototypes */
 static int ts2000_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
-static int ts2000_get_channel(RIG *rig, channel_t *chan, int read_only);
-static int ts2000_set_channel(RIG *rig, const channel_t *chan);
+static int ts2000_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
+                              int read_only);
+static int ts2000_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan);
 
 /*
  * 38 CTCSS sub-audible tones + 1750 tone
@@ -310,6 +311,7 @@ const struct rig_caps ts2000_caps =
     .set_ant =  kenwood_set_ant,
     .get_ant =  kenwood_get_ant,
     .send_morse =  kenwood_send_morse,
+    .wait_morse = rig_wait_morse,
     .vfo_op =  kenwood_vfo_op,
     .scan =  kenwood_scan,
     .set_mem =  kenwood_set_mem,
@@ -368,7 +370,7 @@ const struct rig_caps ts2000_caps =
 
  */
 
-int ts2000_get_channel(RIG *rig, channel_t *chan, int read_only)
+int ts2000_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
     int err;
     int tmp;
@@ -606,7 +608,7 @@ int ts2000_get_channel(RIG *rig, channel_t *chan, int read_only)
     return RIG_OK;
 }
 
-int ts2000_set_channel(RIG *rig, const channel_t *chan)
+int ts2000_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     char sqltype = '0';
     char buf[128];
@@ -997,25 +999,7 @@ int ts2000_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_MICGAIN:
-        retval = kenwood_transaction(rig, "MG", lvlbuf, sizeof(lvlbuf));
-
-        if (retval != RIG_OK)
-        {
-            return retval;
-        }
-
-        lvl_len = strlen(lvlbuf);
-
-        if (lvl_len != 5)
-        {
-            rig_debug(RIG_DEBUG_ERR, "%s: unexpected answer len=%d\n", __func__,
-                      (int)lvl_len);
-            return -RIG_ERJCTED;
-        }
-
-        sscanf(lvlbuf + 2, "%d", &lvl);
-        val->f = lvl / 100.0;
-        break;
+        return kenwood_get_level(rig, vfo, level, val);
 
     case RIG_LEVEL_KEYSPD:
         retval = kenwood_transaction(rig, "KS", lvlbuf, sizeof(lvlbuf));
@@ -1066,7 +1050,7 @@ int ts2000_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
 
     case RIG_LEVEL_AGC: /* FIX ME: ts2000 returns 0 -20 for AGC */
-        ret = get_kenwood_level(rig, "GT", &val->f);
+        ret = get_kenwood_level(rig, "GT", &val->f, NULL);
         agclevel = 255.0 * val->f;
 
         if (agclevel == 0) { val->i = 0; }

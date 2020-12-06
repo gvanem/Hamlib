@@ -481,19 +481,19 @@ static int ts870s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
 
     case RIG_LEVEL_AF:
-        return get_kenwood_level(rig, "AG", &val->f);
+        return get_kenwood_level(rig, "AG", &val->f, NULL);
 
     case RIG_LEVEL_RF:
-        return get_kenwood_level(rig, "RG", &val->f);
+        return get_kenwood_level(rig, "RG", &val->f, NULL);
 
     case RIG_LEVEL_SQL:
-        return get_kenwood_level(rig, "SQ", &val->f);
+        return get_kenwood_level(rig, "SQ", &val->f, NULL);
 
     case RIG_LEVEL_MICGAIN:
-        return get_kenwood_level(rig, "MG", &val->f);
+        return get_kenwood_level(rig, "MG", &val->f, NULL);
 
     case RIG_LEVEL_AGC:
-        ret = get_kenwood_level(rig, "GT", &val->f);
+        ret = get_kenwood_level(rig, "GT", &val->f, NULL);
         agclevel = 255 * val->f;
 
         if (agclevel == 0) { val->i = 0; }
@@ -566,7 +566,7 @@ const struct rig_caps ts870s_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,    /* FIXME: parms */
     .level_gran =  { 0 },              /* FIXME: granularity */
-    .parm_gran  =  { 0 },
+    .parm_gran =  { 0 },
     .ctcss_list =  kenwood38_ctcss_list,
     .dcs_list =  NULL,
     .preamp =   { RIG_DBLST_END, }, /* FIXME: preamp list */
@@ -669,6 +669,7 @@ const struct rig_caps ts870s_caps =
     .set_ant =  kenwood_set_ant,
     .get_ant =  kenwood_get_ant,
     .send_morse =  kenwood_send_morse,
+    .wait_morse =  rig_wait_morse,
     .vfo_op =  kenwood_vfo_op,
     .set_mem =  kenwood_set_mem,
     .get_mem =  kenwood_get_mem,

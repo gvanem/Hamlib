@@ -261,6 +261,10 @@
 #define ROT_MODEL_GS232 ROT_MAKE_MODEL(ROT_GS232A, 6) /* Not A or B */
 #define ROT_MODEL_LVB ROT_MAKE_MODEL(ROT_GS232A, 7)
 #define ROT_MODEL_ST2 ROT_MAKE_MODEL(ROT_GS232A, 8)
+#define ROT_MODEL_GS232A_AZ ROT_MAKE_MODEL(ROT_GS232A, 9)
+#define ROT_MODEL_GS232A_EL ROT_MAKE_MODEL(ROT_GS232A, 10)
+#define ROT_MODEL_GS232B_AZ ROT_MAKE_MODEL(ROT_GS232A, 11)
+#define ROT_MODEL_GS232B_EL ROT_MAKE_MODEL(ROT_GS232A, 12)
 
 /**
  *  \def ROT_MODEL_PCROTOR
@@ -325,6 +329,8 @@
 #define ROT_BACKEND_M2 "m2"
 //! @endcond
 #define ROT_MODEL_RC2800 ROT_MAKE_MODEL(ROT_M2, 1)
+#define ROT_MODEL_RC2800_EARLY_AZ ROT_MAKE_MODEL(ROT_M2, 2)
+#define ROT_MODEL_RC2800_EARLY_AZEL ROT_MAKE_MODEL(ROT_M2, 3)
 
 
 /**
@@ -453,6 +459,20 @@
 #define ROT_BACKEND_IOPTRON "ioptron"
 //! @endcond
 #define ROT_MODEL_IOPTRON ROT_MAKE_MODEL(ROT_IOPTRON, 1)
+
+
+/**
++ *  \def ROT_MODEL_INDI
++ *  \brief A macro that returns the model number of the INDI backend.
++ *
++ *  The INDI backend can be used with rotators that support, among other, the
++ *  INDI interface.
++ */
+//! @cond Doxygen_Suppress
+#define ROT_INDI 20
+#define ROT_BACKEND_INDI "indi"
+//! @endcond
+#define ROT_MODEL_INDI ROT_MAKE_MODEL(ROT_INDI, 1)
 
 
 

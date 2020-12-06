@@ -247,7 +247,7 @@ static const struct icom_priv_caps IC9700_priv_caps =
     0xA2,   /* default address */
     0,      /* 731 mode */
     1,      /* no XCHG to avoid display flickering */
-    ic7300_ts_sc_list,
+    ic9700_ts_sc_list,
     .serial_USB_echo_check = 1,  /* USB CI-V may not echo */
     .agc_levels_present = 1,
     .agc_levels = {
@@ -444,6 +444,8 @@ const struct rig_caps ic7300_caps =
     .power2mW = icom_power2mW,
     .mW2power = icom_mW2power,
     .send_morse = icom_send_morse,
+    .stop_morse = icom_stop_morse,
+    .wait_morse = rig_wait_morse,
     .send_voice_mem = icom_send_voice_mem
 };
 
@@ -689,9 +691,10 @@ const struct rig_caps ic9700_caps =
     .power2mW = icom_power2mW,
     .mW2power = icom_mW2power,
     .send_morse = icom_send_morse,
+    .stop_morse = icom_stop_morse,
+    .wait_morse = rig_wait_morse,
     .send_voice_mem = icom_send_voice_mem
 };
-
 
 const struct rig_caps ic705_caps =
 {
@@ -700,7 +703,7 @@ const struct rig_caps ic705_caps =
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -893,6 +896,8 @@ const struct rig_caps ic705_caps =
     .power2mW = icom_power2mW,
     .mW2power = icom_mW2power,
     .send_morse = icom_send_morse,
+    .stop_morse = icom_stop_morse,
+    .wait_morse = rig_wait_morse,
     .send_voice_mem = icom_send_voice_mem
 };
 
@@ -902,7 +907,7 @@ int ic7300_set_parm(RIG *rig, setting_t parm, value_t val)
 
     switch (parm)
     {
-    unsigned char prmbuf[MAXFRAMELEN];
+        unsigned char prmbuf[MAXFRAMELEN];
 
     case RIG_PARM_ANN:
     {

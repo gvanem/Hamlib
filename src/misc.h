@@ -72,6 +72,10 @@ extern HAMLIB_EXPORT(unsigned long long) from_bcd_be(const unsigned char
                                                      bcd_data[],
                                                      unsigned bcd_len);
 
+extern HAMLIB_EXPORT(double) morse_code_dot_to_millis(int wpm);
+extern HAMLIB_EXPORT(int) dot10ths_to_millis(int dot10ths, int wpm);
+extern HAMLIB_EXPORT(int) millis_to_dot10ths(int millis, int wpm);
+
 extern HAMLIB_EXPORT(int) sprintf_freq(char *str, freq_t);
 
 /* flag that determines if AI mode should be restored on exit on
@@ -84,12 +88,10 @@ extern int no_restore_ai;
 
 /* needs config.h included beforehand in .c file */
 #ifdef HAVE_INTTYPES_H
-// cppcheck-suppress *
 #  include <inttypes.h>
 #endif
 
 #ifdef HAVE_SYS_TIME_H
-// cppcheck-suppress *
 #  include <sys/time.h>
 #endif
 
@@ -135,7 +137,6 @@ extern HAMLIB_EXPORT(int) parse_hoststr(char *host, char hoststr[256], char port
 #    define SCNXll "llx"
 #  endif
 #endif
-
 
 #define fprintf_flush(f, ...)      \
         do {                       \

@@ -150,8 +150,8 @@ const struct rig_caps ts990s_caps =
     .has_set_level =  RIG_LEVEL_SET(TS2000_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,    /* FIXME: parms */
-    .level_gran =  { 0 },                 /* FIXME: granularity */
-    .parm_gran  =  { 0 },
+    .level_gran =  { 0 },              /* FIXME: granularity */
+    .parm_gran =  { 0 },
     .vfo_ops =  TS990S_VFO_OP,
     .scan_ops =  TS990S_SCAN_OP,
     .ctcss_list = kenwood42_ctcss_list,
@@ -340,6 +340,7 @@ const struct rig_caps ts990s_caps =
     .set_ant =  kenwood_set_ant,
     .get_ant =  kenwood_get_ant,
     .send_morse =  kenwood_send_morse,
+    .wait_morse =  rig_wait_morse,
     .vfo_op =  kenwood_vfo_op,
     .scan =  kenwood_scan,
     .set_mem =  kenwood_set_mem,
@@ -561,14 +562,8 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_MICGAIN:
-        retval = get_kenwood_level(rig, "MG", &val->f);
 
-        if (retval != RIG_OK)
-        {
-            return retval;
-        }
-
-        break;
+        return kenwood_get_level(rig, vfo, level, val);
 
     case RIG_LEVEL_KEYSPD:
         retval = kenwood_safe_transaction(rig, "KS", lvlbuf, sizeof(lvlbuf), 5);
@@ -670,7 +665,7 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_VOXGAIN:
-        retval = get_kenwood_level(rig, "VG00", &val->f);
+        retval = get_kenwood_level(rig, "VG00", &val->f, NULL);
 
         if (retval != RIG_OK)
         {
@@ -680,7 +675,7 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_ANTIVOX:
-        retval = get_kenwood_level(rig, "VG00", &val->f);
+        retval = get_kenwood_level(rig, "VG00", &val->f, NULL);
 
         if (retval != RIG_OK)
         {

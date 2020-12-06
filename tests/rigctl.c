@@ -23,7 +23,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
-#include "hamlibdatetime.h"
+#include <hamlibdatetime.h>
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
@@ -72,7 +72,6 @@ extern int read_history();
 #include "iofunc.h"
 #include "serial.h"
 #include "sprintflst.h"
-#include "dummy/dummy.h"
 #include "rigctl_parse.h"
 
 #define MAXNAMSIZ 32

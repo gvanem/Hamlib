@@ -75,7 +75,6 @@
 #  define OPEN open
 #  define CLOSE close
 #  define IOCTL ioctl
-#  define READ  read
 #endif
 //! @endcond
 
@@ -196,6 +195,24 @@ int HAMLIB_API serial_open(hamlib_port_t *rp)
          *         export uh_radio_fd to iofunc.c because in the case of sockets,
          *         read() must be used also in the _WIN32 case.
          *         This is why uh_radio_fd is declared globally in microham.h.
+         * Notes from Joe Subich about microham behavior
+         * Microham debug tags
+         * A-RX ; Asynchronous data received (data not responsive to any
+         *        poll from host or Router) - Set AI0;
+         * H2-RX;  Data received in response to poll from Host 2 poll (2nd CAT port).
+         * H2-TX;  Data poll/command from Host 2 (2nd CAT Port)
+         * R-RX;  Data received in response to poll by microHAM USB Device Router
+         * R-TX;  Router poll
+         * Note: R-TX; and R-RX; data is not passed to Host ports.
+         * 1) Router only polls when it has not seen a poll for FA; FB; and IF;
+         *    (or equivalent for other manufacturers) within its timeout period.
+         * 2) The results of router's polling are not passed to the Host/apps.
+         * 3) Router only polls when there is no activity from the applications.
+         * 4) Router is designed to be transparent as far as the applications
+         *    are concerned.  The only exception is when the user chooses to
+         *    run two applications (CAT and 2nd CAT) at the same time and has
+         *    "auto-information" or CI-V enabled.  In that case asynchronous data
+         *    from the transceiver will be returned to both applications.
          */
         uh_radio_fd = fd;
         return RIG_OK;
@@ -355,10 +372,10 @@ int HAMLIB_API serial_setup(hamlib_port_t *rp)
 
     /* TODO */
     rig_debug(RIG_DEBUG_TRACE, "%s: cfsetispeed=%d,0x%04x\n", __func__,
-              rp->parm.serial.rate, speed);
+              (int)rp->parm.serial.rate, (int)speed);
     cfsetispeed(&options, speed);
     rig_debug(RIG_DEBUG_TRACE, "%s: cfsetospeed=%d,0x%04x\n", __func__,
-              rp->parm.serial.rate, speed);
+              (int)rp->parm.serial.rate, (int)speed);
     cfsetospeed(&options, speed);
 
     /*
@@ -608,7 +625,7 @@ int HAMLIB_API serial_flush(hamlib_port_t *p)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd)
+    if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd || p->flushx)
     {
         unsigned char buf[32];
         /*
@@ -616,18 +633,21 @@ int HAMLIB_API serial_flush(hamlib_port_t *p)
          * if fd corresponds to a microHam device drain the line
          * (which is a socket) by reading until it is empty.
          */
-        int n;
+        int n, nbytes = 0;
 
-        rig_debug(RIG_DEBUG_TRACE, "%s: flushing: ", __func__);
+        rig_debug(RIG_DEBUG_TRACE, "%s: flushing\n", __func__);
 
         while ((n = READ(p->fd, buf, 32)) > 0)
         {
+            nbytes += n;
             //int i;
 
             //for (i = 0; i < n; ++i) { printf("0x%02x(%c) ", buf[i], isprint(buf[i]) ? buf[i] : '~'); }
 
             /* do nothing */
         }
+
+        rig_debug(RIG_DEBUG_TRACE, "read flushed %d bytes\n", nbytes);
 
 
         return RIG_OK;

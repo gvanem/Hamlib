@@ -120,7 +120,8 @@ struct cmdparams ic785x_extcmds[] =
 };
 
 
-int ic785x_ext_tokens[] = {
+int ic785x_ext_tokens[] =
+{
     TOK_DRIVE_GAIN, TOK_DIGI_SEL_FUNC, TOK_DIGI_SEL_LEVEL, TOK_BACKEND_NONE
 };
 
@@ -320,16 +321,17 @@ const struct rig_caps ic785x_caps =
     .get_split_vfo =  icom_get_split_vfo,
     .set_powerstat =  icom_set_powerstat,
     .get_powerstat =  icom_get_powerstat,
-    .send_morse = icom_send_morse
-
+    .send_morse = icom_send_morse,
+    .stop_morse = icom_stop_morse,
+    .wait_morse = rig_wait_morse
 };
 
 int ic785x_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
-   return ic7800_set_level(rig, vfo, level, val);
+    return ic7800_set_level(rig, vfo, level, val);
 }
 
 int ic785x_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
-   return ic7800_get_level(rig, vfo, level, val);
+    return ic7800_get_level(rig, vfo, level, val);
 }

@@ -127,7 +127,8 @@ struct cmdparams ic7610_extcmds[] =
     { { 0 } }
 };
 
-int ic7610_ext_tokens[] = {
+int ic7610_ext_tokens[] =
+{
     TOK_DRIVE_GAIN, TOK_DIGI_SEL_FUNC, TOK_DIGI_SEL_LEVEL, TOK_BACKEND_NONE
 };
 
@@ -326,6 +327,6 @@ const struct rig_caps ic7610_caps =
     .get_split_vfo =  icom_get_split_vfo,
     .set_powerstat = icom_set_powerstat,
     .get_powerstat = icom_get_powerstat,
-    .send_morse = icom_send_morse
+    .stop_morse = icom_stop_morse,
+    .wait_morse = rig_wait_morse
 };
-

@@ -369,11 +369,25 @@ const struct ts_sc_list ic705_ts_sc_list[] =
     {kHz(25), 0x11},
     {kHz(50), 0x12},
     {kHz(100), 0x13},
-    {0, 0x13},            /* programmable tuning step not supported */
     {0, 0},
 };
 
-
+const struct ts_sc_list ic9700_ts_sc_list[] =
+{
+    {10, 0x00},
+    {100, 0x01},
+    {500, 0x02},
+    {kHz(1), 0x03},
+    {kHz(5), 0x04},
+    {kHz(6.25), 0x05},
+    {kHz(10), 0x06},
+    {kHz(12.5), 0x07},
+    {kHz(20), 0x08},
+    {kHz(25), 0x09},
+    {kHz(50), 0x10},
+    {kHz(100), 0x11},
+    {0, 0},
+};
 
 /* rtty filter list for some DSP rigs ie PRO */
 #define RTTY_FIL_NB 5
@@ -1617,7 +1631,7 @@ int icom_set_mode_with_data(RIG *rig, vfo_t vfo, rmode_t mode,
         {
             unsigned char mode_icom; // not used as it will map to USB/LSB
             signed char width_icom;
-            rig2icom_mode(rig, mode, width, &mode_icom, &width_icom);
+            rig2icom_mode(rig, vfo, mode, width, &mode_icom, &width_icom);
             // since width_icom is 0-2 for rigs that need this here we have to make it 1-3
             datamode[1] = datamode[0] ? width_icom : 0;
             retval =
@@ -1674,11 +1688,11 @@ int icom_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 
     if (priv_caps->r2i_mode != NULL)  /* call priv code if defined */
     {
-        err = priv_caps->r2i_mode(rig, mode, width, &icmode, &icmode_ext);
+        err = priv_caps->r2i_mode(rig, vfo, mode, width, &icmode, &icmode_ext);
     }
     else              /* else call default */
     {
-        err = rig2icom_mode(rig, mode, width, &icmode, &icmode_ext);
+        err = rig2icom_mode(rig, vfo, mode, width, &icmode, &icmode_ext);
     }
 
     if (err < 0)
@@ -1686,12 +1700,13 @@ int icom_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         return err;
     }
 
-    /* IC-731 and IC-735 don't support passband data */
+    /* IC-731, IC-735, IC-7000 don't support passband data */
     /* IC-726 & IC-475A/E also limited support - only on CW */
     /* TODO: G4WJS CW wide/narrow are possible with above two radios */
     if (priv->civ_731_mode || rig->caps->rig_model == RIG_MODEL_OS456
             || rig->caps->rig_model == RIG_MODEL_IC726
-            || rig->caps->rig_model == RIG_MODEL_IC475)
+            || rig->caps->rig_model == RIG_MODEL_IC475
+            || rig->caps->rig_model == RIG_MODEL_IC7000)
     {
         icmode_ext = -1;
     }
@@ -3241,9 +3256,12 @@ int icom_get_ext_func(RIG *rig, vfo_t vfo, token_t token, int *status)
         {
             value_t value;
             int result = icom_get_ext_cmd(rig, vfo, token, &value);
-            if (result == RIG_OK) {
+
+            if (result == RIG_OK)
+            {
                 *status = value.i;
             }
+
             return result;
         }
         else { i++; }
@@ -3636,6 +3654,7 @@ int icom_get_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t *rptr_shift)
     switch (rptrbuf[1])
     {
     case S_DUP_OFF:
+    case S_DUP_DD_RPS:
         *rptr_shift = RIG_RPT_SHIFT_NONE; /* Simplex mode */
         break;
 
@@ -3645,6 +3664,12 @@ int icom_get_rptr_shift(RIG *rig, vfo_t vfo, rptr_shift_t *rptr_shift)
 
     case S_DUP_P:
         *rptr_shift = RIG_RPT_SHIFT_PLUS; /* Duplex + mode */
+        break;
+
+    // The same command indicates split state, which means simplex mode
+    case S_SPLT_OFF:
+    case S_SPLT_ON:
+        *rptr_shift = RIG_RPT_SHIFT_NONE; /* Simplex mode */
         break;
 
     default:
@@ -4964,6 +4989,13 @@ int icom_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
         *split = RIG_SPLIT_ON;
         break;
 
+    // The same command indicates repeater shift state, which means that split is off
+    case S_DUP_M:
+    case S_DUP_P:
+    case S_DUP_DD_RPS:
+        *split = RIG_SPLIT_OFF;
+        break;
+
     default:
         rig_debug(RIG_DEBUG_ERR, "%s: unsupported split %d", __func__,
                   splitbuf[1]);
@@ -5411,6 +5443,7 @@ int icom_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     value_t value;
+
     for (i = 0; extcmds && extcmds[i].id.s != 0; i++)
     {
         rig_debug(RIG_DEBUG_TRACE, "%s: i=%d\n", __func__, i);
@@ -5418,9 +5451,12 @@ int icom_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
         if (extcmds[i].cmdparamtype == CMD_PARAM_TYPE_FUNC && extcmds[i].id.s == func)
         {
             int result = icom_get_cmd(rig, vfo, (struct cmdparams *)&extcmds[i], &value);
-            if (result == RIG_OK) {
+
+            if (result == RIG_OK)
+            {
                 *status = value.i;
             }
+
             return result;
         }
     }
@@ -6763,6 +6799,38 @@ int icom_send_morse(RIG *rig, vfo_t vfo, const char *msg)
     return RIG_OK;
 }
 
+/*
+ * icom_stop_morse
+ * Assumes rig!=NULL, msg!=NULL
+ */
+int icom_stop_morse(RIG *rig, vfo_t vfo)
+{
+    unsigned char ackbuf[MAXFRAMELEN];
+    unsigned char cmd[MAXFRAMELEN];
+    int ack_len = sizeof(ackbuf), retval;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    cmd[0] = 0xff;
+
+    retval = icom_transaction(rig, C_SND_CW, -1, (unsigned char *) cmd, 1,
+                              ackbuf, &ack_len);
+
+    if (retval != RIG_OK)
+    {
+        return retval;
+    }
+
+    if (ack_len != 1 || ackbuf[0] != ACK)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: ack NG (%#.2x), len=%d\n", __func__,
+                  ackbuf[0], ack_len);
+        return -RIG_ERJCTED;
+    }
+
+    return RIG_OK;
+}
+
 int icom_power2mW(RIG *rig, unsigned int *mwpower, float power, freq_t freq,
                   rmode_t mode)
 {
@@ -7503,6 +7571,7 @@ DECLARE_INITRIG_BACKEND(icom)
     rig_register(&ic781_caps);
     rig_register(&ic707_caps);
     rig_register(&ic728_caps);
+    rig_register(&ic729_caps);
 
     rig_register(&ic820h_caps);
     rig_register(&ic821h_caps);

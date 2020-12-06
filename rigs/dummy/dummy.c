@@ -37,6 +37,7 @@
 #include <time.h>
 
 #include "hamlib/rig.h"
+#include "dummy_common.h"
 #include "serial.h"
 #include "parallel.h"
 #include "cm108.h"
@@ -186,47 +187,6 @@ static void copy_chan(channel_t *dest, const channel_t *src)
     saved_ext_levels = dest->ext_levels;
     memcpy(dest, src, sizeof(channel_t));
     dest->ext_levels = saved_ext_levels;
-}
-
-static struct ext_list *alloc_init_ext(const struct confparams *cfp)
-{
-    struct ext_list *elp;
-    int i, nb_ext;
-
-    for (nb_ext = 0; !RIG_IS_EXT_END(cfp[nb_ext]); nb_ext++)
-        ;
-
-    elp = calloc((nb_ext + 1), sizeof(struct ext_list));
-
-    if (!elp)
-    {
-        return NULL;
-    }
-
-    for (i = 0; !RIG_IS_EXT_END(cfp[i]); i++)
-    {
-        elp[i].token = cfp[i].token;
-        /* value reset already by calloc */
-    }
-
-    /* last token in array is set to 0 by calloc */
-
-    return elp;
-}
-
-static struct ext_list *find_ext(struct ext_list *elp, token_t token)
-{
-    int i;
-
-    for (i = 0; elp[i].token != 0; i++)
-    {
-        if (elp[i].token == token)
-        {
-            return &elp[i];
-        }
-    }
-
-    return NULL;
 }
 
 static int dummy_init(RIG *rig)
@@ -426,8 +386,8 @@ static int dummy_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s %s\n", __func__,
               rig_strvfo(vfo), fstr);
 
-    if (vfo == RIG_VFO_A) { priv->curr->freq = freq; }
-    else if (vfo == RIG_VFO_B) { priv->curr->tx_freq = freq; }
+    if (vfo == RIG_VFO_A || vfo == RIG_VFO_MAIN) { priv->curr->freq = freq; }
+    else if (vfo == RIG_VFO_B || vfo == RIG_VFO_SUB) { priv->curr->tx_freq = freq; }
 
     if (!priv->split)
     {
@@ -447,13 +407,23 @@ static int dummy_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 
     if (vfo == RIG_VFO_CURR && rig->caps->rig_model != RIG_MODEL_DUMMY_NOVFO) { vfo = priv->curr_vfo; }
 
+    if ((vfo == RIG_VFO_SUB && rig->state.uplink == 1)
+            || (vfo == RIG_VFO_MAIN && rig->state.uplink == 2))
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s: uplink=%d, ignoring get_freq\n", __func__,
+                  rig->state.uplink);
+        return RIG_OK;
+    }
+
     usleep(CMDSLEEP);
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s\n", __func__, rig_strvfo(vfo));
 
     switch (vfo)
     {
+    case RIG_VFO_MAIN:
     case RIG_VFO_A:  *freq = priv->curr->freq; break;
 
+    case RIG_VFO_SUB:
     case RIG_VFO_B:  *freq = priv->curr->tx_freq; break;
 
     default: return -RIG_EINVAL;
@@ -1273,21 +1243,23 @@ static int dummy_set_ext_func(RIG *rig, vfo_t vfo, token_t token, int status)
 
     switch (token)
     {
-        case TOK_EL_MAGICEXTFUNC:
-            break;
+    case TOK_EL_MAGICEXTFUNC:
+        break;
 
-        default:
-            return -RIG_EINVAL;
+    default:
+        return -RIG_EINVAL;
     }
 
     switch (cfp->type)
     {
-        case RIG_CONF_CHECKBUTTON:
-            break;
-        case RIG_CONF_BUTTON:
-            break;
-        default:
-            return -RIG_EINTERNAL;
+    case RIG_CONF_CHECKBUTTON:
+        break;
+
+    case RIG_CONF_BUTTON:
+        break;
+
+    default:
+        return -RIG_EINTERNAL;
     }
 
     elp = find_ext(priv->ext_funcs, token);
@@ -1301,7 +1273,7 @@ static int dummy_set_ext_func(RIG *rig, vfo_t vfo, token_t token, int status)
     elp->val.i = status;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s %d\n", __func__,
-            cfp->name, status);
+              cfp->name, status);
 
     return RIG_OK;
 }
@@ -1322,10 +1294,11 @@ static int dummy_get_ext_func(RIG *rig, vfo_t vfo, token_t token, int *status)
 
     switch (token)
     {
-        case TOK_EL_MAGICEXTFUNC:
-            break;
-        default:
-            return -RIG_EINVAL;
+    case TOK_EL_MAGICEXTFUNC:
+        break;
+
+    default:
+        return -RIG_EINVAL;
     }
 
     elp = find_ext(priv->ext_funcs, token);
@@ -1339,7 +1312,7 @@ static int dummy_get_ext_func(RIG *rig, vfo_t vfo, token_t token, int *status)
     *status = elp->val.i;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s\n", __func__,
-            cfp->name);
+              cfp->name);
 
     return RIG_OK;
 }
@@ -1830,7 +1803,7 @@ static int dummy_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
     return RIG_OK;
 }
 
-static int dummy_set_channel(RIG *rig, const channel_t *chan)
+static int dummy_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     struct dummy_priv_data *priv = (struct dummy_priv_data *)rig->state.priv;
 
@@ -1875,7 +1848,8 @@ static int dummy_set_channel(RIG *rig, const channel_t *chan)
 }
 
 
-static int dummy_get_channel(RIG *rig, channel_t *chan, int read_only)
+static int dummy_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
+                             int read_only)
 {
     struct dummy_priv_data *priv = (struct dummy_priv_data *)rig->state.priv;
 
@@ -2022,7 +1996,7 @@ static int dummy_mW2power(RIG *rig, float *power, unsigned int mwpower,
 #define DUMMY_VFO_OP  0x7ffffffUL /* All possible VFO OPs */
 #define DUMMY_SCAN    0x7ffffffUL /* All possible scan OPs */
 
-#define DUMMY_VFOS (RIG_VFO_A|RIG_VFO_B|RIG_VFO_MEM)
+#define DUMMY_VFOS (RIG_VFO_A|RIG_VFO_B|RIG_VFO_MEM|RIG_VFO_MAIN|RIG_VFO_SUB)
 
 #define DUMMY_MODES (RIG_MODE_AM | RIG_MODE_CW | RIG_MODE_RTTY | \
                      RIG_MODE_SSB | RIG_MODE_FM | RIG_MODE_WFM | \
@@ -2065,7 +2039,7 @@ struct rig_caps dummy_caps =
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_OTHER,
-    .targetable_vfo =      0,
+    .targetable_vfo =      RIG_TARGETABLE_PTT | RIG_TARGETABLE_RITXIT,
     .ptt_type =       RIG_PTT_RIG,
     .dcd_type =       RIG_DCD_RIG,
     .port_type =      RIG_PORT_NONE,
@@ -2230,7 +2204,7 @@ struct rig_caps dummy_no_vfo_caps =
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_OTHER,
-    .targetable_vfo =      0,
+    .targetable_vfo =      RIG_TARGETABLE_PTT | RIG_TARGETABLE_RITXIT,
     .ptt_type =       RIG_PTT_RIG,
     .dcd_type =       RIG_DCD_RIG,
     .port_type =      RIG_PORT_NONE,
