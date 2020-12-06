@@ -1062,36 +1062,36 @@ testcpp.exe: $(OBJ_DIR)/testcpp.$(O) $(Hamlib++_IMP_LIB) $(Hamlib_IMP_LIB)
 $(OBJ_DIR)/%.$(O): tests/%.c | $(CC).args
 	$(call Compile, $<, $@)
 
-ampctl.exe: $(ampctl_OBJ) $(Hamlib_IMP_LIB) $(misc_LIB)
+ampctl.exe: $(ampctl_OBJ) $(misc_LIB) $(Hamlib_IMP_LIB)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 
-ampctld.exe: $(ampctld_OBJ) $(Hamlib_IMP_LIB) $(misc_LIB)
+ampctld.exe: $(ampctld_OBJ) $(misc_LIB) $(Hamlib_IMP_LIB)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 
-rigctlcom.exe: $(rigctlcom_OBJ) $(Hamlib_IMP_LIB) $(misc_LIB)
+rigctlcom.exe: $(rigctlcom_OBJ) $(misc_LIB) $(Hamlib_IMP_LIB)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 
-rigctl.exe: $(rigctl_OBJ) $(Hamlib_IMP_LIB) $(misc_LIB)
+rigctl.exe: $(rigctl_OBJ) $(misc_LIB) $(Hamlib_IMP_LIB)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 
-rigctld.exe: $(rigctld_OBJ) $(Hamlib_IMP_LIB) $(misc_LIB)
+rigctld.exe: $(rigctld_OBJ) $(misc_LIB) $(Hamlib_IMP_LIB)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 
-rigmem.exe: $(rigmem_OBJ) $(Hamlib_IMP_LIB) $(misc_LIB) $(XML2_LIB)
+rigmem.exe: $(rigmem_OBJ)  $(misc_LIB) $(Hamlib_IMP_LIB) $(XML2_LIB)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 	rm -f rigmem.lib rigmem.exp
 
-rotctl.exe: $(rotctl_OBJ) $(Hamlib_IMP_LIB) $(misc_LIB)
+rotctl.exe: $(rotctl_OBJ)  $(misc_LIB) $(Hamlib_IMP_LIB)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 
-rotctld.exe: $(rotctld_OBJ) $(Hamlib_IMP_LIB) $(misc_LIB)
+rotctld.exe: $(rotctld_OBJ)  $(misc_LIB) $(Hamlib_IMP_LIB)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 
 #
 # I do not have a GD.lib for MSVC/clang. Use the dynamic MinGW version instead.
 # Copy it's .DLL here to avoid another DLL-hell.
 #
-rigmatrix.exe: $(rigmatrix_OBJ) $(Hamlib_IMP_LIB) $(misc_LIB) $(LIBGD_ROOT)/src/libgd.dll.a
+rigmatrix.exe: $(rigmatrix_OBJ) $(misc_LIB) $(Hamlib_IMP_LIB) $(LIBGD_ROOT)/src/libgd.dll.a
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 	$(COPY) $(LIBGD_ROOT)/src/bgd.dll .
 
