@@ -11,7 +11,7 @@ ABI_VER   = 4
 # From 'configure.ac':
 #
 MAJOR_VER = 4
-MINOR_VER = 1
+MINOR_VER = 2
 VERSION   = $(MAJOR_VER).$(MINOR_VER)
 
 #
@@ -26,7 +26,7 @@ USE_LIBXML2     ?= 1
 USE_LIBGD       ?= 1
 USE_LIBREADLINE ?= 0
 USE_LIBINDI     ?= 0
-USE_LUAJIT      ?= 1
+USE_LUAJIT      ?= 0
 
 #
 # Add support for a 'GnuRadio' device.
@@ -41,8 +41,8 @@ USE_GNURADIO ?= 0
 USE_WSOCK_TRACE ?= 1
 
 #
-# Use only static external libraries to create '$(Hamlib_DLL)', '$(_Hamlib_PYD)'
-# and '$(HamlibLua_DLL)'.
+# Use only static external libraries to create '$(Hamlib_DLL)', '_Hamlib.pyd'
+# and 'HamlibLua.dll'.
 #
 USE_STATIC ?= 1
 
@@ -54,9 +54,10 @@ USE_STATIC ?= 1
 USE_PY_BINDING ?= 3
 
 #
-# Use 'clang-format' in the "%.i: %.c" rules below.
+# Use 'clang-format' or 'astyle' in the "%.i: %.c" rules below.
 #
-USE_CLANG_FORMAT ?= 1
+USE_CLANG_FORMAT ?= 0
+USE_ASTYLE       ?= 1
 
 #
 # Change these as needed:
@@ -67,7 +68,7 @@ LIBICONV_ROOT    ?= f:/MinGW32/src/libiconv-1.15
 LIBGD_ROOT       ?= f:/MinGW32/src/Graphics/libgd-2.1.0
 LIBREADLINE_ROOT ?= f:/MinGW32/src/misc/libreadline
 LUAJIT_ROOT      ?= f:/MinGW32/src/LUA/LuaJIT
-LUA5_ROOT        ?= f:/MinGW32/src/LUA/Lua-5.1
+LUA5_ROOT        ?= f:/MinGW32/src/LUA/Lua-5.4
 LIBUSB_ROOT      ?= f:/MinGW32/src/USB/libusb
 LIBUSRP_ROOT     ?= f:/gv/dx-radio/Bor-IP/src/libusrp
 GNURADIO_ROOT    ?= f:/gv/dx-radio/GnuRadio/gv-build
@@ -77,10 +78,10 @@ PYTHON ?= py -3
 
 ifeq ($(USE_LUAJIT),1)
   LUA_ROOT = $(realpath $(LUAJIT_ROOT))
-  LUA_LIB  = $(call select, $(LUA_ROOT)/src/libluajit.a, $(LUA_ROOT)/src/lua51.lib)
+  LUA_LIB  = $(call select, $(LUA_ROOT)/src/libluajit.a, $(LUA_ROOT)/src/luajit.lib)
 else
   LUA_ROOT = $(realpath $(LUA5_ROOT))
-  LUA_LIB  = $(call select, $(LUA_ROOT)/lib/liblua.a, $(LUA_ROOT)/lib/lua51.lib)
+  LUA_LIB  = $(call select, $(LUA_ROOT)/src/liblua.a, $(LUA_ROOT)/src/lua.lib)
 endif
 
 
@@ -151,6 +152,7 @@ ifeq ($(CC),gcc)
   CFLAGS  = -m$(BITS) -Wall -O2 -g --include config.h -DHAVE_STRTOK_R
   LDFLAGS = -m$(BITS) -Wl,--print-map,--sort-common
   O       = o
+  A       = a
 
   #
   # We want true Winsock2. Not some POSIX emulation that messes up things big-time.
@@ -160,8 +162,9 @@ ifeq ($(CC),gcc)
 else
   select  = $(2)
   CFLAGS  = -nologo -MD -W3 -Zi -O2 -EHsc -DWIN32 -FI./config.h
-  LDFLAGS = -nologo -debug -incremental:no -verbose -machine:$(CPU)
+  LDFLAGS = -nologo -debug -incremental:no -verbose -machine:$(CPU) -nodefaultlib:uuid.lib
   O       = obj
+  A       = lib
 
   ifeq ($(CC),clang-cl)
     CFLAGS += -fms-compatibility -ferror-limit=5
@@ -225,9 +228,6 @@ EX_LIBS = $(WS2_32_LIB)
 Hamlib_DLL     = Hamlib-$(ABI_VER).dll
 Hamlib_IMP_LIB = $(call select, libHamlib-$(ABI_VER).dll.a, \
                                 Hamlib-$(ABI_VER)_imp.lib)
-
-HamlibLua_DLL = HamlibLua.dll
-_Hamlib_PYD   = _Hamlib.pyd
 
 Hamlib_STAT_LIB = $(call select, libHamlib-$(ABI_VER).a, \
                                  Hamlib-$(ABI_VER).lib)
@@ -295,7 +295,7 @@ ifeq ($(USE_LIBUSB),1)
 endif
 
 #
-# Untested; does it exist for non-MinGW?
+# Untested; does it exist except for MinGW?
 #
 ifeq ($(USE_LIBREADLINE),1)
   CFLAGS += -DHAVE_LIBREADLINE \
@@ -378,29 +378,33 @@ VPATH += $(addprefix rotators/, \
            prosistel            \
            rotorez              \
            sartek               \
+           satel                \
            spid                 \
            ts7400)
 
 #
 # All of these use '$(Hamlib_DLL)':
 #
-TESTS_PROGS = ampctl.exe    \
-              ampctld.exe   \
-              dumpmem.exe   \
-              example.exe   \
-              listrigs.exe  \
-              rigctl.exe    \
-              rigctld.exe   \
-              rigctlcom.exe \
-              rigsmtr.exe   \
-              rigswr.exe    \
-              rig_bench.exe \
-              rotctl.exe    \
-              rotctld.exe   \
-              testbcd.exe   \
-              testfreq.exe  \
-              testloc.exe   \
-              testrig.exe   \
+TESTS_PROGS = ampctl.exe      \
+              ampctld.exe     \
+              dumpmem.exe     \
+              example.exe     \
+              listrigs.exe    \
+              rigctl.exe      \
+              rigctld.exe     \
+              rigctlcom.exe   \
+              rigsmtr.exe     \
+              rigswr.exe      \
+              rig_bench.exe   \
+              rotctl.exe      \
+              rotctld.exe     \
+              simyaesu.exe    \
+              testbcd.exe     \
+              testfreq.exe    \
+              testloc.exe     \
+              testrig.exe     \
+              testrigcaps.exe \
+              testrigopen.exe \
               testtrn.exe
 
 ifneq ($(APPVEYOR_PROJECT_NAME),)
@@ -507,7 +511,9 @@ hamlib_C_SRC += $(addprefix rigs/aor/, \
                   ar8600.c             \
                   sr2200.c)
 
-hamlib_C_SRC += rigs/barrett/barrett.c
+hamlib_C_SRC += $(addprefix rigs/barrett/, \
+                  950.c                    \
+                  barrett.c)
 
 hamlib_C_SRC += $(addprefix rigs/dorji/, \
                   dorji.c                \
@@ -794,6 +800,7 @@ hamlib_C_SRC += $(addprefix rigs/yaesu/, \
                   ft3000.c               \
                   ft5000.c               \
                   ft9000.c               \
+                  ftdx10.c               \
                   ftdx101.c              \
                   newcat.c               \
                   vr5000.c               \
@@ -818,6 +825,7 @@ hamlib_C_SRC += $(addprefix rotators/,  \
                   prosistel/prosistel.c \
                   rotorez/rotorez.c     \
                   sartek/sartek.c       \
+                  satel/satel.c         \
                   spid/spid.c           \
                   ts7400/ts7400.c)
 
@@ -980,7 +988,9 @@ all_test_OBJ += $(ampctl_OBJ)    \
                 $(rotctl_OBJ)    \
                 $(rotctld_OBJ)   \
 
-$(all_test_OBJ): EXTRA_CFLAGS = $(PROG_CFLAGS)
+all_test_I = $(notdir $(all_test_OBJ:.$(O)=.i))
+
+$(all_test_OBJ) $(all_test_I): EXTRA_CFLAGS = $(PROG_CFLAGS)
 
 .SECONDARY: $(all_test_OBJ)
 
@@ -991,6 +1001,7 @@ ifneq ($(CC),gcc)
   GENERATED += $(addprefix $(OBJ_DIR)/, \
                  unistd.h               \
                  termios.h              \
+                 strings.h              \
                  sys/time.h             \
                  sys/ioctl.h)
 endif
@@ -1011,6 +1022,8 @@ epilogue:
 	@echo
 
 programs: $(GENERATED) $(TESTS_PROGS)
+
+$(hamlib_misc_OBJ): EXTRA_CFLAGS += -DIN_HAMLIB_MISC_LIB
 
 $(misc_LIB): $(hamlib_misc_OBJ)
 	$(call create_lib, $@, $^)
@@ -1158,6 +1171,9 @@ $(OBJ_DIR)/unistd.h: $(THIS_FILE)
 $(OBJ_DIR)/sys/time.h: $(THIS_FILE)
 	$(call Generate_fake, $@)
 
+$(OBJ_DIR)/strings.h: $(THIS_FILE)
+	$(call Generate_fake, $@, #include <string.h>)
+
 $(OBJ_DIR)/termios.h: $(THIS_FILE)
 	$(call Generate_fake, $@)
 
@@ -1196,14 +1212,9 @@ doc/Hamlib.cfg: $(THIS_FILE)
 	$(call Generate, $@, #)
 	$(file >> $@,$(hamlib_CFG))
 
-doc_JUNK = $(addprefix doc/, \
-             doxygen.log     \
-             hamlib.cfg)
-
 doc_clean:
-	rm -f $(doc_JUNK)
-	cd doc ; rm -fR html/*
-	rm -f doc/Hamlib.chm
+	rm -f doc/doxygen.log doc/hamlib.cfg doc/Hamlib.chm
+	rm -fR doc/html/*
 	- rmdir doc/html
 
 #
@@ -1228,7 +1239,7 @@ ifeq ($(CC),gcc)
 endif
 
 _Hamlib_PYD_deps = $(PY_WRAPPER_O) $(OBJ_DIR)/HamlibPy.res
-py_module_deps   = $(_Hamlib_PYD)  $(OBJ_DIR)/Hamlib.py
+py_module_deps   = _Hamlib.pyd $(OBJ_DIR)/Hamlib.py
 PY_CFLAGS        = -I$(PY_ROOT)/include -DNO_SSIZE_T
 
 ifeq ($(USE_STATIC),1)
@@ -1240,10 +1251,16 @@ else
   PY_CFLAGS        += -DDLL_EXPORT
 endif
 
+ifeq ($(USE_PY_BINDING),0)
+py_module:
+	$(error Use 'USE_PY_BINDING=[2|3]'.)
+
+else
 py_module: $(py_module_deps)
 	$(COPY) $^ $(PY_ROOT)/Lib/site-packages
 ifneq ($(CC),gcc)
 	$(COPY) _Hamlib.pdb $(PY_ROOT)/Lib/site-packages
+endif
 endif
 
 $(OBJ_DIR)/Hamlib.py: $(PY_WRAPPER_C)
@@ -1259,22 +1276,22 @@ $(PY_WRAPPER_C:.c=.i): EXTRA_CFLAGS += $(PY_CFLAGS)
 $(PY_WRAPPER_O): $(PY_WRAPPER_C) | $(CC).args
 	$(call Compile, $(PY_CFLAGS) $<, $@)
 
-$(_Hamlib_PYD): $(_Hamlib_PYD_deps)
 ifeq ($(USE_PY_BINDING),3)
-	$(call link_PYD, $@, $^ $(PYD_LIBS), PyInit__Hamlib)
+   _Hamlib.pyd: $(_Hamlib_PYD_deps)
+		$(call link_PYD, $@, $^ $(PYD_LIBS), PyInit__Hamlib)
+
 else ifeq ($(USE_PY_BINDING),2)
-	$(call link_PYD, $@, $^ $(PYD_LIBS), init_Hamlib)
-else
-	$(error Use 'USE_PY_BINDING=[2|3]'.)
+  _Hamlib.pyd: $(_Hamlib_PYD_deps)
+		$(call link_PYD, $@, $^ $(PYD_LIBS), init_Hamlib)
 endif
 
-py_JUNK = $(OBJ_DIR)/Hamlib.py     \
-          $(_Hamlib_PYD)           \
-          $(_Hamlib_PYD:.pyd=.map) \
-          $(_Hamlib_PYD:.pyd=.pdb) \
-          $(_Hamlib_PYD:.pyd=.exp) \
-          $(_Hamlib_PYD:.pyd=.lib) \
-          $(PY_WRAPPER_C)          \
+py_JUNK = $(OBJ_DIR)/Hamlib.py \
+          _Hamlib.pyd          \
+          _Hamlib.map          \
+          _Hamlib.pdb          \
+          _Hamlib.exp          \
+          _Hamlib.lib          \
+          $(PY_WRAPPER_C)      \
           $(OBJ_DIR)/HamlibPy.res
 
 py_clean:
@@ -1283,10 +1300,10 @@ py_clean:
 #
 # Lua module stuff. Only LuaJIT seems to be stable.
 #
-# The '$(HamlibLua_DLL)' exports only 'luaopen_Hamliblua()'
+# The 'HamlibLua.dll' exports only 'luaopen_Hamliblua()'
 #
-lua_module: $(HamlibLua_DLL)
-	$(call green_message, Remember to update your 'LUA_CPATH' for '$(HamlibLua_DLL)'. And your 'PATH' for the needed '$(Hamlib_DLL)')
+lua_module: HamlibLua.dll
+	$(call green_message, Remember to update your 'LUA_CPATH' for 'HamlibLua.dll'. And your 'PATH' for the needed '$(Hamlib_DLL)')
 #	$(COPY) $^ $(some_where_on_PATH_and_LUA_CPATH)
 
 $(OBJ_DIR)/HamlibLua_wrap.c: bindings/Hamlib.swg
@@ -1315,19 +1332,19 @@ $(OBJ_DIR)/HamlibLua_wrap.$(O): $(OBJ_DIR)/HamlibLua_wrap.c | $(CC).args
 # but it's not needed for anything.
 #
 ifeq ($(USE_STATIC),1)
-  $(HamlibLua_DLL): $(HamlibLua_DLL_deps)
-	$(call link_DLL, $@, $(HamlibLua_DLL:.dll=.lib), $^ $(LUA_LIB))
+  HamlibLua.dll: $(HamlibLua_DLL_deps)
+	$(call link_DLL, $@, HamlibLua.lib, $^ $(LUA_LIB))
 
 else
-  $(HamlibLua_DLL): $(OBJ_DIR)/HamlibLua_wrap.$(O) $(Hamlib_IMP_LIB) $(OBJ_DIR)/HamlibLua.res
-	$(call link_DLL, $@, $(HamlibLua_DLL:.dll=.lib), $^ $(LUA_LIB))
+  HamlibLua.dll: $(OBJ_DIR)/HamlibLua_wrap.$(O) $(Hamlib_IMP_LIB) $(OBJ_DIR)/HamlibLua.res
+	$(call link_DLL, $@, HamlibLua.dll.lib, $^ $(LUA_LIB))
 endif
 
-lua_JUNK = $(HamlibLua_DLL)           \
-           $(HamlibLua_DLL:.dll=.lib) \
-           $(HamlibLua_DLL:.dll=.map) \
-           $(HamlibLua_DLL:.dll=.pdb) \
-           $(HamlibLua_DLL:.dll=.exp) \
+lua_JUNK = HamlibLua.dll \
+           HamlibLua.lib \
+           HamlibLua.map \
+           HamlibLua.pdb \
+           HamlibLua.exp \
            $(OBJ_DIR)/HamlibLua_wrap.c
 
 lua_clean:
@@ -1340,10 +1357,10 @@ $(OBJ_DIR)/Hamlib++.rc: $(THIS_FILE)
 	$(call make_rc, $@, $(Hamlib++_DLL), "Ham Radio Control Library for C++", VFT_DLL)
 
 $(OBJ_DIR)/HamlibPy.rc: $(THIS_FILE)
-	$(call make_rc, $@, $(_Hamlib_PYD), "Hamlib module for Python v$(USE_PY_BINDING).x", VFT_DLL)
+	$(call make_rc, $@, _Hamlib.pyd, "Hamlib module for Python v$(USE_PY_BINDING).x", VFT_DLL)
 
 $(OBJ_DIR)/HamlibLua.rc: $(THIS_FILE)
-	$(call make_rc, $@, $(HamlibLua_DLL), "Hamlib module for LuaJIT", VFT_DLL)
+	$(call make_rc, $@, HamlibLua.dll, "Hamlib module for LuaJIT", VFT_DLL)
 
 $(OBJ_DIR)/%.res: $(OBJ_DIR)/%.rc config.h
 	$(call make_res, $<, $@)
@@ -1390,7 +1407,6 @@ endef
 define link_EXE_cl
   link $(LDFLAGS) -out:$(strip $(1)) $(2) > link.tmp
   @cat link.tmp >> $(1:.exe=.map)
-  @rm -f link.tmp
 endef
 
 link_EXE_clang-cl = $(call link_EXE_cl, $(1), $(2))
@@ -1411,7 +1427,7 @@ endef
 define link_DLL_cl
   link -dll $(LDFLAGS) -out:$(strip $(1)) -implib:$(strip $(2)) $(3) > link.tmp
   @cat link.tmp >> $(1:.dll=.map)
-  @rm -f $(2:.lib=.exp) link.tmp
+  @rm -f $(2:.lib=.exp)
 endef
 
 link_DLL_clang-cl = $(call link_DLL_cl, $(1), $(2), $(3))
@@ -1434,7 +1450,7 @@ endef
 define link_PYD_cl
   link -dll $(LDFLAGS) -libpath:$(PY_ROOT)/libs -export:$(strip $(3)) -out:$(strip $(1)) $(2) > link.tmp
   @cat link.tmp >> $(1:.pyd=.map)
-  @rm -f $(1:.pyd=.exp) $(1:.pyd=.lib) link.tmp
+  @rm -f $(1:.pyd=.exp) $(1:.pyd=.lib)
 endef
 
 link_PYD_clang-cl = $(call link_PYD_cl, $(1), $(2), $(3))
@@ -1499,7 +1515,7 @@ define CONFIG_H
   #define ABI_VERSION   $(ABI_VER)
 
   #if defined(IN_HAMLIB) && !defined(__cplusplus) && defined(DLL_EXPORT)
-  #error "Do not use '-DDLL_EXPORT' as we use a .def-file to control the exports."
+  #error "Do not use '-DDLL_EXPORT' since we use a .def-file to control the exports."
   #endif
 
   #ifndef WIN32
@@ -1639,6 +1655,7 @@ define hamlib_CFG
   #
   PROJECT_NAME     = "Hamlib"
   PROJECT_NUMBER   = $(VERSION)
+  PROJECT_LOGO     = hamlib.png
   OUTPUT_DIRECTORY = .
   PREDEFINED       = __GNUC__ DOXYGEN DOC_HIDDEN
   OUTPUT_LANGUAGE  = English
@@ -1650,12 +1667,23 @@ define hamlib_CFG
   TAB_SIZE         = 4
   CASE_SENSE_NAMES = NO
   FULL_PATH_NAMES  = NO
+# ALIASES          = \RETURNFUNC{1}="\b RETURNFUNC(\1)" \
+
   INPUT            = index.doxygen ../src/ ../include/hamlib/
-  INCLUDE_PATH     = ../include
-  EXAMPLE_PATH     = ../tests/testrig.c
-  QUIET            = YES
-  HTML_STYLESHEET  = hamlib.css
-  HTML_FOOTER      = footer.html
+  INCLUDE_PATH     = ../include/
+  EXAMPLE_PATH     = ..                              \
+                     ../tests/testrig.c              \
+                     ../scripts/README.build-Windows \
+                     ../scripts/build-w32.sh         \
+                     ../scripts/build-w64.sh
+
+  EXCLUDE          = ../src/amp_conf.h            \
+                     ../include/hamlib/ampclass.h \
+                     ../include/hamlib/rotclass.h
+
+  QUIET                 = YES
+  HTML_EXTRA_STYLESHEET = hamlib.css
+  HTML_FOOTER           = footer.html
 
   EXTRACT_ALL           = NO
   EXTRACT_STATIC        = NO
@@ -1667,7 +1695,7 @@ define hamlib_CFG
   OPTIMIZE_OUTPUT_FOR_C = YES
   MAN_LINKS             = NO
   MACRO_EXPANSION       = YES
-  FILE_PATTERN          = *.c *.h *.cc
+# FILE_PATTERNS         = *.c *.h *.cc
   SOURCE_BROWSER        = YES
   STRIP_CODE_COMMENTS   = NO
   GENERATE_HTMLHELP     = YES
@@ -1752,17 +1780,12 @@ preprocess_filter = $(PYTHON) cpp_filter.py
 
 ifeq ($(USE_CLANG_FORMAT),1)
   preprocess_filter += | clang-format --assume-filename=$(strip $(1))
+else ifeq ($(USE_ASTYLE),1)
+  preprocess_filter += | astyle
 endif
 
-define C_preprocess
-  $(CC) -E $(CFLAGS) $(EXTRA_CFLAGS) $(2) | $(call preprocess_filter,c) > $(1)
-  @echo
-endef
-
-define CPP_preprocess
-  $(CC) -E $(CFLAGS) $(EXTRA_CFLAGS) $(2) | $(call preprocess_filter,cpp) > $(1)
-  @echo
-endef
+C_preprocess   = $(CC) -E $(CFLAGS) $(EXTRA_CFLAGS) $(2) | $(call preprocess_filter,c) > $(1)
+CPP_preprocess = $(CC) -E $(CFLAGS) $(EXTRA_CFLAGS) $(2) | $(call preprocess_filter,cpp) > $(1)
 
 define CPP_FILTER_PY
   import sys, os
@@ -1817,7 +1840,7 @@ define CPP_FILTER_PY
     last_line = line
 
   if empty_lines > 0:
-    sys.stderr.write ("Removed %d empty lines." % empty_lines)
+    sys.stderr.write ("Removed %d empty lines.\n" % empty_lines)
 
 endef
 
@@ -1852,6 +1875,8 @@ define Hamlib_DATA
   hamlib_copyright  DATA
   hamlib_version2   DATA
   hamlib_copyright2 DATA
+  debugmsgsave      DATA
+  debugmsgsave2     DATA
 endef
 
 export Hamlib_DATA
