@@ -167,7 +167,7 @@ else
   A       = lib
 
   ifeq ($(CC),clang-cl)
-    CFLAGS += -fms-compatibility -ferror-limit=5
+    CFLAGS += -Wall -fms-compatibility -ferror-limit=5
   endif
 endif
 
@@ -190,7 +190,7 @@ ifeq ($(CC),gcc)
             -Wno-missing-braces  \
             -Wno-unused-function \
             -Wno-unused-variable \
-            -Wno-shift-count-overflow
+          # -Wno-shift-count-overflow
 
 else ifeq ($(CC),clang-cl)
   CFLAGS += -Wno-unused-function    \
@@ -198,7 +198,7 @@ else ifeq ($(CC),clang-cl)
             -Wno-visibility         \
             -Wno-unknown-pragmas    \
             -Wno-ignored-attributes \
-            -Wno-implicit-function-declaration
+          # -Wno-implicit-function-declaration
 
   #
   # This warning is kinda important:

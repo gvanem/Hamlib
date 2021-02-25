@@ -2115,7 +2115,7 @@ void *rig_get_function_ptr(rig_model_t rig_model,
         return caps->get_channel;
 
     case RIG_FUNCTION_GET_INFO:
-        return caps->get_info;
+        return (void*) caps->get_info;
 
     case RIG_FUNCTION_SET_CHAN_ALL_CB:
         return caps->set_chan_all_cb;

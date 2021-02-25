@@ -314,8 +314,8 @@ const char *HAMLIB_API rigerror(int errnum)
 }
 
 // We use a couple of defined pointer to determine if the shared library changes
-void *caps_test_rig_model = &caps_test.rig_model;
-void *caps_test_macro_name = &caps_test.macro_name;
+void *caps_test_rig_model  = (void *) &caps_test.rig_model;
+void *caps_test_macro_name = (void *) &caps_test.macro_name;
 
 // check and show WARN if rig_caps structure doesn't match
 // this tests for shared library incompatibility
