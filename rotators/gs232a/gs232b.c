@@ -106,13 +106,12 @@ transaction_write:
     retval = read_string(&rs->rotport, data, data_len, REPLY_EOM,
                          strlen(REPLY_EOM));
 
-    if (strncmp(data, "\r\n", 2) == 0
-            || strchr(data, '>'))
+    if (strncmp(data, "\r\n", 2) == 0 || strchr(data, '>'))
     {
-        rig_debug(RIG_DEBUG_ERR, "%s: wrong response nbytes=%d\n", __func__,
-                  (int)strlen(data));
+        rig_debug(RIG_DEBUG_ERR, "%s: Invalid response for '%s': '%s' (length=%d)\n",
+                  __func__, cmdstr, data, (int) strlen(data));
         dump_hex((unsigned char *)data, strlen(data));
-        retval = -1; // force retry
+        retval = -RIG_EPROTO; // force retry
     }
 
 
@@ -253,13 +252,12 @@ gs232b_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
 static int
 gs232b_rot_stop(ROT *rot)
 {
-    char buf[32];
     int retval;
 
     rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
 
     /* All Stop */
-    retval = gs232b_transaction(rot, "S" EOM, buf, sizeof(buf), 0);
+    retval = gs232b_transaction(rot, "S" EOM, NULL, 0, 0);
 
     if (retval != RIG_OK)
     {
@@ -276,12 +274,14 @@ static int gs232b_rot_get_level(ROT *rot, setting_t level, value_t *val)
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s\n", __func__, rot_strlevel(level));
 
-    switch (level) {
-        case ROT_LEVEL_SPEED:
-            val->i = rs->current_speed;
-            break;
-        default:
-            return -RIG_ENAVAIL;
+    switch (level)
+    {
+    case ROT_LEVEL_SPEED:
+        val->i = rs->current_speed;
+        break;
+
+    default:
+        return -RIG_ENAVAIL;
     }
 
     return RIG_OK;
@@ -296,28 +296,36 @@ static int gs232b_rot_set_level(ROT *rot, setting_t level, value_t val)
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s\n", __func__, rot_strlevel(level));
 
-    switch (level) {
-        case ROT_LEVEL_SPEED: {
-            int speed = val.i;
-            if (speed < 1) {
-                speed = 1;
-            } else if (speed > 4) {
-                speed = 4;
-            }
+    switch (level)
+    {
+    case ROT_LEVEL_SPEED:
+    {
+        int speed = val.i;
 
-            /* between 1 (slowest) and 4 (fastest) */
-            sprintf(cmdstr, "X%u" EOM, speed);
-            retval = gs232b_transaction(rot, cmdstr, NULL, 0, 1);
-
-            if (retval != RIG_OK) {
-                return retval;
-            }
-
-            rs->current_speed = speed;
-            break;
+        if (speed < 1)
+        {
+            speed = 1;
         }
-        default:
-            return -RIG_ENAVAIL;
+        else if (speed > 4)
+        {
+            speed = 4;
+        }
+
+        /* between 1 (slowest) and 4 (fastest) */
+        sprintf(cmdstr, "X%u" EOM, speed);
+        retval = gs232b_transaction(rot, cmdstr, NULL, 0, 1);
+
+        if (retval != RIG_OK)
+        {
+            return retval;
+        }
+
+        rs->current_speed = speed;
+        break;
+    }
+
+    default:
+        return -RIG_ENAVAIL;
     }
 
     return RIG_OK;
@@ -332,12 +340,14 @@ static int gs232b_rot_move(ROT *rot, int direction, int speed)
     rig_debug(RIG_DEBUG_TRACE, "%s called %d %d\n", __func__,
               direction, speed);
 
-    if (speed != ROT_SPEED_NOCHANGE) {
+    if (speed != ROT_SPEED_NOCHANGE)
+    {
         value_t gs232b_speed;
 
         if (speed < 1 || speed > 100)
         {
-            rig_debug(RIG_DEBUG_ERR, "%s: Invalid speed value (1-100)! (%d)\n", __func__, speed);
+            rig_debug(RIG_DEBUG_ERR, "%s: Invalid speed value (1-100)! (%d)\n", __func__,
+                      speed);
             return -RIG_EINVAL;
         }
 

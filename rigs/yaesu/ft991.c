@@ -59,7 +59,7 @@ const struct rig_caps ft991_caps =
     .serial_rate_min =    4800,         /* Default rate per manual */
     .serial_rate_max =    38400,
     .serial_data_bits =   8,
-    .serial_stop_bits =   1,            /* Assumed since manual makes no mention */
+    .serial_stop_bits =   2,            /* Assumed since manual makes no mention */
     .serial_parity =      RIG_PARITY_NONE,
     .serial_handshake =   RIG_HANDSHAKE_HARDWARE,
     .write_delay =        FT991_WRITE_DELAY,
@@ -91,6 +91,7 @@ const struct rig_caps ft991_caps =
     .transceive =         RIG_TRN_OFF,        /* May enable later as the 950 has an Auto Info command */
     .bank_qty =           0,
     .chan_desc_sz =       0,
+    .rfpower_meter_cal =  FT991_RFPOWER_METER_CAL,
     .str_cal =            FT991_STR_CAL,
     .chan_list =          {
         {   1,  99, RIG_MTYPE_MEM,  NEWCAT_MEM_CAP },

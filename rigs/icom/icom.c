@@ -69,11 +69,21 @@ const cal_table_float_t icom_default_alc_cal =
 
 const cal_table_float_t icom_default_rfpower_meter_cal =
 {
-    3,
+    13,
     {
-        {0, 0.0f},
-        {143, 0.5f},
-        {213, 1.0f}
+         { 0, 0.0f },
+         { 21, 5.0f },
+         { 43, 10.0f },
+         { 65, 15.0f },
+         { 83, 20.0f },
+         { 95, 25.0f },
+         { 105, 30.0f },
+         { 114, 35.0f },
+         { 124, 40.0f },
+         { 143, 50.0f },
+         { 183, 75.0f },
+         { 213, 100.0f },
+         { 255, 120.0f }
     }
 };
 
@@ -655,6 +665,7 @@ icom_init(RIG *rig)
     priv->tx_vfo = RIG_VFO_NONE;
     priv->rx_vfo = RIG_VFO_NONE;
     rig->state.current_vfo = RIG_VFO_NONE;
+    priv->filter = RIG_PASSBAND_NOCHANGE;
 
     rig_debug(RIG_DEBUG_TRACE, "%s: done\n", __func__);
 
@@ -703,7 +714,7 @@ int icom_get_usb_echo_off(RIG *rig)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     // reduce the retry here so it's quicker
-    rs->rigport.retry = 1;
+    rs->rigport.retry = 0;
     // Check for echo on first
     priv->serial_USB_echo_off = 0;
 
@@ -713,6 +724,8 @@ int icom_get_usb_echo_off(RIG *rig)
     retval = icom_transaction(rig, C_RD_FREQ, -1, NULL, 0, ackbuf, &ack_len);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: ack_len=%d\n", __func__, ack_len);
+
+    if (retval == -RIG_ETIMEOUT) { return retval; }
 
     if (retval == RIG_OK)
     {
@@ -1106,7 +1119,7 @@ int icom_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
     cmd = C_RD_FREQ;
     subcmd = -1;
 
-    if (vfo == RIG_VFO_MEM && priv->civ_731_mode)
+    if (vfo == RIG_VFO_MEM && (priv->civ_731_mode || rig->caps->rig_model == RIG_MODEL_IC706))
     {
         rig_debug(RIG_DEBUG_TRACE, "%s: VFO=MEM so turning off civ_731\n", __func__);
         civ_731_mode = 1;
@@ -1475,8 +1488,6 @@ pbwidth_t icom_get_dsp_flt(RIG *rig, rmode_t mode)
     return 0;
 }
 
-#ifdef XXREMOVEDXX
-// not referenced anywhere
 int icom_set_dsp_flt(RIG *rig, rmode_t mode, pbwidth_t width)
 {
     int retval, rfstatus;
@@ -1560,7 +1571,6 @@ int icom_set_dsp_flt(RIG *rig, rmode_t mode, pbwidth_t width)
 
     return RIG_OK;
 }
-#endif
 
 /*
  * icom_set_mode_with_data
@@ -1572,10 +1582,19 @@ int icom_set_mode_with_data(RIG *rig, vfo_t vfo, rmode_t mode,
     unsigned char ackbuf[MAXFRAMELEN];
     int ack_len = sizeof(ackbuf);
     rmode_t icom_mode;
-    unsigned char dm_sub_cmd = RIG_MODEL_IC7200 == rig->caps->rig_model ? 0x04 :
-                               S_MEM_DATA_MODE;
-    int filter_byte = rig->caps->rig_model == RIG_MODEL_IC7300
-                      || rig->caps->rig_model == RIG_MODEL_IC7610;
+    unsigned char dm_sub_cmd =
+        rig->caps->rig_model == RIG_MODEL_IC7200  ? 0x04 : S_MEM_DATA_MODE;
+    int filter_byte = rig->caps->rig_model == RIG_MODEL_IC7100
+                      || rig->caps->rig_model == RIG_MODEL_IC7200
+                      || rig->caps->rig_model == RIG_MODEL_IC7300
+                      || rig->caps->rig_model == RIG_MODEL_IC7600
+                      || rig->caps->rig_model == RIG_MODEL_IC7610
+                      || rig->caps->rig_model == RIG_MODEL_IC7700
+                      || rig->caps->rig_model == RIG_MODEL_IC7800
+                      || rig->caps->rig_model == RIG_MODEL_IC785x
+                      || rig->caps->rig_model == RIG_MODEL_IC9100
+                      || rig->caps->rig_model == RIG_MODEL_IC9700
+                      || rig->caps->rig_model == RIG_MODEL_IC705;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -1604,11 +1623,15 @@ int icom_set_mode_with_data(RIG *rig, vfo_t vfo, rmode_t mode,
         break;
     }
 
+    rig_debug(RIG_DEBUG_VERBOSE, "%s mode=%d, width=%d\n", __func__, (int)icom_mode,
+              (int)width);
     retval = icom_set_mode(rig, vfo, icom_mode, width);
 
     if (RIG_OK == retval)
     {
         unsigned char datamode[2];
+        unsigned char mode_icom; // Not used, we only need the width
+        signed char width_icom;
 
         switch (mode)
         {
@@ -1627,15 +1650,14 @@ int icom_set_mode_with_data(RIG *rig, vfo_t vfo, rmode_t mode,
             break;
         }
 
-        if (filter_byte)   // then we need the width byte too
+        rig2icom_mode(rig, vfo, mode, width, &mode_icom, &width_icom);
+
+        if (filter_byte && width_icom != -1)   // then we need the width byte too
         {
-            unsigned char mode_icom; // not used as it will map to USB/LSB
-            signed char width_icom;
-            rig2icom_mode(rig, vfo, mode, width, &mode_icom, &width_icom);
             // since width_icom is 0-2 for rigs that need this here we have to make it 1-3
             datamode[1] = datamode[0] ? width_icom : 0;
             retval =
-                icom_transaction(rig, C_CTL_MEM, dm_sub_cmd, datamode, width_icom == -1 ? 1 : 2,
+                icom_transaction(rig, C_CTL_MEM, dm_sub_cmd, datamode, 2,
                                  ackbuf,
                                  &ack_len);
         }
@@ -1673,6 +1695,7 @@ int icom_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
     struct icom_priv_data *priv;
     const struct icom_priv_caps *priv_caps;
+    const struct icom_priv_data *priv_data;
     struct rig_state *rs;
     unsigned char ackbuf[MAXFRAMELEN];
     unsigned char icmode;
@@ -1685,6 +1708,7 @@ int icom_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     priv = (struct icom_priv_data *) rs->priv;
 
     priv_caps = (const struct icom_priv_caps *) rig->caps->priv;
+    priv_data = (const struct icom_priv_data *) rig->state.priv;
 
     if (priv_caps->r2i_mode != NULL)  /* call priv code if defined */
     {
@@ -1695,10 +1719,16 @@ int icom_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         err = rig2icom_mode(rig, vfo, mode, width, &icmode, &icmode_ext);
     }
 
+    if (width == RIG_PASSBAND_NOCHANGE) { icmode_ext = priv_data->filter; }
+
     if (err < 0)
     {
+        rig_debug(RIG_DEBUG_ERR, "%s: Error on rig2icom err=%d\n", __func__, err);
         return err;
     }
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: icmode=%d, icmode_ext=%d\n", __func__, icmode,
+              icmode_ext);
 
     /* IC-731, IC-735, IC-7000 don't support passband data */
     /* IC-726 & IC-475A/E also limited support - only on CW */
@@ -1711,6 +1741,8 @@ int icom_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         icmode_ext = -1;
     }
 
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: #2 icmode=%d, icmode_ext=%d\n", __func__,
+              icmode, icmode_ext);
     retval = icom_transaction(rig, C_SET_MODE, icmode,
                               (unsigned char *) &icmode_ext,
                               (icmode_ext == -1 ? 0 : 1), ackbuf, &ack_len);
@@ -1727,19 +1759,14 @@ int icom_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         return -RIG_ERJCTED;
     }
 
-#if 0
-
-    /* Tentative DSP filter setting ($1A$03), but not supported by every rig,
+    /* DSP filter setting ($1A$03), but not supported by every rig,
      * and some models like IC910/Omni VI Plus have a different meaning for
      * this subcommand
      */
-    if ((rig->caps->rig_model != RIG_MODEL_IC910) &&
-            (rig->caps->rig_model != RIG_MODEL_OMNIVIP))
+    if (rig->caps->rig_model == RIG_MODEL_IC7000)
     {
         icom_set_dsp_flt(rig, mode, width);
     }
-
-#endif
 
     return RIG_OK;
 }
@@ -1759,6 +1786,8 @@ int icom_get_mode_with_data(RIG *rig, vfo_t vfo, rmode_t *mode,
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
     retval = icom_get_mode(rig, vfo, mode, width);
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s mode=%d\n", __func__, (int)*mode);
 
     if (retval != RIG_OK)
     {
@@ -1805,6 +1834,9 @@ int icom_get_mode_with_data(RIG *rig, vfo_t vfo, rmode_t *mode,
             return -RIG_ERJCTED;
         }
 
+        rig_debug(RIG_DEBUG_VERBOSE, "%s databuf[2]=%d, mode=%d\n", __func__,
+                  (int)databuf[2], (int)*mode);
+
         if (databuf[2])       /* 0x01/0x02/0x03 -> data mode, 0x00 -> not data mode */
         {
             switch (*mode)
@@ -1849,16 +1881,29 @@ int icom_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
     unsigned char modebuf[MAXFRAMELEN];
     const struct icom_priv_caps *priv_caps;
+    struct icom_priv_data *priv_data;
     int mode_len, retval;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called vfo=%s\n", __func__, rig_strvfo(vfo));
     priv_caps = (const struct icom_priv_caps *) rig->caps->priv;
+    priv_data = (struct icom_priv_data *) rig->state.priv;
 
     retval = icom_transaction(rig, C_RD_MODE, -1, NULL, 0, modebuf, &mode_len);
 
-    rig_debug(RIG_DEBUG_TRACE,
-              "%s: modebuf[0]=0x%02x, modebuf[1]=0x%02x, mode_len=%d\n", __func__, modebuf[0],
-              modebuf[1], mode_len);
+    if (--mode_len == 3)
+    {
+        priv_data->filter = modebuf[2];
+        rig_debug(RIG_DEBUG_TRACE,
+                  "%s: modebuf[0]=0x%02x, modebuf[1]=0x%02x, modebuf[2]=0x%02x, mode_len=%d, filter=%d\n",
+                  __func__, modebuf[0],
+                  modebuf[1], modebuf[2], mode_len, priv_data->filter);
+    }
+    else
+    {
+        rig_debug(RIG_DEBUG_TRACE,
+                  "%s: modebuf[0]=0x%02x, modebuf[1]=0x%02x, mode_len=%d\n", __func__, modebuf[0],
+                  modebuf[1], mode_len);
+    }
 
     if (retval != RIG_OK)
     {
@@ -1868,7 +1913,8 @@ int icom_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
     /*
      * modebuf should contain Cn,Data area
      */
-    mode_len--;
+    // when mode gets here it should be 2 or 1
+    // mode_len--;
 
     if (mode_len != 2 && mode_len != 1)
     {
@@ -1892,8 +1938,12 @@ int icom_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
      * not ask for DSP filter settings */
     /* Likewise, don't ask if we happen to be an Omni VI Plus */
     /* Likewise, don't ask if we happen to be an IC-R30 */
+    /* Likewise, don't ask if we happen to be an IC-706* */
     if ((rig->caps->rig_model == RIG_MODEL_IC910) ||
             (rig->caps->rig_model == RIG_MODEL_OMNIVIP) ||
+            (rig->caps->rig_model == RIG_MODEL_IC706) ||
+            (rig->caps->rig_model == RIG_MODEL_IC706MKII) ||
+            (rig->caps->rig_model == RIG_MODEL_IC706MKIIG) ||
             (rig->caps->rig_model == RIG_MODEL_ICR30))
     {
         return RIG_OK;
@@ -2020,8 +2070,6 @@ int icom_set_vfo(RIG *rig, vfo_t vfo)
                   __func__);
         return -RIG_EINVAL;
     }
-
-    rig_debug(RIG_DEBUG_TRACE, "%s: debug#1\n", __func__);
 
     if (vfo != rig->state.current_vfo)
     {
@@ -2371,6 +2419,7 @@ int icom_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
      */
     if (RIG_LEVEL_IS_FLOAT(level))
     {
+        if (val.f > 1.0) RETURNFUNC(-RIG_EINVAL);
         icom_val = val.f * 255;
     }
     else
@@ -2748,6 +2797,7 @@ int icom_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_RFPOWER_METER:
+    case RIG_LEVEL_RFPOWER_METER_WATTS:
         lvl_cn = C_RD_SQSM;
         lvl_sc = S_RFML;
         break;
@@ -3042,6 +3092,23 @@ int icom_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_RFPOWER_METER:
+        // rig table in Watts needs to be divided by 100
+        if (rig->caps->rfpower_meter_cal.size == 0)
+        {
+            val->f =
+                rig_raw2val_float(icom_val, &icom_default_rfpower_meter_cal) * 0.01;
+        }
+        else
+        {
+            val->f =
+                rig_raw2val_float(icom_val, &rig->caps->rfpower_meter_cal) * 0.01;
+        }
+
+        break;
+
+    case RIG_LEVEL_RFPOWER_METER_WATTS:
+
+        // All Icom backends should be in Watts now
         if (rig->caps->rfpower_meter_cal.size == 0)
         {
             val->f =
@@ -6160,6 +6227,7 @@ int icom_set_powerstat(RIG *rig, powerstat_t status)
         retval =
             icom_transaction(rig, C_SET_PWR, pwr_sc, NULL, 0, ackbuf, &ack_len);
         rs->rigport.retry = retry;
+        hl_usleep(3000*1000); // give it 3 seconds to wake up
 
         break;
 

@@ -214,7 +214,7 @@ const struct rig_caps ft847_caps =
     RIG_MODEL(RIG_MODEL_FT847),
     .model_name = "FT-847",
     .mfg_name =  "Yaesu",
-    .version =  "20200509.0",
+    .version =  "20210221.0",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -239,7 +239,7 @@ const struct rig_caps ft847_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran =  { 0 },      /* granularity */
-    .parm_gran  =  { 0 },
+    .parm_gran =  { 0 },
     .ctcss_list =  ft847_ctcss_list,
     .dcs_list =  common_dcs_list,
     .preamp =   { RIG_DBLST_END, }, /* no preamp/att in CAT */
@@ -371,7 +371,7 @@ const struct rig_caps ft847uni_caps =
     RIG_MODEL(RIG_MODEL_FT847UNI),
     .model_name = "FT-847UNI",
     .mfg_name =  "Yaesu",
-    .version =  "20200509.0",
+    .version =  "20210221.0",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -396,7 +396,7 @@ const struct rig_caps ft847uni_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran =  { 0 },      /* granularity */
-    .parm_gran  =  { 0 },
+    .parm_gran =  { 0 },
     .ctcss_list =  ft847_ctcss_list,
     .dcs_list =  common_dcs_list,
     .preamp =   { RIG_DBLST_END, }, /* no preamp/att in CAT */
@@ -1056,6 +1056,9 @@ int ft847_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
 
 int ft847_set_split_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
+    int retval = rig_set_split_vfo(rig, RIG_VFO_A, RIG_SPLIT_ON, RIG_VFO_B);
+    if (retval != RIG_OK) RETURNFUNC(retval);
+
     return ft847_set_freq(rig, RIG_VFO_TX, freq);
 }
 

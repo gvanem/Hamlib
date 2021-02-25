@@ -49,7 +49,7 @@
 #define OMNIVIP_ALL_RX_MODES (OMNIVIP_OTHER_TX_MODES)
 
 #define OMNIVIP_VFO_OPS (RIG_OP_FROM_VFO|RIG_OP_TO_VFO)
-#define OMNIVIP_STR_CAL { 0, { } }
+#define OMNIVIP_STR_CAL { 0, { 0 } }
 
 static int omni6_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt);
 static int omni6_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit);

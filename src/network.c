@@ -138,7 +138,7 @@ int network_open(hamlib_port_t *rp, int default_port)
     struct in6_addr serveraddr;
     char hoststr[256], portstr[6] = "";
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    ENTERFUNC;
     rig_debug(RIG_DEBUG_VERBOSE, "%s version 1.0\n", __func__);
 
 #ifdef _WIN32
@@ -214,7 +214,7 @@ int network_open(hamlib_port_t *rp, int default_port)
 
     if (status == 0 && res->ai_family == AF_INET6)
     {
-        rig_debug(RIG_DEBUG_ERR, "%s: Using IPV6\n", __func__);
+        rig_debug(RIG_DEBUG_TRACE, "%s: Using IPV6\n", __func__);
         //inet_pton(AF_INET6, hoststr, &h_addr.sin6_addr);
     }
 
@@ -240,6 +240,7 @@ int network_open(hamlib_port_t *rp, int default_port)
         char msg[1024];
 
         fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+
         if (fd < 0)
         {
             handle_error(RIG_DEBUG_ERR, "socket");

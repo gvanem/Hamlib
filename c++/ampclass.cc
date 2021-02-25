@@ -107,3 +107,4 @@ freq_t Amplifier::getFreq(void)
 
   return freq;
 }
+

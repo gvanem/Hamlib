@@ -59,7 +59,7 @@
 
 /**
  * \brief set a rotator level setting
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param level The level setting
  * \param val   The value to set the level setting to
  *
@@ -97,7 +97,7 @@ int HAMLIB_API rot_set_level(ROT *rot, setting_t level, value_t val)
 
 /**
  * \brief get the value of a level
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param level The level setting
  * \param val   The location where to store the value of \a level
  *
@@ -136,7 +136,7 @@ int HAMLIB_API rot_get_level(ROT *rot, setting_t level, value_t *val)
 
 /**
  * \brief set a rotator parameter
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param parm  The parameter
  * \param val   The value to set the parameter
  *
@@ -170,7 +170,7 @@ int HAMLIB_API rot_set_parm(ROT *rot, setting_t parm, value_t val)
 
 /**
  * \brief get the value of a parameter
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param parm  The parameter
  * \param val   The location where to store the value of \a parm
  *
@@ -204,7 +204,7 @@ int HAMLIB_API rot_get_parm(ROT *rot, setting_t parm, value_t *val)
 
 /**
  * \brief check retrieval ability of level settings
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param level The level settings
  *
  *  Checks if a rotator is capable of *getting* a level setting.
@@ -235,7 +235,7 @@ setting_t HAMLIB_API rot_has_get_level(ROT *rot, setting_t level)
 
 /**
  * \brief check settable ability of level settings
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param level The level settings
  *
  *  Checks if a rotator can *set* a level setting.
@@ -265,7 +265,7 @@ setting_t HAMLIB_API rot_has_set_level(ROT *rot, setting_t level)
 
 /**
  * \brief check retrieval ability of parameter settings
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param parm  The parameter settings
  *
  *  Checks if a rotator is capable of *getting* a parm setting.
@@ -294,7 +294,7 @@ setting_t HAMLIB_API rot_has_get_parm(ROT *rot, setting_t parm)
 
 /**
  * \brief check settable ability of parameter settings
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param parm  The parameter settings
  *
  *  Checks if a rotator can *set* a parameter setting.
@@ -323,7 +323,7 @@ setting_t HAMLIB_API rot_has_set_parm(ROT *rot, setting_t parm)
 
 /**
  * \brief check ability of rotator functions
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param func  The functions
  *
  *  Checks if a rotator supports a set of functions.
@@ -353,7 +353,7 @@ setting_t HAMLIB_API rot_has_get_func(ROT *rot, setting_t func)
 
 /**
  * \brief check ability of rotator functions
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param func  The functions
  *
  *  Checks if a rotator supports a set of functions.
@@ -382,7 +382,7 @@ setting_t HAMLIB_API rot_has_set_func(ROT *rot, setting_t func)
 
 /**
  * \brief activate/de-activate functions of rotator
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param func  The function to activate
  * \param status    The status (on or off) to set to
  *
@@ -421,7 +421,7 @@ int HAMLIB_API rot_set_func(ROT *rot, setting_t func, int status)
 
 /**
  * \brief get the status of functions of the rotator
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param func  The function to get the status
  * \param status    The location where to store the function status
  *
@@ -462,7 +462,7 @@ int HAMLIB_API rot_get_func(ROT *rot, setting_t func, int *status)
 
 /**
  * \brief set a rotator level extra parameter
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param token The parameter
  * \param val   The value to set the parameter to
  *
@@ -498,7 +498,7 @@ int HAMLIB_API rot_set_ext_level(ROT *rot, token_t token, value_t val)
 
 /**
  * \brief get the value of a level extra parameter
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param token The parameter
  * \param val   The location where to store the value of \a token
  *
@@ -534,7 +534,7 @@ int HAMLIB_API rot_get_ext_level(ROT *rot, token_t token, value_t *val)
 
 /**
  * \brief set a rotator function extra parameter
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param token The parameter
  * \param status The value to set the parameter to
  *
@@ -570,7 +570,7 @@ int HAMLIB_API rot_set_ext_func(ROT *rot, token_t token, int status)
 
 /**
  * \brief get the value of a function extra parameter
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param token The parameter
  * \param status The location where to store the value of \a token
  *
@@ -606,7 +606,7 @@ int HAMLIB_API rot_get_ext_func(ROT *rot, token_t token, int *status)
 
 /**
  * \brief set a rotator parm extra parameter
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param token The parameter
  * \param val   The value to set the parameter to
  *
@@ -638,7 +638,7 @@ int HAMLIB_API rot_set_ext_parm(ROT *rot, token_t token, value_t val)
 
 /**
  * \brief get the value of a parm extra parameter
- * \param rig   The rotator handle
+ * \param rot   The rotator handle
  * \param token The parameter
  * \param val   The location where to store the value of \a token
  *

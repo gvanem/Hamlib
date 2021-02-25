@@ -120,7 +120,7 @@ static int satel_cmd(ROT *rot, char *cmd, int cmdlen, char *res, int reslen)
     int ret;
     struct rot_state *rs;
 
-    
+
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
 
@@ -138,7 +138,7 @@ static int satel_cmd(ROT *rot, char *cmd, int cmdlen, char *res, int reslen)
         if (ret < 0)
             return ret;
     }
-    
+
 
     return RIG_OK;
 }
@@ -155,7 +155,7 @@ static int satel_read_status(ROT *rot, satel_stat_t *stat)
     rs = &rot->state;
 
 
-    
+
     // read motion state
     ret = read_string(&rs->rotport, resbuf, BUF_SIZE, "\n", 1);
     if (ret < 0)
@@ -172,7 +172,7 @@ static int satel_read_status(ROT *rot, satel_stat_t *stat)
     ret = read_string(&rs->rotport, resbuf, BUF_SIZE, "\n", 1);
     if (ret < 0)
         return ret;
-    
+
     // read azimuth line
     ret = read_string(&rs->rotport, resbuf, BUF_SIZE, "\n", 1);
     if (ret < 0)
@@ -181,7 +181,7 @@ static int satel_read_status(ROT *rot, satel_stat_t *stat)
     p = resbuf + 10;
     p[3] = '\0';
     stat->az = (int)strtof(p, NULL);
-    
+
     // read elevation line
     ret = read_string(&rs->rotport, resbuf, BUF_SIZE, "\n", 1);
     if (ret < 0)
@@ -190,7 +190,7 @@ static int satel_read_status(ROT *rot, satel_stat_t *stat)
     p = resbuf + 12;
     p[3] = '\0';
     stat->el = (int)strtof(p, NULL);
-    
+
     // skip blank line
     ret = read_string(&rs->rotport, resbuf, BUF_SIZE, "\n", 1);
     if (ret < 0)
@@ -210,7 +210,7 @@ static int satel_get_status(ROT *rot, satel_stat_t *stat)
 {
     int ret;
 
-    
+
     ret = satel_cmd(rot, "z", 1, NULL, 0);
     if (ret != RIG_OK)
         return ret;
@@ -225,8 +225,8 @@ static int satel_rot_open(ROT *rot)
     char resbuf[BUF_SIZE];
     int ret;
 
-    
-    
+
+
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
 
@@ -235,7 +235,7 @@ static int satel_rot_open(ROT *rot)
     if (ret != RIG_OK)
         return ret;
 
-    ret = strncasecmp("SatEL", resbuf, 5); 
+    ret = strncasecmp("SatEL", resbuf, 5);
     if (ret != 0)
         return -RIG_EIO;
 
@@ -254,7 +254,7 @@ static int satel_rot_set_position(ROT *rot, azimuth_t az, elevation_t el)
     int ret;
     satel_stat_t stat;
 
-    
+
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %.2f %.2f\n", __func__,
               az, el);
 
@@ -268,8 +268,8 @@ static int satel_rot_set_position(ROT *rot, azimuth_t az, elevation_t el)
         ret = satel_cmd(rot, "g", 1, NULL, 0);
         if (ret != RIG_OK)
             return ret;
-    }        
-    
+    }
+
     snprintf(cmdbuf, BUF_SIZE, "p%d %d\r\n", (int)az, (int)el);
     ret = satel_cmd(rot, cmdbuf, strlen(cmdbuf), NULL, 0);
     if (ret != RIG_OK)
@@ -279,7 +279,7 @@ static int satel_rot_set_position(ROT *rot, azimuth_t az, elevation_t el)
     ret = satel_read_status(rot, &stat);
     if (ret < 0)
         return ret;
-    
+
 
     return RIG_OK;
 }
@@ -290,10 +290,10 @@ static int satel_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
     int ret;
     satel_stat_t stat;
 
-    
+
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    
+
     ret = satel_get_status(rot, &stat);
     if (ret < 0)
         return ret;
@@ -301,7 +301,7 @@ static int satel_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
     *az = stat.az;
     *el = stat.el;
 
-    
+
     return RIG_OK;
 }
 

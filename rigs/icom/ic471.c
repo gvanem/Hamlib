@@ -35,7 +35,7 @@
 
 #define IC471_VFO_OPS (RIG_OP_FROM_VFO|RIG_OP_TO_VFO)
 
-#define IC471_STR_CAL { 0, { } }
+#define IC471_STR_CAL { 0, { 0 } }
 
 /*
  * IC-471 A/E

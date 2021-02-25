@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
     printf("testrig: Hello, I am your main() !\n");
 
     /* Turn off backend debugging output */
-    rig_set_debug_level(RIG_DEBUG_NONE);
+    rig_set_debug_level(RIG_DEBUG_VERBOSE);
 
     /*
      * allocate memory, setup & open port

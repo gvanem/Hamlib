@@ -58,7 +58,7 @@
                RIG_LEVEL_METER|RIG_LEVEL_BKINDL|RIG_LEVEL_SQL|\
                RIG_LEVEL_VOXGAIN|RIG_LEVEL_VOXDELAY|RIG_LEVEL_COMP|\
                RIG_LEVEL_ANTIVOX|RIG_LEVEL_NR|RIG_LEVEL_NOTCHF|\
-               RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_RFPOWER_METER|\
+               RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS|\
                RIG_LEVEL_COMP_METER|RIG_LEVEL_VD_METER|RIG_LEVEL_ID_METER)
 
 #define FTDX101_FUNCS (RIG_FUNC_TONE|RIG_FUNC_TSQL|RIG_FUNC_LOCK|\
@@ -70,6 +70,20 @@
 #define FTDX101_VFO_OPS (RIG_OP_TUNE|RIG_OP_CPY|RIG_OP_XCHG|\
                RIG_OP_UP|RIG_OP_DOWN|RIG_OP_BAND_UP|RIG_OP_BAND_DOWN|\
                RIG_OP_TO_VFO|RIG_OP_FROM_VFO|RIG_OP_TOGGLE)
+
+// Borrowed from FLRig -- Thanks to Dave W1HKJ
+#define FTDX101D_RFPOWER_METER_CAL \
+    { \
+        6, \
+        { \
+            {0, 0.0f}, \
+            {35, 5.0f}, \
+            {94, 25.0f}, \
+            {147, 50.0f}, \
+            {176, 75.0f}, \
+            {205, 100.0f}, \
+        } \
+    }
 
 // Based on testing with G3VPX Ian Sumner
 #define FTDX101D_SWR_CAL \

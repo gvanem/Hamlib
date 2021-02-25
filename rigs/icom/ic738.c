@@ -50,7 +50,7 @@
 
 #define IC738_ANTS 0    /* TODO: declare both antenna connectors? */
 
-#define IC738_STR_CAL { 0, { } }
+#define IC738_STR_CAL { 0, { 0 } }
 
 /*
  */

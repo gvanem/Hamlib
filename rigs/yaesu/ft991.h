@@ -58,7 +58,7 @@
                RIG_LEVEL_METER|RIG_LEVEL_BKINDL|RIG_LEVEL_SQL|\
                RIG_LEVEL_VOXGAIN|RIG_LEVEL_VOXDELAY|RIG_LEVEL_COMP|\
                RIG_LEVEL_ANTIVOX|RIG_LEVEL_NR|RIG_LEVEL_NOTCHF|\
-               RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_RFPOWER_METER|\
+               RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS|\
                RIG_LEVEL_COMP_METER|RIG_LEVEL_VD_METER|RIG_LEVEL_ID_METER)
 
 #define FT991_FUNCS (RIG_FUNC_TONE|RIG_FUNC_TSQL|RIG_FUNC_LOCK|\
@@ -70,6 +70,20 @@
 #define FT991_VFO_OPS (RIG_OP_TUNE|RIG_OP_CPY|RIG_OP_XCHG|\
                RIG_OP_UP|RIG_OP_DOWN|RIG_OP_BAND_UP|RIG_OP_BAND_DOWN|\
                RIG_OP_TO_VFO|RIG_OP_FROM_VFO)
+
+// Borrowed from FLRig -- Thanks to Dave W1HKJ
+#define FT991_RFPOWER_METER_CAL \
+    { \
+        6, \
+        { \
+            {10, 0.8f}, \
+            {50, 8.0f}, \
+            {100, 26.0f}, \
+            {150, 54.0f}, \
+            {200, 92.0f}, \
+            {250, 140.0f}, \
+        } \
+    }
 
 /* TBC */
 #define FT991_STR_CAL { 16, \

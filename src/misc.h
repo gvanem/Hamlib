@@ -19,11 +19,17 @@
  *
  */
 
+/**
+ * \addtogroup rig_internal
+ * @{
+ * \file misc.h
+ * \brief Miscellaneous utility routines
+ */
+
 #ifndef _MISC_H
 #define _MISC_H 1
 
 #include <hamlib/rig.h>
-
 
 /*
  * Careful!! These macros are NOT reentrant!
@@ -108,8 +114,12 @@ extern HAMLIB_EXPORT(vfo_t) vfo_fixup(RIG *rig, vfo_t vfo);
 
 extern HAMLIB_EXPORT(int) parse_hoststr(char *host, char hoststr[256], char port[6]);
 
+/**
+ * \def PRIll
+ * \def PRXll
+ * printf(3) format to be used for long long (64bits) type
+ */
 #ifdef PRId64
-/** \brief printf(3) format to be used for long long (64bits) type */
 #  define PRIll PRId64
 #  define PRXll PRIx64
 #else
@@ -122,9 +132,13 @@ extern HAMLIB_EXPORT(int) parse_hoststr(char *host, char hoststr[256], char port
 #  endif
 #endif
 
+/**
+ * \def SCNll
+ * \def SCNXll
+ * scanff(3) format to be used for long long (64bits) type
+ */
 #ifdef SCNd64
-/** \brief scanf(3) format to be used for long long (64bits) type */
-#  define SCNll SCNd64
+#  define SCNll  SCNd64
 #  define SCNXll SCNx64
 #else
 #  ifdef FBSD4
@@ -142,6 +156,57 @@ extern HAMLIB_EXPORT(int) parse_hoststr(char *host, char hoststr[256], char port
           fflush(f);               \
         } while (0)
 
+extern void errmsg(int err, char *s, const char *func, const char *file, int line);
+
+#define ERRMSG(err, s)   errmsg (err,  s, __func__, __FILENAME__, __LINE__)
+
+/**
+ * \def ENTERFUNC
+ * Used when entering a function.
+ *
+ * Optionally (when `rig_debug_level >= RIG_DEBUG_VERBOSE`) with a
+ * message describing in which file and line that happened. \n
+ * Like:
+ * ```
+ *  dummy.c(415):dummy_get_freq() entered
+ * ```
+ */
+#define ENTERFUNC rig_debug (RIG_DEBUG_VERBOSE, "%s(%d):%s() entered\n", \
+                    __FILENAME__, __LINE__, __func__)
+
+/**
+ * \def RETURNFUNC
+ * Used when returning from a function and the return-value is `rc`.
+ *
+ * Optionally (when `rig_debug_level >= RIG_DEBUG_VERBOSE`) with a
+ * message describing in which file and line that happened. \n
+ * Like:
+ * ```
+ *  dummy.c(442):dummy_get_freq() return
+ * ```
+ */
+#define RETURNFUNC(rc)  do {                                                    \
+                          rig_debug (RIG_DEBUG_VERBOSE, "%s(%d):%s() return\n", \
+                            __FILENAME__, __LINE__, __func__);                  \
+                          return (rc);                                          \
+                        } while (0)
+
+/* Only used in 'rigs/yaesu/newcat.c'
+ */
+#define CACHE_RESET { \
+        elapsed_ms (&rig->state.cache.time_freq, HAMLIB_ELAPSED_INVALIDATE);      \
+        elapsed_ms (&rig->state.cache.time_freqCurr, HAMLIB_ELAPSED_INVALIDATE);  \
+        elapsed_ms (&rig->state.cache.time_freqMainA, HAMLIB_ELAPSED_INVALIDATE); \
+        elapsed_ms (&rig->state.cache.time_freqMainB, HAMLIB_ELAPSED_INVALIDATE); \
+        elapsed_ms (&rig->state.cache.time_freqSubA, HAMLIB_ELAPSED_INVALIDATE);  \
+        elapsed_ms (&rig->state.cache.time_freqSubB, HAMLIB_ELAPSED_INVALIDATE);  \
+        elapsed_ms (&rig->state.cache.time_vfo, HAMLIB_ELAPSED_INVALIDATE);       \
+        elapsed_ms (&rig->state.cache.time_mode, HAMLIB_ELAPSED_INVALIDATE);      \
+        elapsed_ms (&rig->state.cache.time_ptt, HAMLIB_ELAPSED_INVALIDATE);       \
+        elapsed_ms (&rig->state.cache.time_split, HAMLIB_ELAPSED_INVALIDATE);     \
+      }
+
 __END_DECLS
 
 #endif /* _MISC_H */
+/** @} */

@@ -43,7 +43,7 @@
  */
 
 
-#define IC821H_STR_CAL { 0, { } }
+#define IC821H_STR_CAL { 0, { 0 } }
 /*
  */
 static const struct icom_priv_caps ic821h_priv_caps =

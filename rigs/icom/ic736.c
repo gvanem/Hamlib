@@ -50,7 +50,7 @@
 
 #define IC736_ANTS 0    /* FIXME: declare both antenna connectors */
 
-#define IC736_STR_CAL { 0, { } }
+#define IC736_STR_CAL { 0, { 0 } }
 
 /*
  */

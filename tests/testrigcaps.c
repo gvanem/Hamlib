@@ -9,9 +9,9 @@ int main()
     int retcode = 0;
     rig_set_debug_level(RIG_DEBUG_NONE);
     rig = rig_init(1);
-    void *p1 = &rig->state.rigport;
-    void *p2 = &rig->state.vfo_list;
-    unsigned long offset = p2 - p1;
+    const void *p1 = &rig->state.rigport;
+    const void *p2 = &rig->state.vfo_list;
+    unsigned long offset = (const char*)p2 - (const char*)p1;
     printf("offset vfo_list=%ld\n", offset);
 #if defined(WIN64) || defined (_WIN64) || defined (__WIN64__)
     int expected = 13264; // mingw64
@@ -33,7 +33,7 @@ int main()
     }
 
     p2 = &rig->state.power_max;
-    offset = p2 - p1;
+    offset = (const char*)p2 - (const char*)p1;
     printf("offset power_max=%ld\n", offset);
 
 #if defined(WIN64) || defined (_WIN64) || defined (__WIN64__)

@@ -215,7 +215,11 @@ static int netrigctl_open(RIG *rig)
     len = sprintf(cmd, "\\chk_vfo\n");
     ret = netrigctl_transaction(rig, cmd, len, buf);
 
-    if (ret == 2)
+    if (sscanf(buf,"CHKVFO %d", &priv->rigctld_vfo_mode)==1)
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s: chkvfo=%d\n", __func__, priv->rigctld_vfo_mode);
+    }
+    else if (ret == 2)
     {
         if (buf[0]) { sscanf(buf, "%d", &priv->rigctld_vfo_mode); }
     }
@@ -578,7 +582,33 @@ static int netrigctl_open(RIG *rig)
             }
             else if (strcmp(setting, "targetable_vfo") == 0)
             {
-                rig->caps->targetable_vfo = strtol(value, NULL, 0);
+                int has = strtol(value, NULL, 0);
+
+                if (!has) { rig->caps->targetable_vfo = strtol(value, NULL, 0); }
+            }
+            else if (strcmp(setting, "has_set_vfo") == 0)
+            {
+                int has = strtol(value, NULL, 0);
+
+                if (!has) { rig->caps->set_vfo = NULL; }
+            }
+            else if (strcmp(setting, "has_get_vfo") == 0)
+            {
+                int has = strtol(value, NULL, 0);
+
+                if (!has) { rig->caps->get_vfo = NULL; }
+            }
+            else if (strcmp(setting, "has_set_freq") == 0)
+            {
+                int has = strtol(value, NULL, 0);
+
+                if (!has) { rig->caps->set_freq = NULL; }
+            }
+            else if (strcmp(setting, "has_get_freq") == 0)
+            {
+                int has = strtol(value, NULL, 0);
+
+                if (!has) { rig->caps->get_freq = NULL; }
             }
             else
             {
@@ -775,12 +805,11 @@ static int netrigctl_set_vfo(RIG *rig, vfo_t vfo)
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
     char vfostr[16] = "";
+    struct netrigctl_priv_data *priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    //ret = netrigctl_vfostr(rig, vfostr, sizeof(vfostr), RIG_VFO_A);
-
-    //if (ret != RIG_OK) { return ret; }
+    priv = (struct netrigctl_priv_data *)rig->state.priv;
 
     len = sprintf(cmd, "V%s %s\n", vfostr, rig_strvfo(vfo));
     rig_debug(RIG_DEBUG_VERBOSE, "%s: cmd='%s'\n", __func__, cmd);
@@ -790,10 +819,9 @@ static int netrigctl_set_vfo(RIG *rig, vfo_t vfo)
     {
         return -RIG_EPROTO;
     }
-    else
-    {
-        return ret;
-    }
+
+    priv->vfo_curr = vfo; // remember our vfo
+    return ret;
 }
 
 
@@ -802,22 +830,22 @@ static int netrigctl_get_vfo(RIG *rig, vfo_t *vfo)
     int ret, len;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
-    char vfostr[16] = "";
     struct netrigctl_priv_data *priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     priv = (struct netrigctl_priv_data *)rig->state.priv;
 
-    ret = netrigctl_vfostr(rig, vfostr, sizeof(vfostr), RIG_VFO_A);
-
-    if (ret != RIG_OK) { return ret; }
-
-    len = sprintf(cmd, "v%s\n", vfostr);
+    len = sprintf(cmd, "v\n");
 
     ret = netrigctl_transaction(rig, cmd, len, buf);
 
-    if (ret == -RIG_ENAVAIL) { return ret; }
+    if (ret == -RIG_ENAVAIL || ret == -RIG_ENIMPL)
+    {
+        // for rigs without get_vfo we'll use our saved vfo
+        *vfo = priv->vfo_curr;
+        return RIG_OK;
+    }
 
     if (ret <= 0)
     {
@@ -2255,7 +2283,7 @@ struct rig_caps netrigctl_caps =
     RIG_MODEL(RIG_MODEL_NETRIGCTL),
     .model_name =     "NET rigctl",
     .mfg_name =       "Hamlib",
-    .version =        "20200503.0",
+    .version =        "20210207.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_OTHER,
@@ -2277,13 +2305,13 @@ struct rig_caps netrigctl_caps =
     .level_gran =      { 0 },
     .ctcss_list =      NULL,
     .dcs_list =        NULL,
-    .chan_list =       { 0 },
-    .transceive =      RIG_TRN_OFF,
-    .attenuator =      { 0 },
+    .chan_list =   { 0 },
+    .transceive =     RIG_TRN_OFF,
+    .attenuator =     { 0 },
     .preamp =          { 0 },
     .rx_range_list2 =  { RIG_FRNG_END, },
     .tx_range_list2 =  { RIG_FRNG_END, },
-    .tuning_steps   =  { 0 },
+    .tuning_steps =  { 0 },
     .filters =  { RIG_FLT_END, },
     .max_rit = 0,
     .max_xit = 0,

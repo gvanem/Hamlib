@@ -55,7 +55,10 @@
                      RIG_MODE_RTTY | RIG_MODE_RTTYR |\
                      RIG_MODE_PKTLSB | RIG_MODE_PKTUSB |\
                      RIG_MODE_SSB | RIG_MODE_LSB | RIG_MODE_USB |\
-             RIG_MODE_FM | RIG_MODE_WFM | RIG_MODE_FMN |RIG_MODE_PKTFM )
+                     RIG_MODE_FM | RIG_MODE_WFM | RIG_MODE_FMN | RIG_MODE_PKTFM |\
+                     RIG_MODE_C4FM)
+
+#define FLRIG_LEVELS (RIG_LEVEL_AF | RIG_LEVEL_RF | RIG_LEVEL_MICGAIN | RIG_LEVEL_STRENGTH | RIG_LEVEL_RFPOWER_METER | RIG_LEVEL_RFPOWER_METER_WATTS | RIG_LEVEL_RFPOWER)
 
 #define streq(s1,s2) (strcmp(s1,s2)==0)
 
@@ -84,8 +87,14 @@ static int flrig_set_split_freq_mode(RIG *rig, vfo_t vfo, freq_t freq,
                                      rmode_t mode, pbwidth_t width);
 static int flrig_get_split_freq_mode(RIG *rig, vfo_t vfo, freq_t *freq,
                                      rmode_t *mode, pbwidth_t *width);
+static int flrig_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val);
+static int flrig_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
 
 static const char *flrig_get_info(RIG *rig);
+static int flrig_power2mW(RIG *rig, unsigned int *mwpower, float power,
+                          freq_t freq, rmode_t mode);
+static int flrig_mW2power(RIG *rig, float *power, unsigned int mwpower,
+                          freq_t freq, rmode_t mode);
 
 struct flrig_priv_data
 {
@@ -103,6 +112,7 @@ struct flrig_priv_data
     pbwidth_t curr_widthB;
     int has_get_modeA; /* True if this function is available */
     int has_get_bwA; /* True if this function is available */
+    float powermeter_scale;  /* So we can scale power meter to 0-1 */
 };
 
 const struct rig_caps flrig_caps =
@@ -119,13 +129,13 @@ const struct rig_caps flrig_caps =
     .port_type = RIG_PORT_NETWORK,
     .write_delay = 0,
     .post_write_delay = 0,
-    .timeout = 2000,
+    .timeout = 5000,
     .retry = 5,
 
     .has_get_func = RIG_FUNC_NONE,
     .has_set_func = RIG_FUNC_NONE,
-    .has_get_level = RIG_LEVEL_NONE,
-    .has_set_level = RIG_LEVEL_NONE,
+    .has_get_level = FLRIG_LEVELS,
+    .has_set_level = RIG_LEVEL_SET(FLRIG_LEVELS),
     .has_get_parm = RIG_PARM_NONE,
     .has_set_parm = RIG_PARM_NONE,
     .filters =  {
@@ -169,7 +179,11 @@ const struct rig_caps flrig_caps =
     .set_split_vfo = flrig_set_split_vfo,
     .get_split_vfo = flrig_get_split_vfo,
     .set_split_freq_mode = flrig_set_split_freq_mode,
-    .get_split_freq_mode = flrig_get_split_freq_mode
+    .get_split_freq_mode = flrig_get_split_freq_mode,
+    .set_level = flrig_set_level,
+    .get_level = flrig_get_level,
+    .power2mW =   flrig_power2mW,
+    .mW2power =   flrig_mW2power
 };
 
 // Structure for mapping flrig dynmamic modes to hamlib modes
@@ -188,18 +202,15 @@ static struct s_modeMap modeMap[] =
     {RIG_MODE_LSB, NULL},
     {RIG_MODE_PKTUSB, NULL},
     {RIG_MODE_PKTLSB, NULL},
-    {RIG_MODE_PKTUSB, NULL},
-    {RIG_MODE_PKTLSB, NULL},
     {RIG_MODE_AM, NULL},
     {RIG_MODE_FM, NULL},
     {RIG_MODE_FMN, NULL},
     {RIG_MODE_WFM, NULL},
     {RIG_MODE_CW, NULL},
-    {RIG_MODE_CW, NULL},
-    {RIG_MODE_CWR, NULL},
     {RIG_MODE_CWR, NULL},
     {RIG_MODE_RTTY, NULL},
     {RIG_MODE_RTTYR, NULL},
+    {RIG_MODE_C4FM, NULL},
     {0, NULL}
 };
 
@@ -399,8 +410,6 @@ static int read_transaction(RIG *rig, char *xml, int xml_len)
 
     rig_debug(RIG_DEBUG_TRACE, "%s\n", __func__);
 
-    rs->rigport.timeout = 1000; // 1 second read string timeout
-
     retry = 2;
     delims = "\n";
     xml[0] = 0;
@@ -512,7 +521,8 @@ static int write_transaction(RIG *rig, char *xml, int xml_len)
 static int flrig_transaction(RIG *rig, char *cmd, char *cmd_arg, char *value,
                              int value_len)
 {
-    int retry = 2;
+    char xml[MAXXMLLEN];
+    int retry = 5;
 
     if (value)
     {
@@ -521,7 +531,6 @@ static int flrig_transaction(RIG *rig, char *cmd, char *cmd_arg, char *value,
 
     do
     {
-        char xml[MAXXMLLEN];
         char *pxml;
         int retval;
 
@@ -536,6 +545,11 @@ static int flrig_transaction(RIG *rig, char *cmd, char *cmd_arg, char *value,
         if (retval != RIG_OK)
         {
             rig_debug(RIG_DEBUG_ERR, "%s: write_transaction error=%d\n", __func__, retval);
+
+            // if we get RIG_EIO the socket has probably disappeared
+            // so bubble up the error so port can re re-opened
+            if (retval == -RIG_EIO) { return retval; }
+
             hl_usleep(50 * 1000); // 50ms sleep if error
         }
 
@@ -546,7 +560,8 @@ static int flrig_transaction(RIG *rig, char *cmd, char *cmd_arg, char *value,
             xml_parse(xml, value, value_len);
         }
     }
-    while (value && strlen(value) == 0 && retry--); // we'll do retries if needed
+    while (((value && strlen(value) == 0) || (strlen(xml) == 0))
+            && retry--); // we'll do retries if needed
 
     if (value && strlen(value) == 0) { return RIG_EPROTO; }
 
@@ -729,6 +744,19 @@ static int flrig_open(RIG *rig)
     strncpy(priv->info, value, sizeof(priv->info));
     rig_debug(RIG_DEBUG_VERBOSE, "Transceiver=%s\n", value);
 
+    /* see if get_pwrmeter_scale is available */
+    retval = flrig_transaction(rig, "rig.get_pwrmeter_scale", NULL, value,
+                               sizeof(value));
+
+    if (retval != RIG_OK) { return retval; }
+
+    priv->powermeter_scale = 1; // default
+
+    if (strlen(value) > 0)
+    {
+        priv->powermeter_scale = atof(value);
+    }
+
     /* see if get_modeA is available */
     retval = flrig_transaction(rig, "rig.get_modeA", NULL, value, sizeof(value));
 
@@ -838,13 +866,16 @@ static int flrig_open(RIG *rig)
         else if (streq(p, "D-USB")) { modeMapAdd(&modes, RIG_MODE_PKTUSB, p); }
         else if (streq(p, "DATA")) { modeMapAdd(&modes, RIG_MODE_PKTUSB, p); }
         else if (streq(p, "DATA-FM")) { modeMapAdd(&modes, RIG_MODE_PKTFM, p); }
+        else if (streq(p, "DATA-L")) { modeMapAdd(&modes, RIG_MODE_PKTLSB, p); }
+        else if (streq(p, "DATA-R")) { modeMapAdd(&modes, RIG_MODE_PKTLSB, p); }
         else if (streq(p, "DATA-LSB")) { modeMapAdd(&modes, RIG_MODE_PKTLSB, p); }
         else if (streq(p, "DATA-USB")) { modeMapAdd(&modes, RIG_MODE_PKTUSB, p); }
         else if (streq(p, "DATA-U")) { modeMapAdd(&modes, RIG_MODE_PKTUSB, p); }
         else if (streq(p, "DIG")) { modeMapAdd(&modes, RIG_MODE_PKTUSB, p); }
         else if (streq(p, "DIGI")) { modeMapAdd(&modes, RIG_MODE_PKTUSB, p); }
-        else if (streq(p, "DATA-L")) { modeMapAdd(&modes, RIG_MODE_PKTLSB, p); }
-        else if (streq(p, "DATA-R")) { modeMapAdd(&modes, RIG_MODE_PKTLSB, p); }
+        else if (streq(p, "DIGL")) { modeMapAdd(&modes, RIG_MODE_PKTLSB, p); }
+        else if (streq(p, "DIGU")) { modeMapAdd(&modes, RIG_MODE_PKTUSB, p); }
+        else if (streq(p, "DSB")) { modeMapAdd(&modes, RIG_MODE_DSB, p); }
         else if (streq(p, "FM")) { modeMapAdd(&modes, RIG_MODE_FM, p); }
         else if (streq(p, "FM-D")) { modeMapAdd(&modes, RIG_MODE_PKTFM, p); }
         else if (streq(p, "FMN")) { modeMapAdd(&modes, RIG_MODE_FMN, p); }
@@ -883,9 +914,17 @@ static int flrig_open(RIG *rig)
         else if (streq(p, "USB-D1")) { modeMapAdd(&modes, RIG_MODE_PKTUSB, p); }
         else if (streq(p, "USB-D2")) { modeMapAdd(&modes, RIG_MODE_PKTUSB, p); }
         else if (streq(p, "USB-D3")) { modeMapAdd(&modes, RIG_MODE_PKTUSB, p); }
+        else if (streq(p, "USER-U")) { modeMapAdd(&modes, RIG_MODE_PKTUSB, p); }
+        else if (streq(p, "USER-L")) { modeMapAdd(&modes, RIG_MODE_PKTLSB, p); }
         else if (streq(p, "W-FM")) { modeMapAdd(&modes, RIG_MODE_WFM, p); }
         else if (streq(p, "WFM")) { modeMapAdd(&modes, RIG_MODE_WFM, p); }
         else if (streq(p, "UCW")) { modeMapAdd(&modes, RIG_MODE_CW, p); }
+        else if (streq(p, "C4FM")) { modeMapAdd(&modes, RIG_MODE_C4FM, p); }
+        else if (streq(p, "SPEC")) { modeMapAdd(&modes, RIG_MODE_SPEC, p); }
+        else if (streq(p, "DRM")) // we don't support DRM yet (or maybe ever)
+        {
+            rig_debug(RIG_DEBUG_VERBOSE, "%s: no mapping for mode %s\n", __func__, p);
+        }
         else { rig_debug(RIG_DEBUG_ERR, "%s: Unknown mode (new?) for this rig='%s'\n", __func__, p); }
     }
 
@@ -1851,6 +1890,130 @@ static int flrig_get_split_freq_mode(RIG *rig, vfo_t vfo, freq_t *freq,
     return retval;
 }
 
+static int flrig_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
+{
+    int retval;
+    char cmd_arg[MAXARGLEN];
+    char *cmd;
+    char *param_type = "i4";
+
+    rig_debug(RIG_DEBUG_TRACE, "%s: vfo=%s level=%d, val=%f\n", __func__,
+              rig_strvfo(vfo), (int)level, val.f);
+
+    if (check_vfo(vfo) == FALSE)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: unsupported VFO %s\n",
+                  __func__, rig_strvfo(vfo));
+        return -RIG_EINVAL;
+    }
+
+    switch (level)
+    {
+    case RIG_LEVEL_RF: cmd = "rig.set_rfgain"; val.f *= 100; break;
+
+    case RIG_LEVEL_AF: cmd = "rig.set_volume"; val.f *= 100; break;
+
+    case RIG_LEVEL_MICGAIN: cmd = "rig.set_micgain"; val.f *= 100; break;
+
+    case RIG_LEVEL_RFPOWER: cmd = "rig.set_power"; val.f *= 100; break;
+
+    default:
+        rig_debug(RIG_DEBUG_ERR, "%s: invalid level=%d\n", __func__, (int)level);
+        return -RIG_EINVAL;
+    }
+
+    sprintf(cmd_arg,
+            "<params><param><value><%s>%d</%s></value></param></params>",
+            param_type, (int)val.f, param_type);
+
+
+    retval = flrig_transaction(rig, cmd, cmd_arg, NULL, 0);
+
+    if (retval < 0)
+    {
+        return retval;
+    }
+
+    return RIG_OK;
+}
+
+/*
+ * flrig_get_level
+ * Assumes rig!=NULL, rig->state.priv!=NULL, val!=NULL
+ */
+static int flrig_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
+{
+    char value[MAXARGLEN];
+    char *cmd;
+    int retval;
+    struct flrig_priv_data *priv = (struct flrig_priv_data *) rig->state.priv;
+
+    rig_debug(RIG_DEBUG_TRACE, "%s: vfo=%s\n", __func__,
+              rig_strvfo(vfo));
+
+
+    switch (level)
+    {
+    case RIG_LEVEL_AF: cmd = "rig.get_volume"; break;
+
+    case RIG_LEVEL_RF: cmd = "rig.get_rfgain"; break;
+
+    case RIG_LEVEL_MICGAIN: cmd = "rig.get_micgain"; break;
+
+    case RIG_LEVEL_STRENGTH: cmd = "rig.get_smeter"; break;
+
+    case RIG_LEVEL_RFPOWER: cmd = "rig.get_power"; break;
+
+    case RIG_LEVEL_RFPOWER_METER_WATTS:
+    case RIG_LEVEL_RFPOWER_METER: cmd = "rig.get_pwrmeter"; break;
+
+    default:
+        rig_debug(RIG_DEBUG_ERR, "%s: unknown level=%d\n", __func__, (int)level);
+        return -RIG_EINVAL;
+    }
+
+    retval = flrig_transaction(rig, cmd, NULL, value, sizeof(value));
+
+    if (retval != RIG_OK)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: flrig_transaction failed retval=%s\n", __func__,
+                  rigerror(retval));
+        return retval;
+    }
+
+    // most levels are 0-100 -- may have to allow for different ranges
+    switch (level)
+    {
+    case RIG_LEVEL_STRENGTH:
+        val->i = atoi(value) - 54;
+        //if (val->i > 0) val->i /= 10;
+        rig_debug(RIG_DEBUG_TRACE, "%s: val.i='%s'(%d)\n", __func__, value, val->i);
+        break;
+
+    case RIG_LEVEL_RFPOWER:
+        val->f = atof(value) / 100.0 * priv->powermeter_scale;
+        rig_debug(RIG_DEBUG_TRACE, "%s: val.f='%s'(%g)\n", __func__, value, val->f);
+        break;
+
+    case RIG_LEVEL_RFPOWER_METER:
+        val->f = atof(value) / 100.0 * priv->powermeter_scale;
+        rig_debug(RIG_DEBUG_TRACE, "%s: val.f='%s'(%g)\n", __func__, value, val->f);
+        break;
+
+    case RIG_LEVEL_RFPOWER_METER_WATTS:
+        val->f = atof(value) * priv->powermeter_scale;
+        rig_debug(RIG_DEBUG_TRACE, "%s: val.f='%s'(%g)\n", __func__, value, val->f);
+        break;
+
+    default:
+        val->f = atof(value) / 100;
+        rig_debug(RIG_DEBUG_TRACE, "%s: val.f='%s'(%f)\n", __func__, value, val->f);
+    }
+
+
+    return RIG_OK;
+}
+
 /*
  * flrig_get_info
  * assumes rig!=NULL
@@ -1862,3 +2025,34 @@ static const char *flrig_get_info(RIG *rig)
 
     return priv->info;
 }
+
+static int flrig_power2mW(RIG *rig, unsigned int *mwpower, float power,
+                          freq_t freq, rmode_t mode)
+{
+    struct flrig_priv_data *priv = (struct flrig_priv_data *) rig->state.priv;
+    ENTERFUNC;
+    rig_debug(RIG_DEBUG_TRACE, "%s: passed power = %f\n", __func__, power);
+    rig_debug(RIG_DEBUG_TRACE, "%s: passed freq = %"PRIfreq" Hz\n", __func__, freq);
+    rig_debug(RIG_DEBUG_TRACE, "%s: passed mode = %s\n", __func__,
+              rig_strrmode(mode));
+
+    power *= priv->powermeter_scale;
+    *mwpower = (power * 100000);
+
+    RETURNFUNC(RIG_OK);
+}
+
+static int flrig_mW2power(RIG *rig, float *power, unsigned int mwpower,
+                          freq_t freq, rmode_t mode)
+{
+    ENTERFUNC;
+    rig_debug(RIG_DEBUG_TRACE, "%s: passed mwpower = %u\n", __func__, mwpower);
+    rig_debug(RIG_DEBUG_TRACE, "%s: passed freq = %"PRIfreq" Hz\n", __func__, freq);
+    rig_debug(RIG_DEBUG_TRACE, "%s: passed mode = %s\n", __func__,
+              rig_strrmode(mode));
+
+    *power = ((float)mwpower / 100000);
+
+    RETURNFUNC(RIG_OK);
+}
+

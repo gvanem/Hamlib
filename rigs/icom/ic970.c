@@ -35,7 +35,7 @@
 
 #define IC970_VFO_OPS (RIG_OP_FROM_VFO|RIG_OP_TO_VFO)
 
-#define IC970_STR_CAL { 0, { } }
+#define IC970_STR_CAL { 0, { 0 } }
 
 /*
  * FIXME: this appears to be the IC-970A/E

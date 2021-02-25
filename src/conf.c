@@ -139,6 +139,11 @@ static const struct confparams frontend_cfg_params[] =
         "0", RIG_CONF_CHECKBUTTON, { 0 }
     },
     {
+        TOK_DISABLE_YAESU_BANDSELECT, "disable_yaesu_bandselect", "Disable Yaesu band select logic",
+        "True disables the automatic band select on band change for Yaesu rigs",
+        "0", RIG_CONF_CHECKBUTTON, { 0 }
+    },
+    {
         TOK_PTT_SHARE, "ptt_share", "Share ptt port with other apps",
         "True enables ptt port to be shared with other apps",
         "0", RIG_CONF_CHECKBUTTON, { 0 }
@@ -147,6 +152,16 @@ static const struct confparams frontend_cfg_params[] =
         TOK_FLUSHX, "flushx", "Flush with read instead of TCFLUSH",
         "True enables flushing serial port with read instead of TCFLUSH -- MicroHam",
         "0", RIG_CONF_CHECKBUTTON, { 0 }
+    },
+    {
+        TOK_TWIDDLE_TIMEOUT, "twiddle_timeout", "Timeout(secs) to resume VFO polling when twiddling VFO",
+        "For satellite ops when VFOB is twiddled will pause VFOB commands until timeout",
+        "Unset", RIG_CONF_COMBO, { .c = {{ "Unset", "ON", "OFF", NULL }} }
+    },
+    {
+        TOK_TWIDDLE_RIT, "twiddle_rit", "RIT twiddle",
+        "Suppress get_freq on VFOB for RIT tuning satellites",
+        "Unset", RIG_CONF_COMBO, { .c = {{ "Unset", "ON", "OFF", NULL }} }
     },
 
     { RIG_CONF_END, NULL, }
@@ -590,6 +605,15 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         rs->auto_disable_screensaver = val_i ? 1 : 0;
         break;
 
+    case TOK_DISABLE_YAESU_BANDSELECT:
+        if (1 != sscanf(val, "%d", &val_i))
+        {
+            return -RIG_EINVAL; //value format error
+        }
+
+        rs->disable_yaesu_bandselect = val_i ? 1 : 0;
+        break;
+
     case TOK_PTT_SHARE:
         if (1 != sscanf(val, "%d", &val_i))
         {
@@ -606,6 +630,22 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         }
 
         rs->rigport.flushx = val_i ? 1 : 0;
+        break;
+
+    case TOK_TWIDDLE_TIMEOUT:
+        if (1 != sscanf(val, "%d", &val_i))
+        {
+            return -RIG_EINVAL; //value format error
+        }
+        rs->twiddle_timeout = val_i;
+        break;
+
+    case TOK_TWIDDLE_RIT:
+        if (1 != sscanf(val, "%d", &val_i))
+        {
+            return -RIG_EINVAL; //value format error
+        }
+        rs->twiddle_rit = val_i ? 1: 0;
         break;
 
     default:
@@ -927,6 +967,27 @@ static int frontend_get_conf(RIG *rig, token_t token, char *val)
     case TOK_AUTO_DISABLE_SCREENSAVER:
         sprintf(val, "%d", rs->auto_disable_screensaver);
         break;
+
+    case TOK_PTT_SHARE:
+        sprintf(val, "%d", rs->ptt_share);
+        break;
+
+    case TOK_FLUSHX:
+        sprintf(val, "%d", rs->rigport.flushx);
+        break;
+
+    case TOK_DISABLE_YAESU_BANDSELECT:
+        sprintf(val, "%d", rs->disable_yaesu_bandselect);
+        break;
+
+    case TOK_TWIDDLE_TIMEOUT:
+        sprintf(val, "%d", rs->twiddle_timeout);
+        break;
+
+    case TOK_TWIDDLE_RIT:
+        sprintf(val, "%d", rs->twiddle_rit);
+        break;
+
 
     default:
         return -RIG_EINVAL;
