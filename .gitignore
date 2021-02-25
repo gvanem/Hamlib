@@ -59,3 +59,4 @@ tests/rotctl
 tests/rotctld
 tests/hamlibdatetime.h
 build/
+*.args
