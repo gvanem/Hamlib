@@ -244,7 +244,7 @@ else ifeq ($(CC),clang-cl)
             -Wno-zero-as-null-pointer-constant
 
   #
-  # When on AppVeyor, do not suppress these warnings they have an old 'clang-cl'.
+  # When on AppVeyor, do not suppress these warnings since they have an old 'clang-cl'.
   #
   ifeq ($(APPVEYOR_PROJECT_NAME)x,x)
     CFLAGS += -Wno-implicit-int-float-conversion \
@@ -1085,8 +1085,7 @@ $(misc_LIB): $(hamlib_misc_OBJ)
 	$(call create_lib, $@, $^)
 
 $(Hamlib_STAT_LIB): $(hamlib_C_OBJ) $(hamlib_amp_OBJ) $(hamlib_CC_OBJ) $(hamlib_CPP_OBJ)
-	$(call create_resp_file, lib.args, $^)
-	$(call create_lib, $@, @lib.args)
+	$(call create_lib, $@, $^)
 
 $(Hamlib_IMP_LIB):   $(Hamlib_DLL)
 $(Hamlib++_IMP_LIB): $(Hamlib++_DLL)
@@ -1197,7 +1196,7 @@ $(OBJ_DIR)/%.$(O): lib/%.c | $(CC).args
 
 clean: $(CC)_clean
 	rm -f $(GENERATED) $(OBJ_DIR)/*.$(O) $(OBJ_DIR)/*.rc $(OBJ_DIR)/*.res $(Hamlib_DEF) \
-	      $(TESTS_PROGS:.exe=.map) *.args cpp_filter.py
+	      $(TESTS_PROGS:.exe=.map) cl.args clang-cl.args gcc.args lib.args cpp_filter.py
 	- $(RMDIR) $(OBJ_DIR)/sys $(OBJ_DIR)
 
 gcc_clean: ;
@@ -1530,13 +1529,14 @@ make_res_gcc      = windres -D__MINGW32__ -O COFF -I. $(RCFLAGS) -o $(2) -i $(1)
 define create_lib
   @rm -f $(1)
   $(call green_message, Creating $(1))
-  $(call create_lib_$(CC), $(1), $(2))
+  $(call create_resp_file, lib.args, $(2))
+  $(call create_lib_$(CC), $(1))
   @echo
 endef
 
-create_lib_cl       = lib -nologo -out:$(strip $(1)) $(2)
-create_lib_clang-cl = $(call create_lib_cl, $(1), $(2))
-create_lib_gcc      = ar rs $(1) $(2)
+create_lib_cl       = lib -nologo -out:$(strip $(1)) @lib.args
+create_lib_clang-cl = $(call create_lib_cl, $(1))
+create_lib_gcc      = ar rs $(1) @lib.args
 
 #
 # Create a response file $(1).
