@@ -513,9 +513,9 @@ int get_freq_v1(RIG *rig, vfo_t vfo, freq_t *freq)
     }
 
     f = (au8BufIn[2] & 0xFF) | ((au8BufIn[3] & 0xFF) << 8) |
-        ((au8BufIn[4] & 0xFF) << 16) | ((au8BufIn[5] & 0xFF) << 24),
+        ((au8BufIn[4] & 0xFF) << 16) | ((au8BufIn[5] & 0xFF) << 24);
 
-        *freq = f;
+    *freq = f;
 
     return RIG_OK;
 }
