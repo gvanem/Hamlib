@@ -35,8 +35,11 @@ build_script:
 
 test_script:
   #
-  # List all Radio model numbers and exit
+  # List all supported Radios, Rotators and Amplifiers
   #
+  - cmd: echo ---------------------------------------------------------------------------------------------------
   - cmd: rigctl.exe --list
-
-
+  - cmd: echo ---------------------------------------------------------------------------------------------------
+  - cmd: rotctl.exe --list
+  - cmd: echo ---------------------------------------------------------------------------------------------------
+  - cmd: ampctl.exe --list
