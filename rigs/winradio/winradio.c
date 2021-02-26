@@ -351,10 +351,8 @@ DECLARE_INITRIG_BACKEND(winradio)
 
     /* Receivers with DLL only available under Windows */
 #ifdef _WIN32
-#ifdef __CYGWIN__
     rig_register(&g303_caps);
     rig_register(&g305_caps);
-#endif
 #endif
 
     /* Available on Linux and MS Windows */
