@@ -54,14 +54,14 @@
 #    define HAMLIB_API __cdecl
 #    ifdef IN_HAMLIB
 #      define BACKEND_IMPEXP HAMLIB_DLL_EXPORT
-#      define HAMLIB_IMPEXP HAMLIB_DLL_EXPORT
+#      define HAMLIB_IMPEXP  HAMLIB_DLL_EXPORT
 #    else
-#      define BACKEND_IMPEXP HAMLIB_DLL_EXPORT
-#      define HAMLIB_IMPEXP HAMLIB_DLL_IMPORT
+#      define BACKEND_IMPEXP HAMLIB_DLL_IMPORT
+#      define HAMLIB_IMPEXP  HAMLIB_DLL_IMPORT
 #    endif
+
 #  else
-/* static build, only export the backend entry points for lt_dlsym */
-#    define BACKEND_IMPEXP HAMLIB_DLL_EXPORT
+#    define BACKEND_IMPEXP   /* Static _WIN32 build, we certainly won't export anything. */
 #  endif
 #endif
 
