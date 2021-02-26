@@ -59,4 +59,13 @@ tests/rotctl
 tests/rotctld
 tests/hamlibdatetime.h
 build/
-*.args
+cl.args
+clang-cl.args
+gcc.args
+lib.args
+clang_obj
+MSVC_obj
+MinGW_obj
+doc/Hamlib.chw
+doc/doxygen.log
+doc/html
