@@ -120,11 +120,11 @@ int is_uh_radio_fd(int fd)
 {
     if (uh_radio_fd >= 0 && uh_radio_fd == fd)
     {
-        return ( 1);
+        RETURNFUNC(1);
     }
     else
     {
-        return ( 0);
+        RETURNFUNC(0);
     }
 }
 //! @endcond
@@ -1013,10 +1013,9 @@ int HAMLIB_API ser_set_brk(hamlib_port_t *p, int state)
     }
 
 #if defined(TIOCSBRK) && defined(TIOCCBRK)
-    RETURNFUNC( IOCTL(p->fd, state ? TIOCSBRK : TIOCCBRK, 0) < 0 ?
-           -RIG_EIO : RIG_OK);
+    RETURNFUNC(IOCTL(p->fd, state ? TIOCSBRK : TIOCCBRK, 0) < 0 ? -RIG_EIO : RIG_OK);
 #else
-    RETURNFUNC( -RIG_ENIMPL);
+    RETURNFUNC(-RIG_ENIMPL);
 #endif
 }
 
