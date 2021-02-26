@@ -41,18 +41,17 @@
 #endif /* TRACE */
 
 #define YACK() do {                                               \
-        char        *allocTextBuf, message[1024];                 \
+        char        _buf1 [800], _buf2 [1024];                    \
         unsigned int errorCode = GetLastError();                  \
         FormatMessage (FORMAT_MESSAGE_ALLOCATE_BUFFER |           \
                        FORMAT_MESSAGE_FROM_SYSTEM, NULL,          \
                        errorCode,                                 \
                        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), \
-                       (LPSTR)&allocTextBuf, 16, NULL);           \
-        snprintf (message, sizeof(message),                       \
+                       _buf1, sizeof(_buf1), NULL);               \
+        snprintf (_buf2, sizeof(_buf2),                           \
                   "Error 0x%x at %s(%d): %s\n",                   \
-                  errorCode, __FILE__, __LINE__, allocTextBuf);   \
-        report_error (message);                                   \
-        LocalFree (allocTextBuf);                                 \
+                  errorCode, __FILE__, __LINE__, _buf1);          \
+        report_error (_buf2);                                     \
       } while (0)
 
 typedef unsigned char  cc_t;
