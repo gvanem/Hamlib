@@ -408,7 +408,15 @@ int g313_open(RIG *rig)
     }
 
     /* Make sure the receiver is switched on */
+#if 0
     priv->SetPower(priv->hRadio, TRUE);
+#else
+    if (g313_set_powerstat(rig, RIG_POWER_ON) != RIG_OK)
+    {
+        g313_close(rig);
+        return -RIG_EIO;
+    }
+#endif
 
     if (id > -3)
     {
