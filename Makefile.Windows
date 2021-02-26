@@ -233,7 +233,6 @@ else ifeq ($(CC),clang-cl)
             -Wno-tautological-unsigned-zero-compare \
             -Wno-nonportable-system-include-path    \
             -Wno-implicit-int-conversion            \
-            -Wno-implicit-int-float-conversion      \
             -Wno-float-conversion                   \
             -Wno-float-equal                        \
             -Wno-implicit-float-conversion          \
@@ -242,9 +241,15 @@ else ifeq ($(CC),clang-cl)
             -Wno-documentation                      \
             -Wno-documentation-unknown-command      \
             -Wno-gnu-zero-variadic-macro-arguments  \
-            -Wno-deprecated-copy-dtor               \
-            -Wno-zero-as-null-pointer-constant      \
-          # -Wno-implicit-function-declaration
+            -Wno-zero-as-null-pointer-constant
+
+  #
+  # When on AppVeyor, do not suppress these warnings they have an old 'clang-cl'.
+  #
+  ifneq ($(APPVEYOR_PROJECT_NAME),)
+    CFLAGS += -Wno-implicit-int-float-conversion \
+              -Wno-deprecated-copy-dtor
+  endif
 
   #
   # This warning is kinda important:
