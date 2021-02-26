@@ -254,18 +254,18 @@ public:
 
     explicit RigException(const char *msg, int err)
         : message(msg), errorno(err)
-    {};
+    { }
 
     explicit RigException(int err)
         : message(rigerror(err)), errorno(err)
-    {};
+    { }
 
     explicit RigException(const char *msg)
         : message(msg), errorno(-RIG_EINTERNAL)
-    {};
+    { }
 
     virtual ~RigException()
-    {};
+    { }
 
     void print() const
     {

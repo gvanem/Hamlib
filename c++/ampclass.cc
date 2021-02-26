@@ -37,65 +37,71 @@
 #include <hamlib/ampclass.h>
 #include <hamlib/rigclass.h>
 
-#define CHECK_AMP(cmd) { int _retval = cmd; if (_retval != RIG_OK) \
-							THROW(new RigException (_retval)); }
-
-
+#define CHECK_AMP(cmd) do {                                    \
+                         int _retval = cmd;                    \
+                         if (_retval != RIG_OK)                \
+                            THROW(new RigException (_retval)); \
+                       } while (0)
 
 Amplifier::Amplifier(amp_model_t amp_model)
 {
-	theAmp = amp_init(amp_model);
-   	if (!theAmp)
-		THROW(new RigException ("Amplifier initialization error"));
+    theAmp = amp_init(amp_model);
+    if (!theAmp)
+        THROW(new RigException ("Amplifier initialization error"));
 
-	caps = theAmp->caps;
-	theAmp->state.obj = (amp_ptr_t)this;
+    caps = theAmp->caps;
+    theAmp->state.obj = (amp_ptr_t)this;
 }
 
 Amplifier::~Amplifier()
 {
-	theAmp->state.obj = NULL;
-	CHECK_AMP( amp_cleanup(theAmp) );
-	caps = NULL;
+    theAmp->state.obj = NULL;
+    CHECK_AMP( amp_cleanup(theAmp) );
+    caps = NULL;
 }
 
-void Amplifier::open(void) {
-	CHECK_AMP( amp_open(theAmp) );
+void Amplifier::open(void)
+{
+    CHECK_AMP( amp_open(theAmp) );
 }
 
-void Amplifier::close(void) {
-	CHECK_AMP( amp_close(theAmp) );
+void Amplifier::close(void)
+{
+    CHECK_AMP( amp_close(theAmp) );
 }
 
 void Amplifier::setConf(token_t token, const char *val)
 {
-	CHECK_AMP( amp_set_conf(theAmp, token, val) );
+    CHECK_AMP( amp_set_conf(theAmp, token, val) );
 }
+
 void Amplifier::setConf(const char *name, const char *val)
 {
-	CHECK_AMP( amp_set_conf(theAmp, tokenLookup(name), val) );
+    CHECK_AMP( amp_set_conf(theAmp, tokenLookup(name), val) );
 }
 
 void Amplifier::getConf(token_t token, char *val)
 {
-	CHECK_AMP( amp_get_conf(theAmp, token, val) );
+    CHECK_AMP( amp_get_conf(theAmp, token, val) );
 }
+
 void Amplifier::getConf(const char *name, char *val)
 {
-	CHECK_AMP( amp_get_conf(theAmp, tokenLookup(name), val) );
+    CHECK_AMP( amp_get_conf(theAmp, tokenLookup(name), val) );
 }
 
 token_t Amplifier::tokenLookup(const char *name)
 {
-	return amp_token_lookup(theAmp, name);
+    return amp_token_lookup(theAmp, name);
 }
 
 void Amplifier::reset (amp_reset_t reset)
 {
-	CHECK_AMP( amp_reset(theAmp, reset) );
+    CHECK_AMP( amp_reset(theAmp, reset) );
 }
 
-void Amplifier::setFreq(freq_t freq) {
+void Amplifier::setFreq(freq_t freq)
+{
   CHECK_AMP( amp_set_freq(theAmp, freq) );
 }
 
