@@ -246,7 +246,7 @@ else ifeq ($(CC),clang-cl)
   #
   # When on AppVeyor, do not suppress these warnings they have an old 'clang-cl'.
   #
-  ifneq ($(APPVEYOR_PROJECT_NAME),)
+  ifeq ($(APPVEYOR_PROJECT_NAME)x,x)
     CFLAGS += -Wno-implicit-int-float-conversion \
               -Wno-deprecated-copy-dtor
   endif
