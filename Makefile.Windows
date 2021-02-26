@@ -149,7 +149,7 @@ endif
 
 ifeq ($(CC),gcc)
   select  = $(1)
-  CFLAGS  = -m$(BITS) -Wall -O2 -g --include config.h -DHAVE_STRTOK_R
+  CFLAGS  = -m$(BITS) -O2 -g --include config.h -DHAVE_STRTOK_R
   LDFLAGS = -m$(BITS) -Wl,--print-map,--sort-common
   O       = o
   A       = a
@@ -167,7 +167,7 @@ else
   A       = lib
 
   ifeq ($(CC),clang-cl)
-    CFLAGS += -Wall -fms-compatibility -ferror-limit=5
+    CFLAGS += -fms-compatibility -ferror-limit=5
   endif
 endif
 
@@ -185,7 +185,8 @@ endif
 # Warning control:
 #
 ifeq ($(CC),gcc)
-  CFLAGS += -Wno-format          \
+  CFLAGS += -Wall                \
+            -Wno-format          \
             -Wno-array-bounds    \
             -Wno-missing-braces  \
             -Wno-unused-function \
@@ -193,11 +194,56 @@ ifeq ($(CC),gcc)
           # -Wno-shift-count-overflow
 
 else ifeq ($(CC),clang-cl)
-  CFLAGS += -Wno-unused-function    \
-            -Wno-unused-variable    \
-            -Wno-visibility         \
-            -Wno-unknown-pragmas    \
-            -Wno-ignored-attributes \
+  CFLAGS += -Wall                                   \
+            -Wno-undef                              \
+            -Wno-unused-function                    \
+            -Wno-unused-macros                      \
+            -Wno-unused-parameter                   \
+            -Wno-unused-variable                    \
+            -Wno-visibility                         \
+            -Wno-unknown-pragmas                    \
+            -Wno-ignored-attributes                 \
+            -Wno-strict-prototypes                  \
+            -Wno-reserved-id-macro                  \
+            -Wno-shadow                             \
+            -Wno-cast-align                         \
+            -Wno-cast-qual                          \
+            -Wno-shorten-64-to-32                   \
+            -Wno-pedantic                           \
+            -Wno-format-pedantic                    \
+            -Wno-format-nonliteral                  \
+            -Wno-switch-enum                        \
+            -Wno-covered-switch-default             \
+            -Wno-sign-conversion                    \
+            -Wno-sign-compare                       \
+            -Wno-double-promotion                   \
+            -Wno-assign-enum                        \
+            -Wno-unreachable-code                   \
+            -Wno-unreachable-code-return            \
+            -Wno-unreachable-code-break             \
+            -Wno-c++98-compat-pedantic              \
+            -Wno-old-style-cast                     \
+            -Wno-extra-semi-stmt                    \
+            -Wno-missing-field-initializers         \
+            -Wno-missing-noreturn                   \
+            -Wno-missing-prototypes                 \
+            -Wno-missing-variable-declarations      \
+            -Wno-bad-function-cast                  \
+            -Wno-redundant-parens                   \
+            -Wno-tautological-unsigned-zero-compare \
+            -Wno-nonportable-system-include-path    \
+            -Wno-implicit-int-conversion            \
+            -Wno-implicit-int-float-conversion      \
+            -Wno-float-conversion                   \
+            -Wno-float-equal                        \
+            -Wno-implicit-float-conversion          \
+            -Wno-implicit-fallthrough               \
+            -Wno-shift-count-overflow               \
+            -Wno-documentation                      \
+            -Wno-documentation-unknown-command      \
+            -Wno-gnu-zero-variadic-macro-arguments  \
+            -Wno-deprecated-copy-dtor               \
+            -Wno-zero-as-null-pointer-constant      \
           # -Wno-implicit-function-declaration
 
   #
@@ -208,6 +254,8 @@ else ifeq ($(CC),clang-cl)
   #    int netrigctl_get_vfo_mode(RIG *);
   #        ^
   # So do not add a '-Wno-inconsistent-dllimport'.
+  #
+  # And so is this '-Wconditional-uninitialized'.
   #
 else
   CFLAGS += -wd4018 -wd4101 -wd4142 -wd4146 -wd4244 -wd4251 -wd4305 -wd4700 -wd4800
@@ -223,7 +271,7 @@ endif
 EX_LIBS = $(WS2_32_LIB)
 
 #
-# The DLL, PYD and library names:
+# The DLL and library names:
 #
 Hamlib_DLL     = Hamlib-$(ABI_VER).dll
 Hamlib_IMP_LIB = $(call select, libHamlib-$(ABI_VER).dll.a, \
@@ -247,10 +295,11 @@ misc_LIB = $(call select, libmisc.a, misc.lib)
 #
 # What to build:
 #
-TARGETS = $(Hamlib_STAT_LIB) $(Hamlib_DLL) $(Hamlib_IMP_LIB) $(misc_LIB)
+TARGETS = $(Hamlib_STAT_LIB) $(Hamlib_DLL) \
+          $(Hamlib_IMP_LIB)  $(misc_LIB)
 
 #
-# The C++ interface is only dynamic.
+# The C++ interface is dynamic only.
 #
 TARGETS += $(Hamlib++_DLL) $(Hamlib++_IMP_LIB)
 
@@ -970,12 +1019,15 @@ all_test_OBJ = $(addprefix $(OBJ_DIR)/, \
                  rig_bench.$(O)         \
                  rigsmtr.$(O)           \
                  rigswr.$(O)            \
+                 simyaesu.$(O)          \
                  testcpp.$(O)           \
                  testfreq.$(O)          \
                  testbcd.$(O)           \
                  testfreq.$(O)          \
                  testloc.$(O)           \
                  testrig.$(O)           \
+                 testrigcaps.$(O)       \
+                 testrigopen.$(O)       \
                  testtrn.$(O))
 
 all_test_OBJ += $(ampctl_OBJ)    \
@@ -1018,8 +1070,7 @@ $(OBJ_DIR) $(OBJ_DIR)/sys:
 
 epilogue:
 	$(call white_message, Welcome to $(Hamlib_DLL) and $(Hamlib++_DLL) (CPU = $(CPU)).)
-	$(call green_message, You could also do a 'make -f $(THIS_FILE) [doxy_docs | py_module | lua_module]'.)
-	@echo
+	$(call green_message, You could also do a 'make -f $(THIS_FILE) [doxy_docs | py_module | lua_module]'.\n)
 
 programs: $(GENERATED) $(TESTS_PROGS)
 
@@ -1252,11 +1303,11 @@ else
 endif
 
 ifeq ($(USE_PY_BINDING),0)
-py_module:
+  py_module:
 	$(error Use 'USE_PY_BINDING=[2|3]'.)
 
 else
-py_module: $(py_module_deps)
+  py_module: $(py_module_deps)
 	$(COPY) $^ $(PY_ROOT)/Lib/site-packages
 ifneq ($(CC),gcc)
 	$(COPY) _Hamlib.pdb $(PY_ROOT)/Lib/site-packages
