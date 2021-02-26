@@ -1,7 +1,7 @@
 #
 # GNU Makefile for Hamlib (MSVC / clang-cl / MinGW).
 #
-# G. Vanem <gvanem@yahoo.no> 2019 - 2020.
+# G. Vanem <gvanem@yahoo.no> 2019 - 2021.
 #
 THIS_FILE = Makefile.Windows
 DATE      = $(shell date +%d-%B-%Y)
@@ -35,16 +35,22 @@ USE_LUAJIT      ?= 0
 USE_GNURADIO ?= 0
 
 #
-# Use the Winsock tracing library (no for MinGW):
+# Use the Winsock tracing library (works badly for MinGW):
 #   https://github.com/gvanem/wsock-trace
 #
 USE_WSOCK_TRACE ?= 1
 
 #
-# Use only static external libraries to create '$(Hamlib_DLL)', '_Hamlib.pyd'
-# and 'HamlibLua.dll'.
+# Use only static external libraries to create '$(Hamlib_DLL)'.
+# But '_Hamlib.pyd' and 'HamlibLua.dll' always uses '$(Hamlib_DLL)'.
 #
 USE_STATIC ?= 1
+
+#
+# Use '$(Hamlib_DLL)' for all C programs.
+# And '$(Hamlib++_DLL)' for all C++ programs.
+#
+USE_DLLs_FOR_PROGRAMS ?= 0
 
 #
 # Set to 0 for no Python module.
@@ -83,7 +89,6 @@ else
   LUA_ROOT = $(realpath $(LUA5_ROOT))
   LUA_LIB  = $(call select, $(LUA_ROOT)/src/liblua.a, $(LUA_ROOT)/src/lua.lib)
 endif
-
 
 MKDIR = mkdir
 RMDIR = rmdir --parents
@@ -159,6 +164,8 @@ ifeq ($(CC),gcc)
   #
   CFLAGS += -D__USE_W32_SOCKETS
 
+  WS2_32_LIB = -lws2_32
+
 else
   select  = $(2)
   CFLAGS  = -nologo -MD -W3 -Zi -O2 -EHsc -DWIN32 -FI./config.h
@@ -169,11 +176,7 @@ else
   ifeq ($(CC),clang-cl)
     CFLAGS += -fms-compatibility -ferror-limit=5
   endif
-endif
 
-ifeq ($(CC),gcc)
-  WS2_32_LIB = -lws2_32
-else
   ifeq ($(USE_WSOCK_TRACE),1)
     WS2_32_LIB = wsock_trace.lib
   else
@@ -191,7 +194,7 @@ ifeq ($(CC),gcc)
             -Wno-missing-braces  \
             -Wno-unused-function \
             -Wno-unused-variable \
-          # -Wno-shift-count-overflow
+            -Wno-shift-count-overflow
 
 else ifeq ($(CC),clang-cl)
   CFLAGS += -Wall                                   \
@@ -278,19 +281,15 @@ EX_LIBS = $(WS2_32_LIB)
 #
 # The DLL and library names:
 #
-Hamlib_DLL     = Hamlib-$(ABI_VER).dll
-Hamlib_IMP_LIB = $(call select, libHamlib-$(ABI_VER).dll.a, \
-                                Hamlib-$(ABI_VER)_imp.lib)
-
-Hamlib_STAT_LIB = $(call select, libHamlib-$(ABI_VER).a, \
-                                 Hamlib-$(ABI_VER).lib)
+Hamlib_DLL      = Hamlib-$(ABI_VER).dll
+Hamlib_IMP_LIB  = $(call select, libHamlib-$(ABI_VER).dll.a, Hamlib-$(ABI_VER)_imp.lib)
+Hamlib_STAT_LIB = $(call select, libHamlib-$(ABI_VER).a,     Hamlib-$(ABI_VER).lib)
 
 #
-# The C++ library.
+# The C++ library
 #
 Hamlib++_DLL     = Hamlib-$(ABI_VER)++.dll
-Hamlib++_IMP_LIB = $(call select, libHamlib-$(ABI_VER)++.dll.a, \
-                                  Hamlib-$(ABI_VER)++_imp.lib)
+Hamlib++_IMP_LIB = $(call select, libHamlib-$(ABI_VER)++.dll.a, Hamlib-$(ABI_VER)++_imp.lib)
 
 #
 # The internal utility library; '$(hamlib_misc_SRC)'.
@@ -313,10 +312,29 @@ TARGETS += $(Hamlib++_DLL) $(Hamlib++_IMP_LIB)
 #
 PROG_LIBS = $(WS2_32_LIB) $(call select, -lwinpthread)
 
-#
-# This will let all programs use 'Hamlib-$(ABI_VER).dll'
-#
-PROG_CFLAGS = -DDLL_EXPORT
+ifeq ($(USE_DLLs_FOR_PROGRAMS),1)
+  #
+  # A strangely named macro ('-DUSE_Hamlib_DLL' would be better), but
+  # this will let all .c and .cc programs to use 'Hamlib-$(ABI_VER).dll'
+  #
+  PROG_CFLAGS = -DDLL_EXPORT
+
+  #
+  # Use 'Hamlib-$(ABI_VER).dll' for C programs.
+  #
+  C_PROG_LIBS = $(misc_LIB) $(Hamlib_IMP_LIB)
+
+  #
+  # Use 'Hamlib-$(ABI_VER)++.dll and 'Hamlib-$(ABI_VER).dll' for C++ programs.
+  # The library order matter for MinGW only.
+  #
+  CPP_PROG_LIBS = $(Hamlib_IMP_LIB) $(Hamlib++_IMP_LIB)
+else
+  PROG_CFLAGS   =
+  PROG_LIBS     = $(EX_LIBS)
+  C_PROG_LIBS   = $(Hamlib_STAT_LIB) $(misc_LIB)
+  CPP_PROG_LIBS = $(Hamlib_STAT_LIB) $(misc_LIB) $(Hamlib++_IMP_LIB)
+endif
 
 #
 # This needs Boost too.
@@ -339,9 +357,8 @@ ifeq ($(USE_LIBUSB),1)
             -I$(LIBUSB_ROOT)/libusb
 
   ifeq ($(USE_STATIC),1)
-    EX_LIBS += $(call select, $(LIBUSB_ROOT)/libusb-1.0.a,   \
-                              $(LIBUSB_ROOT)/libusb-1.0.lib) \
-               $(call select, -ladvapi32, advapi32.lib)
+    EX_LIBS += $(call select, $(LIBUSB_ROOT)/libusb-1.0.a -ladvapi32, \
+                              $(LIBUSB_ROOT)/libusb-1.0.lib advapi32.lib)
   else
     EX_LIBS += $(call select, $(LIBUSB_ROOT)/libusb-1.0.dll.a, \
                               $(LIBUSB_ROOT)/libusb-1.0_imp.lib)
@@ -383,7 +400,7 @@ cpp_to_obj = $(addprefix $(OBJ_DIR)/, \
 c_to_i  = $(notdir $(1:.c=.i))
 cc_to_i = $(notdir $(1:.cc=.i))
 
-VPATH = rigs/dummy src tests c++
+VPATH = rigs/dummy src tests c++ amplifiers/elecraft
 
 VPATH += $(addprefix rigs/, \
            adat             \
@@ -435,6 +452,11 @@ VPATH += $(addprefix rotators/, \
            satel                \
            spid                 \
            ts7400)
+
+#
+# For compiling 'HamlibPy2_wrap.c,' 'HamlibPy3_wrap.c' and 'HamlibLua_wrap.c'.
+#
+VPATH += $(OBJ_DIR)
 
 #
 # All of these use '$(Hamlib_DLL)':
@@ -490,7 +512,7 @@ ifeq ($(USE_LIBGD),1)
 endif
 
 #
-# This also uses '$(Hamlib++_DLL)'.
+# This always uses '$(Hamlib++_DLL)'.
 #
 TESTS_PROGS += testcpp.exe
 
@@ -888,6 +910,10 @@ hamlib_C_SRC += $(addprefix rotators/gs232a/, \
                   gs232a.c                    \
                   gs232b.c)
 
+hamlib_C_SRC += $(addprefix amplifiers/elecraft/, \
+                  kpa.c                           \
+                  kpa1500.c)
+
 #
 # Untested.
 #
@@ -989,12 +1015,9 @@ rotctld_SRC = $(addprefix tests/, \
                 dumpcaps.c        \
                 dumpcaps_rot.c)
 
-hamlib_C_OBJ    = $(call c_to_obj, $(hamlib_C_SRC))
-hamlib_amp_OBJ  = $(OBJ_DIR)/amp_kpa.$(O) \
-                  $(OBJ_DIR)/amp_kpa1500.$(O)
-
+hamlib_C_OBJ    = $(call c_to_obj,  $(hamlib_C_SRC))
 hamlib_CC_OBJ   = $(call cc_to_obj, $(hamlib_CC_SRC))
-hamlib_CPP_OBJ  = $(call cpp_to_obj, $(hamlib_CPP_SRC))
+hamlib_CPP_OBJ  = $(call cpp_to_obj,$(hamlib_CPP_SRC))
 hamlib++_OBJ    = $(call cc_to_obj, $(hamlib++_SRC))
 
 hamlib_misc_OBJ = $(call c_to_obj, $(hamlib_misc_SRC))
@@ -1011,11 +1034,13 @@ rotctld_OBJ     = $(call c_to_obj, $(rotctld_SRC))
 hamlib_i   = $(call c_to_i,  $(hamlib_C_SRC))
 hamlib++_i = $(call cc_to_i, $(hamlib++_SRC))
 
-$(hamlib_C_OBJ)   \
-$(hamlib++_OBJ)   \
-$(hamlib_amp_OBJ) \
-$(hamlib_i)       \
-$(hamlib++_I):    EXTRA_CFLAGS = -DIN_HAMLIB
+$(hamlib_C_OBJ)  \
+$(hamlib++_OBJ)  \
+$(hamlib_i)      \
+$(hamlib++_i):   EXTRA_CFLAGS = -DIN_HAMLIB
+
+$(hamlib++_OBJ)  \
+$(hamlib++_i):   EXTRA_CFLAGS += -DDLL_EXPORT
 
 all_test_OBJ = $(addprefix $(OBJ_DIR)/, \
                  dumpmem.$(O)           \
@@ -1068,13 +1093,19 @@ endif
 #
 Hamlib_DEF = $(OBJ_DIR)/Hamlib-$(ABI_VER).def
 
-all: $(OBJ_DIR) $(OBJ_DIR)/sys $(GENERATED) $(TARGETS) programs epilogue
+all: $(OBJ_DIR) $(OBJ_DIR)/sys $(GENERATED) rm_elecraft $(TARGETS) programs epilogue
 
 $(OBJ_DIR) $(OBJ_DIR)/sys:
 	- $(MKDIR) $@
 
+#
+# This is a 0-byte file that messes with 'rigs/kenwood/elecraft.c'
+#
+rm_elecraft:
+	rm -f amplifiers/elecraft/elecraft.c
+
 epilogue:
-	$(call white_message, Welcome to $(Hamlib_DLL) and $(Hamlib++_DLL) (CPU = $(CPU)).)
+	$(call white_message, Welcome to $(Hamlib_DLL) and $(Hamlib++_DLL) (CPU=$(CPU)).)
 	$(call green_message, You could also do a 'make -f $(THIS_FILE) [doxy_docs | py_module | lua_module]'.\n)
 
 programs: $(GENERATED) $(TESTS_PROGS)
@@ -1084,45 +1115,35 @@ $(hamlib_misc_OBJ): EXTRA_CFLAGS += -DIN_HAMLIB_MISC_LIB
 $(misc_LIB): $(hamlib_misc_OBJ)
 	$(call create_lib, $@, $^)
 
-$(Hamlib_STAT_LIB): $(hamlib_C_OBJ) $(hamlib_amp_OBJ) $(hamlib_CC_OBJ) $(hamlib_CPP_OBJ)
+$(Hamlib_STAT_LIB): $(hamlib_C_OBJ) $(hamlib_CC_OBJ) $(hamlib_CPP_OBJ)
 	$(call create_lib, $@, $^)
 
 $(Hamlib_IMP_LIB):   $(Hamlib_DLL)
 $(Hamlib++_IMP_LIB): $(Hamlib++_DLL)
 
-$(Hamlib_DLL): $(Hamlib_STAT_LIB) $(misc_LIB) $(OBJ_DIR)/Hamlib.res $(Hamlib_DEF)
-	$(call link_DLL, $@, $(Hamlib_IMP_LIB),             \
-	                 $(call select,,-def:)$(Hamlib_DEF) \
-	                 $(Hamlib_STAT_LIB) $(misc_LIB)     \
-	                 $(OBJ_DIR)/Hamlib.res $(EX_LIBS))
+$(Hamlib_DLL): $(Hamlib_DEF) $(Hamlib_STAT_LIB) $(misc_LIB) $(OBJ_DIR)/Hamlib.res
+	$(call link_DLL, $@, $(Hamlib_IMP_LIB), $(call select,,-def:)$^ $(EX_LIBS))
 
 $(Hamlib++_DLL): $(hamlib++_OBJ) $(Hamlib_IMP_LIB) $(OBJ_DIR)/Hamlib++.res
-	$(call link_DLL, $@, $(Hamlib++_IMP_LIB),          \
-	                 $(hamlib++_OBJ) $(Hamlib_IMP_LIB) \
-	                 $(OBJ_DIR)/Hamlib++.res $(call select, -lstdc++,) $(EX_LIBS))
+	$(call link_DLL, $@, $(Hamlib++_IMP_LIB), $^ $(call select, -lstdc++,) $(EX_LIBS))
 
 #
 # For MSVC only.
 #
-# Note: '$(hamlib_amp_OBJ)' is not part of '$(hamlib_C_OBJ)'.
-#
 ifeq ($(USE_MP_COMPILE),1)
   $(hamlib_C_OBJ): $(hamlib_C_SRC) | $(CC).args
-	$(CC) -MP -c @$(CC).args -DIN_HAMLIB -Fo./$(OBJ_DIR)\\ $(hamlib_C_SRC)
+	$(CC) -MP @$(CC).args -DIN_HAMLIB -Fo./$(OBJ_DIR)\\ $(hamlib_C_SRC)
 	@echo
 endif
 
-#
-# Not used for MinGW/gcc.
-#
 $(CC).args: $(THIS_FILE)
-	$(call create_resp_file, $@, $(CFLAGS))
+	$(call create_resp_file, $@, $(CFLAGS) -c)
 
 #
 # For 'testcpp.exe':
 #
-testcpp.exe: $(OBJ_DIR)/testcpp.$(O) $(Hamlib++_IMP_LIB) $(Hamlib_IMP_LIB)
-	$(call link_EXE, $@, $^ $(call select, -lstdc++,))
+testcpp.exe: $(OBJ_DIR)/testcpp.$(O) $(CPP_PROG_LIBS)
+	$(call link_EXE, $@, $^ $(call select, -lstdc++,) $(EX_LIBS))
 
 #
 # For '$(TESTS_PROGS)':
@@ -1130,55 +1151,47 @@ testcpp.exe: $(OBJ_DIR)/testcpp.$(O) $(Hamlib++_IMP_LIB) $(Hamlib_IMP_LIB)
 $(OBJ_DIR)/%.$(O): tests/%.c | $(CC).args
 	$(call Compile, $<, $@)
 
-ampctl.exe: $(ampctl_OBJ) $(misc_LIB) $(Hamlib_IMP_LIB)
+ampctl.exe: $(ampctl_OBJ) $(C_PROG_LIBS)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 
-ampctld.exe: $(ampctld_OBJ) $(misc_LIB) $(Hamlib_IMP_LIB)
+ampctld.exe: $(ampctld_OBJ) $(C_PROG_LIBS)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 
-rigctlcom.exe: $(rigctlcom_OBJ) $(misc_LIB) $(Hamlib_IMP_LIB)
+rigctlcom.exe: $(rigctlcom_OBJ) $(C_PROG_LIBS)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 
-rigctl.exe: $(rigctl_OBJ) $(misc_LIB) $(Hamlib_IMP_LIB)
+rigctl.exe: $(rigctl_OBJ) $(C_PROG_LIBS)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 
-rigctld.exe: $(rigctld_OBJ) $(misc_LIB) $(Hamlib_IMP_LIB)
+rigctld.exe: $(rigctld_OBJ) $(C_PROG_LIBS)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 
-rigmem.exe: $(rigmem_OBJ)  $(misc_LIB) $(Hamlib_IMP_LIB) $(XML2_LIB)
-	$(call link_EXE, $@, $^ $(PROG_LIBS))
-	rm -f rigmem.lib rigmem.exp
-
-rotctl.exe: $(rotctl_OBJ)  $(misc_LIB) $(Hamlib_IMP_LIB)
+rigmem.exe: $(rigmem_OBJ) $(C_PROG_LIBS) $(XML2_LIB)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 
-rotctld.exe: $(rotctld_OBJ)  $(misc_LIB) $(Hamlib_IMP_LIB)
+rotctl.exe: $(rotctl_OBJ) $(C_PROG_LIBS)
+	$(call link_EXE, $@, $^ $(PROG_LIBS))
+
+rotctld.exe: $(rotctld_OBJ) $(C_PROG_LIBS)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 
 #
 # I do not have a GD.lib for MSVC/clang. Use the dynamic MinGW version instead.
 # Copy it's .DLL here to avoid another DLL-hell.
 #
-rigmatrix.exe: $(rigmatrix_OBJ) $(misc_LIB) $(Hamlib_IMP_LIB) $(LIBGD_ROOT)/src/libgd.dll.a
+rigmatrix.exe: $(rigmatrix_OBJ) $(C_PROG_LIBS) $(LIBGD_ROOT)/src/libgd.dll.a
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 	$(COPY) $(LIBGD_ROOT)/src/bgd.dll .
 
 #
 # For all other simple test-programs:
 #
-%.exe: $(OBJ_DIR)/%.$(O) $(misc_LIB) $(Hamlib_IMP_LIB)
+%.exe: $(OBJ_DIR)/%.$(O) $(C_PROG_LIBS)
 	$(call link_EXE, $@, $^ $(PROG_LIBS))
 
 #
 # For '$(hamlib_C_SRC)' and '$(hamlib_CC_SRC)':
 #
-# Since there are 2 'elecraft.c' files; in 'rigs/kenwood' and a 0-byte
-# 'amplifiers/elecraft/elecraft.c', prefix the latter with '$(OBJ_DIR)/amp_' to make
-# a unique list of objects for '$(hamlib_C_OBJ)'.
-#
-$(OBJ_DIR)/amp_%.$(O): amplifiers/elecraft/%.c | $(CC).args
-	$(call Compile, $<, $@)
-
 $(OBJ_DIR)/%.$(O): %.c | $(CC).args
 	$(call Compile, $<, $@)
 
@@ -1189,7 +1202,7 @@ $(OBJ_DIR)/%.$(O): %.cpp | $(CC).args
 	$(call Compile, $<, $@)
 
 #
-# For '$(hamlib_misc_SRC)' since 'lib' is not in 'VPATH':
+# For '$(hamlib_misc_SRC)' since 'lib' is not in 'VPATH' due to 'lib/dummy.c'.
 #
 $(OBJ_DIR)/%.$(O): lib/%.c | $(CC).args
 	$(call Compile, $<, $@)
@@ -1203,7 +1216,7 @@ gcc_clean: ;
 
 cl_clean clang-cl_clean:
 	rm -f link.tmp vc1*.pdb $(Hamlib_DLL:.dll=.pdb) $(Hamlib++_DLL:.dll=.pdb) \
-	      $(TESTS_PROGS:.exe=.pdb) $(TESTS_PROGS:.exe=.exp) testcpp.lib
+	      $(TESTS_PROGS:.exe=.pdb) $(TESTS_PROGS:.exe=.exp) $(TESTS_PROGS:.exe=.lib)
 
 vclean realclean: clean doc_clean py_clean lua_clean
 	rm -f $(TARGETS) $(Hamlib_DLL:.dll=.map) $(Hamlib++_DLL:.dll=.map) \
@@ -1235,19 +1248,19 @@ $(OBJ_DIR)/termios.h: $(THIS_FILE)
 $(OBJ_DIR)/sys/ioctl.h: $(THIS_FILE)
 	$(call Generate_fake, $@)
 
-%.i: %.c FORCE $(GENERATED) cpp_filter.py
+%.i: %.c FORCE $(GENERATED) cpp_filter.py $(CC).args
 	$(call C_preprocess, $@, $<)
 
-%.i: lib/%.c FORCE $(GENERATED) cpp_filter.py
+%.i: lib/%.c FORCE $(GENERATED) cpp_filter.py $(CC).args
 	$(call C_preprocess, $@, $<)
 
-%.i: $(OBJ_DIR)/%.c FORCE $(GENERATED) cpp_filter.py
+%.i: $(OBJ_DIR)/%.c FORCE $(GENERATED) cpp_filter.py $(CC).args
 	$(call C_preprocess, $@, $<)
 
-%.i: %.cc FORCE $(GENERATED) cpp_filter.py
+%.i: %.cc FORCE $(GENERATED) cpp_filter.py $(CC).args
 	$(call CPP_preprocess, $@, $<)
 
-%.i: %.cpp FORCE $(GENERATED) cpp_filter.py
+%.i: %.cpp FORCE $(GENERATED) cpp_filter.py $(CC).args
 	$(call CPP_preprocess, $@, $<)
 
 FORCE:
@@ -1293,25 +1306,15 @@ ifeq ($(CC),gcc)
   PYD_LIBS = $(PY_ROOT)/libs/libpython$(USE_PY_BINDING)*.a
 endif
 
-_Hamlib_PYD_deps = $(PY_WRAPPER_O) $(OBJ_DIR)/HamlibPy.res
-py_module_deps   = _Hamlib.pyd $(OBJ_DIR)/Hamlib.py
-PY_CFLAGS        = -I$(PY_ROOT)/include -DNO_SSIZE_T
-
-ifeq ($(USE_STATIC),1)
-  _Hamlib_PYD_deps += $(Hamlib_STAT_LIB) $(misc_LIB)
-  PYD_LIBS         += $(EX_LIBS)
-else
-  _Hamlib_PYD_deps += $(Hamlib_IMP_LIB)
-  py_module_deps   += $(Hamlib_DLL)
-  PY_CFLAGS        += -DDLL_EXPORT
-endif
+_Hamlib_PYD_deps = $(PY_WRAPPER_O) $(OBJ_DIR)/HamlibPy.res $(Hamlib_IMP_LIB)
+PY_CFLAGS        = -I$(PY_ROOT)/include -DNO_SSIZE_T -DDLL_EXPORT
 
 ifeq ($(USE_PY_BINDING),0)
   py_module:
 	$(error Use 'USE_PY_BINDING=[2|3]'.)
 
 else
-  py_module: $(py_module_deps)
+  py_module: _Hamlib.pyd $(OBJ_DIR)/Hamlib.py $(Hamlib_DLL)
 	$(COPY) $^ $(PY_ROOT)/Lib/site-packages
 ifneq ($(CC),gcc)
 	$(COPY) _Hamlib.pdb $(PY_ROOT)/Lib/site-packages
@@ -1320,16 +1323,13 @@ endif
 
 $(OBJ_DIR)/Hamlib.py: $(PY_WRAPPER_C)
 
-SWIG_FLAGS = -I./include -I./bindings -macroerrors
+SWIG_FLAGS = -I./include -I./bindings # -macroerrors
 
 $(PY_WRAPPER_C): bindings/Hamlib.swg include/hamlib/rig.h
 	$(call green_message, Generating $@ and $(OBJ_DIR)/Hamlib.py)
 	swig -python $(SWIG_FLAGS) -o $@ $<
 
-$(PY_WRAPPER_C:.c=.i): EXTRA_CFLAGS += $(PY_CFLAGS)
-
-$(PY_WRAPPER_O): $(PY_WRAPPER_C) | $(CC).args
-	$(call Compile, $(PY_CFLAGS) $<, $@)
+$(PY_WRAPPER_O) $(PY_WRAPPER_C:.c=.i): EXTRA_CFLAGS += $(PY_CFLAGS)
 
 ifeq ($(USE_PY_BINDING),3)
    _Hamlib.pyd: $(_Hamlib_PYD_deps)
@@ -1365,41 +1365,19 @@ $(OBJ_DIR)/HamlibLua_wrap.c: bindings/Hamlib.swg
 	$(call green_message, Generating $@)
 	swig -lua $(SWIG_FLAGS) -o $@ $<
 
-HamlibLua_DLL_deps = $(OBJ_DIR)/HamlibLua_wrap.$(O) \
-                     $(OBJ_DIR)/HamlibLua.res
-
-ifeq ($(USE_STATIC),1)
-  export_to_LUA       =
-  HamlibLua_DLL_deps += $(Hamlib_STAT_LIB) $(misc_LIB)
-  LUA_LIB            += $(EX_LIBS)
-else
-  export_to_LUA       = -DDLL_EXPORT
-  HamlibLua_DLL_deps += $(Hamlib_IMP_LIB)
-endif
-
-$(OBJ_DIR)/HamlibLua_wrap.$(O) HamlibLua_wrap.i: EXTRA_CFLAGS = -I$(LUA_ROOT)/src $(export_to_LUA)
-
-$(OBJ_DIR)/HamlibLua_wrap.$(O): $(OBJ_DIR)/HamlibLua_wrap.c | $(CC).args
-	$(call Compile, $<, $@)
+$(OBJ_DIR)/HamlibLua_wrap.$(O) HamlibLua_wrap.i: EXTRA_CFLAGS = -I$(LUA_ROOT)/src -DDLL_EXPORT
 
 #
-# The imp-lib name 'HamlibLua.lib' is not correct for MinGW,
-# but it's not needed for anything.
+# The imp-lib 'HamlibLua.$(A)' is not needed for anything.
 #
-ifeq ($(USE_STATIC),1)
-  HamlibLua.dll: $(HamlibLua_DLL_deps)
-	$(call link_DLL, $@, HamlibLua.lib, $^ $(LUA_LIB))
+HamlibLua.dll: $(OBJ_DIR)/HamlibLua_wrap.$(O) $(Hamlib_IMP_LIB) $(OBJ_DIR)/HamlibLua.res
+	$(call link_DLL, $@, HamlibLua.$(A), $^ $(LUA_LIB))
 
-else
-  HamlibLua.dll: $(OBJ_DIR)/HamlibLua_wrap.$(O) $(Hamlib_IMP_LIB) $(OBJ_DIR)/HamlibLua.res
-	$(call link_DLL, $@, HamlibLua.dll.lib, $^ $(LUA_LIB))
-endif
-
-lua_JUNK = HamlibLua.dll \
-           HamlibLua.lib \
-           HamlibLua.map \
-           HamlibLua.pdb \
-           HamlibLua.exp \
+lua_JUNK = HamlibLua.dll  \
+           HamlibLua.$(A) \
+           HamlibLua.map  \
+           HamlibLua.pdb  \
+           HamlibLua.exp  \
            $(OBJ_DIR)/HamlibLua_wrap.c
 
 lua_clean:
@@ -1432,18 +1410,18 @@ white_message = @echo -e "\e[1;37m$(strip $(1))\e[0m"
 #
 # .c compile macro.
 #   $(1): the .c file (and extra CFLAGS)
-#   $(2): the .obj / .o file
+#   $(2): the .$(O) file
 #
 # Do not use '@gcc.args' since some old gcc gets confused by it!?
 #
 ifeq ($(CC),gcc)
   define Compile
-    $(CC) -c $(CFLAGS) $(EXTRA_CFLAGS) -o $(2) $(1)
+    $(CC) @$(CC).args $(EXTRA_CFLAGS) -o $(2) $(1)
     @echo
   endef
 else
   define Compile
-    $(CC) -c @$(CC).args $(EXTRA_CFLAGS) -Fo$(strip $(2)) $(1)
+    $(CC) @$(CC).args $(EXTRA_CFLAGS) -Fo$(strip $(2)) $(1)
     @echo
   endef
 endif
@@ -1451,7 +1429,7 @@ endif
 #
 # Create an EXE from objects.
 #   arg1, $(1): The .exe file.
-#   arg2, $(2): The .obj file(s), extra args and libs.
+#   arg2, $(2): The .$(O) file(s), extra args and libs.
 #
 define link_EXE
   $(call green_message, Linking $(1))
@@ -1471,7 +1449,7 @@ link_EXE_gcc      = $(CC) $(LDFLAGS) -o $(1) $(2) > $(1:.exe=.map)
 # Macro to create a DLL + import-lib from objects.
 #   arg1, $(1): The .dll file.
 #   arg2, $(2): The import-lib.
-#   arg3, $(3): The .obj file(s), extra args and libs.
+#   arg3, $(3): The .$(O) file(s), extra args and libs.
 #
 define link_DLL
   $(call green_message, Linking $(1))
@@ -1491,7 +1469,7 @@ link_DLL_gcc      = $(CC) -shared $(LDFLAGS) -o $(1) -Wl,--out-implib,$(strip $(
 #
 # Macro to create a Python .PYD-module from objects.
 #   arg1, $(1): The .pyd file.
-#   arg2, $(2): The .obj file(s), extra args and libs.
+#   arg2, $(2): The .$(O) file(s), extra args and libs.
 #   arg3, $(3): The name of the Python init function.
 #         Not used by MinGW. It exports the 'SWIGEXPORT SWIG_init()' function
 #         in the 'HamlibPyX_wrap.c' code.
@@ -1523,8 +1501,8 @@ make_res_gcc      = windres -D__MINGW32__ -O COFF -I. $(RCFLAGS) -o $(2) -i $(1)
 
 #
 # static .lib creation macro:
-#   arg1: $(1): the .lib file.
-#   arg2: $(2): the .obj files to put in it.
+#   arg1: $(1): the .$(A) file.
+#   arg2: $(2): the .$(O) files to put in it.
 #
 define create_lib
   @rm -f $(1)
@@ -1570,7 +1548,7 @@ endef
 define CONFIG_H
   #define ABI_VERSION   $(ABI_VER)
 
-  #if defined(IN_HAMLIB) && !defined(__cplusplus) && defined(DLL_EXPORT)
+  #if defined(IN_HAMLIB) && defined(DLL_EXPORT) && !defined(__cplusplus)
   #error "Do not use '-DDLL_EXPORT' since we use a .def-file to control the exports."
   #endif
 
@@ -1836,12 +1814,13 @@ preprocess_filter = $(PYTHON) cpp_filter.py
 
 ifeq ($(USE_CLANG_FORMAT),1)
   preprocess_filter += | clang-format --assume-filename=$(strip $(1))
+
 else ifeq ($(USE_ASTYLE),1)
   preprocess_filter += | astyle
 endif
 
-C_preprocess   = $(CC) -E $(CFLAGS) $(EXTRA_CFLAGS) $(2) | $(call preprocess_filter,c) > $(1)
-CPP_preprocess = $(CC) -E $(CFLAGS) $(EXTRA_CFLAGS) $(2) | $(call preprocess_filter,cpp) > $(1)
+C_preprocess   = $(CC) -E @$(CC).args $(EXTRA_CFLAGS) $(2) | $(call preprocess_filter,c)  > $(1)
+CPP_preprocess = $(CC) -E @$(CC).args $(EXTRA_CFLAGS) $(2) | $(call preprocess_filter,cpp) > $(1)
 
 define CPP_FILTER_PY
   import sys, os
@@ -1954,16 +1933,14 @@ DEP_REPLACE = sed -e 's@\(.*\)\.o: @\n$$(OBJ_DIR)\/\1.$$(O): @' \
                   -e 's@$(LIBUSRP_ROOT)@$$(LIBUSRP_ROOT)@'
 
 ALL_C_SRC  = $(hamlib_C_SRC)  $(hamlib_misc_SRC) $(wildcard tests/*.c)
-ALL_CC_SRC = $(hamlib_CC_SRC) $(hamlib++_SRC)
+ALL_CC_SRC = $(hamlib_CC_SRC) $(hamlib++_SRC) $(hamlib_CPP_SRC)
 
 depend: $(GENERATED)
 	$(call Generate, .depend.Windows, #)
-	$(call create_resp_file, depend1.args, $(DEP_CFLAGS)            $(ALL_C_SRC))
+	$(call create_resp_file, depend1.args, $(DEP_CFLAGS) $(ALL_C_SRC))
 	$(call create_resp_file, depend2.args, $(DEP_CFLAGS) -std=c++11 $(ALL_CC_SRC))
-	@echo -en '#\n# Dependencies for $$(ALL_C_SRC)\n#\n'  >> .depend.Windows
-	gcc @depend1.args | $(DEP_REPLACE)                    >> .depend.Windows
-	@echo -en '#\n# Dependencies for $$(ALL_CC_SRC)\n#\n' >> .depend.Windows
-	gcc @depend2.args | $(DEP_REPLACE)                    >> .depend.Windows
+	gcc @depend1.args | $(DEP_REPLACE) >> .depend.Windows
+	gcc @depend2.args | $(DEP_REPLACE) >> .depend.Windows
 	rm -f depend1.args depend2.args
 
 -include .depend.Windows
