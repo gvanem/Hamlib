@@ -65,37 +65,37 @@ Rig::Rig(rig_model_t rig_model)
 Rig::~Rig()
 {
     theRig->state.obj = NULL;
-    CHECK_RIG( rig_cleanup(theRig) );
+    CHECK_RIG(rig_cleanup(theRig));
     caps = NULL;
 }
 
 void Rig::open(void)
 {
-    CHECK_RIG( rig_open(theRig) );
+    CHECK_RIG(rig_open(theRig));
 }
 
 void Rig::close(void)
 {
-    CHECK_RIG( rig_close(theRig) );
+    CHECK_RIG(rig_close(theRig));
 }
 
 void Rig::setConf(token_t token, const char *val)
 {
-    CHECK_RIG( rig_set_conf(theRig, token, val) );
+    CHECK_RIG(rig_set_conf(theRig, token, val));
 }
 void Rig::setConf(const char *name, const char *val)
 {
-    CHECK_RIG( rig_set_conf(theRig, tokenLookup(name), val) );
+    CHECK_RIG(rig_set_conf(theRig, tokenLookup(name), val));
 }
 
 void Rig::getConf(token_t token, char *val)
 {
-    CHECK_RIG( rig_get_conf(theRig, token, val) );
+    CHECK_RIG(rig_get_conf(theRig, token, val));
 }
 
 void Rig::getConf(const char *name, char *val)
 {
-    CHECK_RIG( rig_get_conf(theRig, tokenLookup(name), val) );
+    CHECK_RIG(rig_get_conf(theRig, tokenLookup(name), val));
 }
 
 token_t Rig::tokenLookup(const char *name)
@@ -105,14 +105,14 @@ token_t Rig::tokenLookup(const char *name)
 
 void Rig::setFreq(freq_t freq, vfo_t vfo)
 {
-    CHECK_RIG( rig_set_freq(theRig, vfo, freq) );
+    CHECK_RIG(rig_set_freq(theRig, vfo, freq));
 }
 
 freq_t Rig::getFreq(vfo_t vfo)
 {
     freq_t freq;
 
-    CHECK_RIG( rig_get_freq(theRig, vfo, &freq) );
+    CHECK_RIG(rig_get_freq(theRig, vfo, &freq));
 
     return freq;
 }
@@ -126,35 +126,35 @@ rmode_t Rig::getMode(pbwidth_t& width, vfo_t vfo)
 {
     rmode_t mode;
 
-    CHECK_RIG( rig_get_mode(theRig, vfo, &mode, &width) );
+    CHECK_RIG(rig_get_mode(theRig, vfo, &mode, &width));
 
     return mode;
 }
 
 void Rig::setVFO(vfo_t vfo)
 {
-    CHECK_RIG( rig_set_vfo(theRig, vfo) );
+    CHECK_RIG(rig_set_vfo(theRig, vfo));
 }
 
 vfo_t Rig::getVFO()
 {
     vfo_t vfo;
 
-    CHECK_RIG( rig_get_vfo(theRig, &vfo) );
+    CHECK_RIG(rig_get_vfo(theRig, &vfo));
 
     return vfo;
 }
 
 void Rig::setPTT(ptt_t ptt, vfo_t vfo)
 {
-    CHECK_RIG( rig_set_ptt(theRig, vfo, ptt) );
+    CHECK_RIG(rig_set_ptt(theRig, vfo, ptt));
 }
 
 ptt_t Rig::getPTT(vfo_t vfo)
 {
     ptt_t ptt;
 
-    CHECK_RIG( rig_get_ptt(theRig, vfo, &ptt) );
+    CHECK_RIG(rig_get_ptt(theRig, vfo, &ptt));
 
     return ptt;
 }
@@ -163,7 +163,7 @@ dcd_t Rig::getDCD(vfo_t vfo)
 {
     dcd_t dcd;
 
-    CHECK_RIG( rig_get_dcd(theRig, vfo, &dcd) );
+    CHECK_RIG(rig_get_dcd(theRig, vfo, &dcd));
 
     return dcd;
 }
@@ -173,7 +173,7 @@ void Rig::setLevel(setting_t level, int vali, vfo_t vfo)
     value_t val;
 
     val.i = vali;
-    CHECK_RIG( rig_set_level(theRig, vfo, level, val) );
+    CHECK_RIG(rig_set_level(theRig, vfo, level, val));
 }
 
 void Rig::setLevel(setting_t level, float valf, vfo_t vfo)
@@ -181,7 +181,7 @@ void Rig::setLevel(setting_t level, float valf, vfo_t vfo)
     value_t val;
 
     val.f = valf;
-    CHECK_RIG( rig_set_level(theRig, vfo, level, val) );
+    CHECK_RIG(rig_set_level(theRig, vfo, level, val));
 }
 
 void Rig::getLevel(setting_t level, int& vali, vfo_t vfo)
@@ -191,7 +191,7 @@ void Rig::getLevel(setting_t level, int& vali, vfo_t vfo)
     if (RIG_LEVEL_IS_FLOAT(level))
         THROW(new RigException (-RIG_EINVAL));
 
-    CHECK_RIG( rig_get_level(theRig, vfo, level, &val) );
+    CHECK_RIG(rig_get_level(theRig, vfo, level, &val));
     vali = val.i;
 }
 
@@ -202,7 +202,7 @@ void Rig::getLevel(setting_t level, float& valf, vfo_t vfo)
     if (!RIG_LEVEL_IS_FLOAT(level))
         THROW(new RigException (-RIG_EINVAL));
 
-    CHECK_RIG( rig_get_level(theRig, vfo, level, &val) );
+    CHECK_RIG(rig_get_level(theRig, vfo, level, &val));
     valf = val.f;
 }
 
@@ -213,7 +213,7 @@ int Rig::getLevelI(setting_t level, vfo_t vfo)
     if (RIG_LEVEL_IS_FLOAT(level))
         THROW(new RigException (-RIG_EINVAL));
 
-    CHECK_RIG( rig_get_level(theRig, vfo, level, &val) );
+    CHECK_RIG(rig_get_level(theRig, vfo, level, &val));
     return val.i;
 }
 
@@ -224,7 +224,7 @@ float Rig::getLevelF(setting_t level, vfo_t vfo)
     if (!RIG_LEVEL_IS_FLOAT(level))
         THROW(new RigException (-RIG_EINVAL));
 
-    CHECK_RIG( rig_get_level(theRig, vfo, level, &val) );
+    CHECK_RIG(rig_get_level(theRig, vfo, level, &val));
     return val.f;
 }
 
@@ -233,7 +233,7 @@ void Rig::setParm(setting_t parm, int vali)
     value_t val;
 
     val.i = vali;
-    CHECK_RIG( rig_set_parm(theRig, parm, val) );
+    CHECK_RIG(rig_set_parm(theRig, parm, val));
 }
 
 void Rig::setParm(setting_t parm, float valf)
@@ -241,7 +241,7 @@ void Rig::setParm(setting_t parm, float valf)
     value_t val;
 
     val.f = valf;
-    CHECK_RIG( rig_set_parm(theRig, parm, val) );
+    CHECK_RIG(rig_set_parm(theRig, parm, val));
 }
 
 void Rig::getParm(setting_t parm, int& vali)
@@ -251,7 +251,7 @@ void Rig::getParm(setting_t parm, int& vali)
     if (RIG_LEVEL_IS_FLOAT(parm))
         THROW(new RigException (-RIG_EINVAL));
 
-    CHECK_RIG( rig_get_parm(theRig, parm, &val) );
+    CHECK_RIG(rig_get_parm(theRig, parm, &val));
     vali = val.i;
 }
 
@@ -262,7 +262,7 @@ void Rig::getParm(setting_t parm, float& valf)
     if (!RIG_LEVEL_IS_FLOAT(parm))
         THROW(new RigException (-RIG_EINVAL));
 
-    CHECK_RIG( rig_get_parm(theRig, parm, &val) );
+    CHECK_RIG(rig_get_parm(theRig, parm, &val));
     valf = val.f;
 }
 
@@ -273,7 +273,7 @@ int Rig::getParmI(setting_t parm)
     if (RIG_LEVEL_IS_FLOAT(parm))
         THROW(new RigException (-RIG_EINVAL));
 
-    CHECK_RIG( rig_get_parm(theRig, parm, &val) );
+    CHECK_RIG(rig_get_parm(theRig, parm, &val));
     return val.i;
 }
 
@@ -284,19 +284,19 @@ float Rig::getParmF(setting_t parm)
     if (!RIG_LEVEL_IS_FLOAT(parm))
         THROW(new RigException (-RIG_EINVAL));
 
-    CHECK_RIG( rig_get_parm(theRig, parm, &val) );
+    CHECK_RIG(rig_get_parm(theRig, parm, &val));
     return val.f;
 }
 
 void Rig::setSplitFreq(freq_t tx_freq, vfo_t vfo) {
-    CHECK_RIG( rig_set_split_freq(theRig, vfo, tx_freq) );
+    CHECK_RIG(rig_set_split_freq(theRig, vfo, tx_freq));
 }
 
 freq_t Rig::getSplitFreq(vfo_t vfo)
 {
     freq_t freq;
 
-    CHECK_RIG( rig_get_split_freq(theRig, vfo, &freq) );
+    CHECK_RIG(rig_get_split_freq(theRig, vfo, &freq));
 
     return freq;
 }
@@ -310,7 +310,7 @@ rmode_t Rig::getSplitMode(pbwidth_t& width, vfo_t vfo)
 {
     rmode_t mode;
 
-    CHECK_RIG( rig_get_split_mode(theRig, vfo, &mode, &width) );
+    CHECK_RIG(rig_get_split_mode(theRig, vfo, &mode, &width));
 
     return mode;
 }
@@ -338,7 +338,7 @@ split_t Rig::getSplitVFO(vfo_t &tx_vfo, vfo_t vfo)
 {
     split_t split;
 
-    CHECK_RIG( rig_get_split_vfo(theRig, vfo, &split, &tx_vfo) );
+    CHECK_RIG(rig_get_split_vfo(theRig, vfo, &split, &tx_vfo));
 
     return split;
 }
@@ -385,119 +385,119 @@ pbwidth_t Rig::passbandWide (rmode_t mode)
 
 void Rig::setRptrShift (rptr_shift_t rptr_shift, vfo_t vfo)
 {
-    CHECK_RIG( rig_set_rptr_shift(theRig, vfo, rptr_shift) );
+    CHECK_RIG(rig_set_rptr_shift(theRig, vfo, rptr_shift));
 }
 
 rptr_shift_t Rig::getRptrShift (vfo_t vfo)
 {
     rptr_shift_t rptr_shift;
 
-    CHECK_RIG( rig_get_rptr_shift(theRig, vfo, &rptr_shift) );
+    CHECK_RIG(rig_get_rptr_shift(theRig, vfo, &rptr_shift));
 
     return rptr_shift;
 }
 
 void Rig::setRptrOffs (shortfreq_t rptr_offs, vfo_t vfo)
 {
-    CHECK_RIG( rig_set_rptr_offs(theRig, vfo, rptr_offs) );
+    CHECK_RIG(rig_set_rptr_offs(theRig, vfo, rptr_offs));
 }
 
 shortfreq_t Rig::getRptrOffs (vfo_t vfo)
 {
     shortfreq_t rptr_offs;
 
-    CHECK_RIG( rig_get_rptr_offs(theRig, vfo, &rptr_offs) );
+    CHECK_RIG(rig_get_rptr_offs(theRig, vfo, &rptr_offs));
 
     return rptr_offs;
 }
 
 void Rig::setTs (shortfreq_t ts, vfo_t vfo)
 {
-    CHECK_RIG( rig_set_ts(theRig, vfo, ts) );
+    CHECK_RIG(rig_set_ts(theRig, vfo, ts));
 }
 
 shortfreq_t Rig::getTs (vfo_t vfo)
 {
     shortfreq_t ts;
 
-    CHECK_RIG( rig_get_ts(theRig, vfo, &ts) );
+    CHECK_RIG(rig_get_ts(theRig, vfo, &ts));
 
     return ts;
 }
 
 void Rig::setCTCSS (tone_t tone, vfo_t vfo)
 {
-    CHECK_RIG( rig_set_ctcss_tone(theRig, vfo, tone) );
+    CHECK_RIG(rig_set_ctcss_tone(theRig, vfo, tone));
 }
 
 tone_t Rig::getCTCSS (vfo_t vfo)
 {
     tone_t tone;
 
-    CHECK_RIG( rig_get_ctcss_tone(theRig, vfo, &tone) );
+    CHECK_RIG(rig_get_ctcss_tone(theRig, vfo, &tone));
 
     return tone;
 }
 
 void Rig::setDCS (tone_t code, vfo_t vfo)
 {
-    CHECK_RIG( rig_set_dcs_code(theRig, vfo, code) );
+    CHECK_RIG(rig_set_dcs_code(theRig, vfo, code));
 }
 
 tone_t Rig::getDCS (vfo_t vfo)
 {
     tone_t code;
 
-    CHECK_RIG( rig_get_dcs_code(theRig, vfo, &code) );
+    CHECK_RIG(rig_get_dcs_code(theRig, vfo, &code));
 
     return code;
 }
 
 void Rig::setCTCSSsql (tone_t tone, vfo_t vfo)
 {
-    CHECK_RIG( rig_set_ctcss_sql(theRig, vfo, tone) );
+    CHECK_RIG(rig_set_ctcss_sql(theRig, vfo, tone));
 }
 
 tone_t Rig::getCTCSSsql (vfo_t vfo)
 {
     tone_t tone;
 
-    CHECK_RIG( rig_get_ctcss_sql(theRig, vfo, &tone) );
+    CHECK_RIG(rig_get_ctcss_sql(theRig, vfo, &tone));
 
     return tone;
 }
 
 void Rig::setDCSsql (tone_t code, vfo_t vfo)
 {
-    CHECK_RIG( rig_set_dcs_sql(theRig, vfo, code) );
+    CHECK_RIG(rig_set_dcs_sql(theRig, vfo, code));
 }
 
 tone_t Rig::getDCSsql (vfo_t vfo)
 {
     tone_t code;
 
-    CHECK_RIG( rig_get_dcs_sql(theRig, vfo, &code) );
+    CHECK_RIG(rig_get_dcs_sql(theRig, vfo, &code));
 
     return code;
 }
 
 void Rig::setFunc (setting_t func, bool status, vfo_t vfo)
 {
-    CHECK_RIG( rig_set_func(theRig, vfo, func, status? 1:0) );
+    CHECK_RIG(rig_set_func(theRig, vfo, func, status? 1:0));
 }
 
 bool Rig::getFunc (setting_t func, vfo_t vfo)
 {
     int status;
 
-    CHECK_RIG( rig_get_func(theRig, vfo, func, &status) );
+    CHECK_RIG(rig_get_func(theRig, vfo, func, &status));
 
     return status ? true : false;
 }
 
 void Rig::VFOop (vfo_op_t op, vfo_t vfo)
 {
-    CHECK_RIG( rig_vfo_op(theRig, vfo, op) );
+    CHECK_RIG(rig_vfo_op(theRig, vfo, op));
 }
 
 bool Rig::hasVFOop (vfo_op_t op)
@@ -507,7 +507,7 @@ bool Rig::hasVFOop (vfo_op_t op)
 
 void Rig::scan (scan_t scan, int ch, vfo_t vfo)
 {
-    CHECK_RIG( rig_scan(theRig, vfo, scan, ch) );
+    CHECK_RIG(rig_scan(theRig, vfo, scan, ch));
 }
 
 bool Rig::hasScan (scan_t scan)
@@ -524,7 +524,7 @@ shortfreq_t Rig::getRit(vfo_t vfo)
 {
     shortfreq_t rit;
 
-    CHECK_RIG( rig_get_rit(theRig, vfo, &rit) );
+    CHECK_RIG(rig_get_rit(theRig, vfo, &rit));
 
     return rit;
 }
@@ -538,7 +538,7 @@ shortfreq_t Rig::getXit(vfo_t vfo)
 {
     shortfreq_t xit;
 
-    CHECK_RIG( rig_get_xit(theRig, vfo, &xit) );
+    CHECK_RIG(rig_get_xit(theRig, vfo, &xit));
 
     return xit;
 }
@@ -550,7 +550,7 @@ void Rig::setAnt(const value_t option, ant_t ant, vfo_t vfo)
 
 ant_t Rig::getAnt(ant_t &ant_rx, ant_t &ant_tx, ant_t ant, value_t &option, ant_t &ant_curr, vfo_t vfo)
 {
-    CHECK_RIG( rig_get_ant(theRig, vfo, ant, &option, &ant_curr, &ant_tx, &ant_rx) );
+    CHECK_RIG(rig_get_ant(theRig, vfo, ant, &option, &ant_curr, &ant_tx, &ant_rx));
 
     return ant;
 }
@@ -564,7 +564,7 @@ int Rig::recvDtmf(char *digits, vfo_t vfo)
 {
     int len;
 
-    CHECK_RIG( rig_recv_dtmf(theRig, vfo, digits, &len) );
+    CHECK_RIG(rig_recv_dtmf(theRig, vfo, digits, &len));
 
     return len;
 }
@@ -587,7 +587,7 @@ shortfreq_t Rig::getResolution (rmode_t mode)
 
 void Rig::reset (reset_t reset)
 {
-    CHECK_RIG( rig_reset(theRig, reset) );
+    CHECK_RIG(rig_reset(theRig, reset));
 }
 
 bool Rig::hasGetFunc (setting_t func)
@@ -604,7 +604,7 @@ unsigned int Rig::power2mW (float power, freq_t freq, rmode_t mode)
 {
     unsigned int mwpower;
 
-    CHECK_RIG( rig_power2mW(theRig, &mwpower, power, freq, mode) );
+    CHECK_RIG(rig_power2mW(theRig, &mwpower, power, freq, mode));
 
     return mwpower;
 }
@@ -613,64 +613,64 @@ float Rig::mW2power (unsigned int mwpower, freq_t freq, rmode_t mode)
 {
     float power;
 
-    CHECK_RIG( rig_mW2power(theRig, &power, mwpower, freq, mode) );
+    CHECK_RIG(rig_mW2power(theRig, &power, mwpower, freq, mode));
 
     return power;
 }
 
 void Rig::setTrn (int trn)
 {
-    CHECK_RIG( rig_set_trn(theRig, trn) );
+    CHECK_RIG(rig_set_trn(theRig, trn));
 }
 
 int Rig::getTrn ()
 {
     int trn;
 
-    CHECK_RIG( rig_get_trn(theRig, &trn) );
+    CHECK_RIG(rig_get_trn(theRig, &trn));
 
     return trn;
 }
 
 void Rig::setBank (int bank, vfo_t vfo)
 {
-    CHECK_RIG( rig_set_ts(theRig, vfo, bank) );
+    CHECK_RIG(rig_set_ts(theRig, vfo, bank));
 }
 
 void Rig::setMem (int ch, vfo_t vfo)
 {
-    CHECK_RIG( rig_set_mem(theRig, vfo, ch) );
+    CHECK_RIG(rig_set_mem(theRig, vfo, ch));
 }
 
 int Rig::getMem (vfo_t vfo)
 {
     int mem;
 
-    CHECK_RIG( rig_get_mem(theRig, vfo, &mem) );
+    CHECK_RIG(rig_get_mem(theRig, vfo, &mem));
 
     return mem;
 }
 
 void Rig::setChannel (const channel_t *chan, vfo_t vfo)
 {
-    CHECK_RIG( rig_set_channel(theRig, vfo, chan) );
+    CHECK_RIG(rig_set_channel(theRig, vfo, chan));
 }
 
 void Rig::getChannel (channel_t *chan,vfo_t vfo, int readOnly)
 {
-    CHECK_RIG( rig_get_channel(theRig, vfo, chan, readOnly) );
+    CHECK_RIG(rig_get_channel(theRig, vfo, chan, readOnly));
 }
 
 void Rig::setPowerStat (powerstat_t status)
 {
-    CHECK_RIG( rig_set_powerstat(theRig, status) );
+    CHECK_RIG(rig_set_powerstat(theRig, status));
 }
 
 powerstat_t Rig::getPowerStat (void)
 {
     powerstat_t status;
 
-    CHECK_RIG( rig_get_powerstat(theRig, &status) );
+    CHECK_RIG(rig_get_powerstat(theRig, &status));
 
     return status;
 }
