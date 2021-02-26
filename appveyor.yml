@@ -33,3 +33,10 @@ build_script:
   #- if %BUILDER%. == mingw. %MAKE% CC=gcc      py_module lua_module
   #- if %BUILDER%. == clang. %MAKE% CC=clang-cl py_module lua_module
 
+#
+# List all Radio model numbers and exit
+#
+test_script:
+	- cmd: rigctl.exe --list
+
+
