@@ -20,13 +20,12 @@ def rig_message_cb (debug_level, *args):
 def StartUp(verbose):
     """Simple script to test the Hamlib.py module with Python3."""
 
+    Hamlib.rig_set_debug ([Hamlib.RIG_DEBUG_NONE, Hamlib.RIG_DEBUG_VERBOSE][verbose])
+
+   # Hamlib.rig_set_debug_callback (rig_message_cb, None)
+
     print("%s: Python %s; %s\n" \
           % (sys.argv[0], sys.version.split()[0], Hamlib.cvar.hamlib_version))
-
-    if 0 and verbose:
-      Hamlib.rig_set_debug_callback (rig_message_cb, None)
-
-    Hamlib.rig_set_debug(Hamlib.RIG_DEBUG_NONE)
 
     # Init RIG_MODEL_DUMMY
     my_rig = Hamlib.Rig(Hamlib.RIG_MODEL_DUMMY)
