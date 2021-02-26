@@ -146,7 +146,7 @@ void HAMLIB_API rig_set_debug_time_stamp(int flag)
 
 
 //! @cond Doxygen_Suppress
-char *date_strget(char *buf, int buflen)
+static char *date_strget(char *buf, int buflen)
 {
     char tmp[16];
     struct tm *mytm;

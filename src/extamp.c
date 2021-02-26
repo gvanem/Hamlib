@@ -72,11 +72,11 @@
  * \retval RIG_OK All extension levels elements successfully processed.
  * \retval RIG_EINVAL \a amp or \a cfunc is NULL or inconsistent.
  */
-int HAMLIB_API amp_ext_level_foreach(AMP *amp,
-                                     int (*cfunc)(AMP *,
-                                             const struct confparams *,
-                                             amp_ptr_t),
-                                     amp_ptr_t data)
+static int amp_ext_level_foreach(AMP *amp,
+                                 int (*cfunc)(AMP *,
+                                         const struct confparams *,
+                                         amp_ptr_t),
+                                 amp_ptr_t data)
 {
     const struct confparams *cfp;
 

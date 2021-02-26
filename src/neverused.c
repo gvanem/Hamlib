@@ -17,7 +17,6 @@ void never_used()
     adat_ptt_rnr2anr();
     agcToHamlib();
     agcToNative();
-    amp_ext_level_foreach();
     amp_ext_lookup_tok();
     amp_ext_parm_foreach();
     amp_ext_token_lookup();
