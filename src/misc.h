@@ -31,14 +31,15 @@
 
 #include <hamlib/rig.h>
 
+
 /*
  * Careful!! These macros are NOT reentrant!
  * ie. they may not be executed atomically,
  * thus not ensure mutual exclusion.
  * Fix it when making Hamlib reentrant!  --SF
  */
-#define Hold_Decode(rig) {(rig)->state.hold_decode = 1;}
-#define Unhold_Decode(rig) {(rig)->state.hold_decode = 0;}
+#define Hold_Decode(rig)   (rig)->state.hold_decode = 1
+#define Unhold_Decode(rig) (rig)->state.hold_decode = 0
 
 __BEGIN_DECLS
 
