@@ -21,7 +21,7 @@ install:
   - cmd: set PATH=c:\Program Files (x86)\LLVM\bin;%PATH%
 
 build_script:
-  - set MAKE=make -f Makefile.Windows CPU=x64 USE_LIBUSB=0 USE_USRP=0 USE_WSOCK_TRACE=0 USE_LIBXML2=0 USE_LIBGD=0 USE_LIBREADLINE=0 USE_LUAJIT=0 USE_GNURADIO=0
+  - set MAKE=make -f Makefile.Windows CPU=x64 USE_LIBUSB=0 USE_LIBUSRP=0 USE_WSOCK_TRACE=0 USE_LIBXML2=0 USE_LIBGD=0 USE_LIBREADLINE=0 USE_LUAJIT=0 USE_GNURADIO=0
   - if %BUILDER%. == msvc.  %MAKE% CC=cl
   - if %BUILDER%. == mingw. %MAKE% CC=gcc
   - if %BUILDER%. == clang. %MAKE% CC=clang-cl

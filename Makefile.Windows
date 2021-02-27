@@ -17,20 +17,18 @@ VERSION   = $(MAJOR_VER).$(MINOR_VER)
 #
 # Choose your weapons. Do a 'make vclean' after changing any of these.
 #
-# Must use 'CC=clang-cl' until all the gcc centric stuff is gone.
-#
-USE_MP_COMPILE  ?= 1
-USE_LIBUSB      ?= 1
-USE_USRP        ?= 0
-USE_LIBXML2     ?= 1
 USE_LIBGD       ?= 1
-USE_LIBREADLINE ?= 0
 USE_LIBINDI     ?= 0
+USE_LIBREADLINE ?= 0
+USE_LIBUSB      ?= 1
+USE_LIBUSRP     ?= 1
+USE_LIBXML2     ?= 1
 USE_LUAJIT      ?= 0
+USE_MP_COMPILE  ?= 1
 
 #
 # Add support for a 'GnuRadio' device.
-# Impossible as it is not up-to-date with current GnuRadio 3.8 (or 3.9) API.
+# Impossible as it is not up-to-date with current GnuRadio 3.9 API.
 #
 USE_GNURADIO ?= 0
 
@@ -50,20 +48,20 @@ USE_STATIC ?= 1
 # Use '$(Hamlib_DLL)' for all C programs.
 # And '$(Hamlib++_DLL)' for all C++ programs.
 #
-USE_DLLs_FOR_PROGRAMS ?= 0
+USE_DLLs_FOR_PROGRAMS ?= 1
 
 #
 # Set to 0 for no Python module.
-# Set to 2 for a Python 2.x module.
-# Set to 3 for a Python 3.x module.
+# Set to 2 to create a Python 2.x module.
+# Set to 3 to create a Python 3.x module.
 #
 USE_PY_BINDING ?= 3
 
 #
-# Use 'clang-format' or 'astyle' in the "%.i: %.c" rules below.
+# Use 'astyle' or 'clang-format' in the "%.i: %.c" preprocess rules below.
 #
+USE_ASTYLE       ?= 0
 USE_CLANG_FORMAT ?= 0
-USE_ASTYLE       ?= 1
 
 #
 # Change these as needed:
@@ -76,7 +74,7 @@ LIBREADLINE_ROOT ?= f:/MinGW32/src/misc/libreadline
 LUAJIT_ROOT      ?= f:/MinGW32/src/LUA/LuaJIT
 LUA5_ROOT        ?= f:/MinGW32/src/LUA/Lua-5.4
 LIBUSB_ROOT      ?= f:/MinGW32/src/USB/libusb
-LIBUSRP_ROOT     ?= f:/gv/dx-radio/Bor-IP/src/libusrp
+LIBUSRP_ROOT     ?= f:/gv/dx-radio/Bor-IP/src/libusrp/usrp/host
 GNURADIO_ROOT    ?= f:/gv/dx-radio/GnuRadio/gv-build
 LIBINDI_ROOT     ?= f:/ProgramFiler/Stellarium/src/src/external/libindi
 
@@ -154,7 +152,7 @@ endif
 
 ifeq ($(CC),gcc)
   select  = $(1)
-  CFLAGS  = -m$(BITS) -O2 -g --include config.h -DHAVE_STRTOK_R
+  CFLAGS  = -m$(BITS) -O2 -g --include config.h
   LDFLAGS = -m$(BITS) -Wl,--print-map,--sort-common
   O       = o
   A       = a
@@ -246,6 +244,11 @@ else ifeq ($(CC),clang-cl)
             -Wno-gnu-zero-variadic-macro-arguments  \
             -Wno-zero-as-null-pointer-constant
 
+  ifeq ($(USE_LIBUSRP),1)
+    CFLAGS += -Wno-suggest-override \
+              -Wno-suggest-destructor-override
+  endif
+
   #
   # When on AppVeyor, do not suppress these warnings since they have an old 'clang-cl'.
   #
@@ -272,6 +275,8 @@ else
     CFLAGS += -wd4267
   endif
 endif
+
+# CFLAGS += -DHASH_BLOOM
 
 #
 # External libraries for '$(Hamlib_DLL)':
@@ -337,16 +342,16 @@ else
 endif
 
 #
-# This needs Boost too.
-# Untested by me.
+# For 'rigs/kit/usrp.c' and 'rigs/kit/usrp_impl.cc'.
+# This needs Boost too. Untested by me.
 #
-ifeq ($(USE_USRP),1)
-  CFLAGS += -DHAVE_USRP \
-            -I$(LIBUSRP_ROOT)/usrp/host/include \
-            -I$(LIBUSRP_ROOT)/usrp/host/include/usrp
+ifeq ($(USE_LIBUSRP),1)
+  CFLAGS += -DHAVE_USRP               \
+            -I$(LIBUSRP_ROOT)/include \
+            -I$(LIBUSRP_ROOT)/include/usrp
 
   EX_LIBS += $(call select, $(LIBUSRP_ROOT)/libUSRP.a, \
-                            $(LIBUSRP_ROOT)/USRP.lib)
+                            $(LIBUSRP_ROOT)/libUSRP_imp.lib)
 
   hamlib_CC_SRC = kit/usrp_impl.cc
 endif
@@ -1088,11 +1093,6 @@ ifneq ($(CC),gcc)
                  sys/ioctl.h)
 endif
 
-#
-# We export stuff using this generated .def-file:
-#
-Hamlib_DEF = $(OBJ_DIR)/Hamlib-$(ABI_VER).def
-
 all: $(OBJ_DIR) $(OBJ_DIR)/sys $(GENERATED) rm_elecraft $(TARGETS) programs epilogue
 
 $(OBJ_DIR) $(OBJ_DIR)/sys:
@@ -1121,7 +1121,7 @@ $(Hamlib_STAT_LIB): $(hamlib_C_OBJ) $(hamlib_CC_OBJ) $(hamlib_CPP_OBJ)
 $(Hamlib_IMP_LIB):   $(Hamlib_DLL)
 $(Hamlib++_IMP_LIB): $(Hamlib++_DLL)
 
-$(Hamlib_DLL): $(Hamlib_DEF) $(Hamlib_STAT_LIB) $(misc_LIB) $(OBJ_DIR)/Hamlib.res
+$(Hamlib_DLL): $(OBJ_DIR)/Hamlib.def $(Hamlib_STAT_LIB) $(misc_LIB) $(OBJ_DIR)/Hamlib.res
 	$(call link_DLL, $@, $(Hamlib_IMP_LIB), $(call select,,-def:)$^ $(EX_LIBS))
 
 $(Hamlib++_DLL): $(hamlib++_OBJ) $(Hamlib_IMP_LIB) $(OBJ_DIR)/Hamlib++.res
@@ -1137,6 +1137,7 @@ ifeq ($(USE_MP_COMPILE),1)
 endif
 
 $(CC).args: $(THIS_FILE)
+	$(call green_message, Creating $@)
 	$(call create_resp_file, $@, $(CFLAGS) -c)
 
 #
@@ -1208,7 +1209,7 @@ $(OBJ_DIR)/%.$(O): lib/%.c | $(CC).args
 	$(call Compile, $<, $@)
 
 clean: $(CC)_clean
-	rm -f $(GENERATED) $(OBJ_DIR)/*.$(O) $(OBJ_DIR)/*.rc $(OBJ_DIR)/*.res $(Hamlib_DEF) \
+	rm -f $(GENERATED) $(OBJ_DIR)/*.{$(O),rc,res,def} \
 	      $(TESTS_PROGS:.exe=.map) cl.args clang-cl.args gcc.args lib.args cpp_filter.py
 	- $(RMDIR) $(OBJ_DIR)/sys $(OBJ_DIR)
 
@@ -1249,19 +1250,19 @@ $(OBJ_DIR)/sys/ioctl.h: $(THIS_FILE)
 	$(call Generate_fake, $@)
 
 %.i: %.c FORCE $(GENERATED) cpp_filter.py $(CC).args
-	$(call C_preprocess, $@, $<)
+	$(call Cxx_preprocess, $@, $<, c)
 
 %.i: lib/%.c FORCE $(GENERATED) cpp_filter.py $(CC).args
-	$(call C_preprocess, $@, $<)
+	$(call Cxx_preprocess, $@, $<, c)
 
 %.i: $(OBJ_DIR)/%.c FORCE $(GENERATED) cpp_filter.py $(CC).args
-	$(call C_preprocess, $@, $<)
+	$(call Cxx_preprocess, $@, $<, c)
 
 %.i: %.cc FORCE $(GENERATED) cpp_filter.py $(CC).args
-	$(call CPP_preprocess, $@, $<)
+	$(call Cxx_preprocess, $@, $<, cpp)
 
 %.i: %.cpp FORCE $(GENERATED) cpp_filter.py $(CC).args
-	$(call CPP_preprocess, $@, $<)
+	$(call Cxx_preprocess, $@, $<, cpp)
 
 FORCE:
 
@@ -1398,6 +1399,49 @@ $(OBJ_DIR)/HamlibLua.rc: $(THIS_FILE)
 $(OBJ_DIR)/%.res: $(OBJ_DIR)/%.rc config.h
 	$(call make_res, $<, $@)
 
+#
+# Create an export definition file by using 'nm $(Hamlib_STAT_LIB)' to
+# extract all the public functions;
+# i.e. ' T ' symbols are "Text symbol, global". See 'man nm' for details.
+#
+# On 'CPU=x86', all symbols have a leading '_'. Drop these.
+#
+# Ignore symbols matching ' Wspiapi.*' and ' _.*'.
+#
+# Append the DATA symbols manually.
+#
+ifeq ($(CPU),x86)
+  uscore := _
+endif
+
+#
+# Export all code symbols.
+#
+extract_code_syms = nm $(2) | grep ' T $(uscore)[a-zA-Z0-9_]*' | \
+                    sed -e 's@^.* $(uscore)@  @g'                \
+                        -e 's@ Wspiapi.*@@g'                     \
+                        -e 's@ _.*@@g' | sort | uniq >> $(1)
+
+define Hamlib_DATA
+  hamlib_version    DATA
+  hamlib_copyright  DATA
+  hamlib_version2   DATA
+  hamlib_copyright2 DATA
+  debugmsgsave      DATA
+  debugmsgsave2     DATA
+endef
+
+export Hamlib_DATA
+
+#
+# We export stuff using this generated .def-file:
+#
+$(OBJ_DIR)/Hamlib.def: $(Hamlib_STAT_LIB) $(THIS_FILE)
+	$(call Generate, $@, ;)
+	$(file >> $@, LIBRARY $(Hamlib_DLL))
+	$(file >> $@, EXPORTS)
+	$(call extract_code_syms, $@, $<)
+	@echo "$$Hamlib_DATA" >> $@
 
 #
 # GNU-make macros.
@@ -1521,7 +1565,6 @@ create_lib_gcc      = ar rs $(1) @lib.args
 # One word from $(2) per line.
 #
 define create_resp_file
-  $(call green_message, Creating $(1))
   $(file > $(1))
   $(foreach f, $(2), $(file >> $(1),$(strip $(f))) )
 endef
@@ -1577,11 +1620,15 @@ define CONFIG_H
 
     extern int gettimeofday (struct timeval *, struct timezone *);
   #else
+    /*
+     * MinGW section:
+     */
     #define HAVE_PTHREAD          1
     #define HAVE_UNISTD_H         1
     #define HAVE_SELECT           1
     #define HAVE_SSLEEP           1
     #define HAVE_SYS_TIME_H       1
+    #define HAVE_STRTOK_R         1
 
     #include <sys/time.h>         /* 'gettimeofday()' */
   #endif
@@ -1662,7 +1709,11 @@ define CONFIG_H
           } while (0)
   #endif
 
+  /* Hack for using libusrp dynamically (untested)
+   */
+  #ifdef HAVE_USRP
   #define LIBUSRP_SPEC        __declspec(dllimport)
+  #endif
 
   #define PACKAGE_VERSION    "$(VERSION)"
 
@@ -1729,7 +1780,6 @@ define hamlib_CFG
   OPTIMIZE_OUTPUT_FOR_C = YES
   MAN_LINKS             = NO
   MACRO_EXPANSION       = YES
-# FILE_PATTERNS         = *.c *.h *.cc
   SOURCE_BROWSER        = YES
   STRIP_CODE_COMMENTS   = NO
   GENERATE_HTMLHELP     = YES
@@ -1810,17 +1860,36 @@ define make_rc
   $(file >> $@, $(RC_COMMON))
 endef
 
-preprocess_filter = $(PYTHON) cpp_filter.py
+ifeq ($(USE_ASTYLE),1)
+  define Cxx_preprocess
+    $(file  > $(1),/* The preprocessed and AStyle formatter output of '$(strip $(2))':)
+    $(file >> $(1), * $(CC) -E)
+    @$(foreach f, $(CFLAGS) $(EXTRA_CFLAGS), $(file >> $(1), * $(f)))
+    $(file >> $(1), *---------------------------------------------------------)
+    $(file >> $(1), */)
+    $(CC) -E @$(CC).args $(EXTRA_CFLAGS) $(2) | $(PYTHON) cpp_filter.py | astyle >> $(1)
+  endef
 
-ifeq ($(USE_CLANG_FORMAT),1)
-  preprocess_filter += | clang-format --assume-filename=$(strip $(1))
+else ifeq ($(USE_CLANG_FORMAT),1)
+  define Cxx_preprocess
+    $(file  > $(1),/* The preprocessed and clang-formatted output of '$(strip $(2))':)
+    $(file >> $(1), * $(CC) -E)
+    @$(foreach f, $(CFLAGS) $(EXTRA_CFLAGS), $(file >> $(1), * $(f)))
+    $(file >> $(1), *---------------------------------------------------------)
+    $(file >> $(1), */)
+    $(CC) -E @$(CC).args $(EXTRA_CFLAGS) $(2) | $(PYTHON) cpp_filter.py | clang-format --assume-filename=$(strip $(3)) >> $(1)
+  endef
 
-else ifeq ($(USE_ASTYLE),1)
-  preprocess_filter += | astyle
+else
+  define Cxx_preprocess
+    $(file  > $(1),/* The raw preprocessed output of '$(strip $(2))':)
+    $(file >> $(1), * $(CC) -E)
+    @$(foreach f, $(CFLAGS) $(EXTRA_CFLAGS), $(file >> $(1), * $(f)))
+    $(file >> $(1), *---------------------------------------------------------)
+    $(file >> $(1), */)
+    $(CC) -E @$(CC).args $(EXTRA_CFLAGS) $(2) | $(PYTHON) cpp_filter.py >> $(1)
+  endef
 endif
-
-C_preprocess   = $(CC) -E @$(CC).args $(EXTRA_CFLAGS) $(2) | $(call preprocess_filter,c)  > $(1)
-CPP_preprocess = $(CC) -E @$(CC).args $(EXTRA_CFLAGS) $(2) | $(call preprocess_filter,cpp) > $(1)
 
 define CPP_FILTER_PY
   import sys, os
@@ -1886,44 +1955,6 @@ cpp_filter.py: $(THIS_FILE)
 	$(file >> $@,$(CPP_FILTER_PY))
 
 #
-# Create an export definition file by using 'nm $(Hamlib_STAT_LIB)' to
-# extract all the public functions;
-# i.e. ' T ' symbols are "Text symbol, global". See 'man nm' for details.
-#
-# On 'CPU=x86', all symbols have a leading '_'. Drop these.
-#
-# Ignore symbols matching ' Wspiapi.*' and ' _.*'.
-#
-# Append the DATA symbols manually.
-#
-ifeq ($(CPU),x86)
-  uscore := _
-endif
-
-extract_code_syms = nm $(2) | grep ' T $(uscore)[a-zA-Z0-9_]*'| \
-                    sed -e 's@^.* $(uscore)@  @g'               \
-                        -e 's@ Wspiapi.*@@g'                    \
-                        -e 's@ _.*@@g' | sort | uniq >> $(1)
-
-define Hamlib_DATA
-  hamlib_version    DATA
-  hamlib_copyright  DATA
-  hamlib_version2   DATA
-  hamlib_copyright2 DATA
-  debugmsgsave      DATA
-  debugmsgsave2     DATA
-endef
-
-export Hamlib_DATA
-
-$(Hamlib_DEF): $(Hamlib_STAT_LIB) $(THIS_FILE)
-	$(call Generate, $@, ;)
-	$(file >> $@, LIBRARY $(Hamlib_DLL))
-	$(file >> $@, EXPORTS)
-	$(call extract_code_syms, $@, $<)
-	@echo "$$Hamlib_DATA" >> $@
-
-#
 # Use gcc to create a '.depend.Windows'
 #
 DEP_CFLAGS  = -MM --include config.h $(filter -I% -D%, $(CFLAGS))
@@ -1935,7 +1966,7 @@ DEP_REPLACE = sed -e 's@\(.*\)\.o: @\n$$(OBJ_DIR)\/\1.$$(O): @' \
 ALL_C_SRC  = $(hamlib_C_SRC)  $(hamlib_misc_SRC) $(wildcard tests/*.c)
 ALL_CC_SRC = $(hamlib_CC_SRC) $(hamlib++_SRC) $(hamlib_CPP_SRC)
 
-depend: $(GENERATED)
+depend: $(OBJ_DIR) $(OBJ_DIR)/sys $(GENERATED)
 	$(call Generate, .depend.Windows, #)
 	$(call create_resp_file, depend1.args, $(DEP_CFLAGS) $(ALL_C_SRC))
 	$(call create_resp_file, depend2.args, $(DEP_CFLAGS) -std=c++11 $(ALL_CC_SRC))
