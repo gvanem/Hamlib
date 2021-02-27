@@ -24,7 +24,7 @@ USE_LIBUSB      ?= 1
 USE_LIBUSRP     ?= 1
 USE_LIBXML2     ?= 1
 USE_LUAJIT      ?= 0
-USE_MP_COMPILE  ?= 1
+USE_MP_COMPILE  ?= 0
 
 #
 # Add support for a 'GnuRadio' device.
@@ -883,6 +883,7 @@ hamlib_C_SRC += $(addprefix rigs/yaesu/, \
                   ft9000.c               \
                   ftdx10.c               \
                   ftdx101.c              \
+                  ftdx101mp.c            \
                   newcat.c               \
                   vr5000.c               \
                   vx1700.c               \

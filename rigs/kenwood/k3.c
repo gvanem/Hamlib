@@ -35,6 +35,7 @@
 #include "elecraft.h"
 #include "token.h"
 #include "cal.h"
+#include "iofunc.h"
 
 #define K3_MODES (RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|\
     RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_FM|RIG_MODE_AM|RIG_MODE_PKTUSB|\
@@ -182,7 +183,7 @@ const struct rig_caps k3_caps =
     RIG_MODEL(RIG_MODEL_K3),
     .model_name =       "K3",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".4",
+    .version =      BACKEND_VER ".5",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -333,7 +334,7 @@ const struct rig_caps k3s_caps =
     RIG_MODEL(RIG_MODEL_K3S),
     .model_name =       "K3S",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".3",
+    .version =      BACKEND_VER ".4",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -483,7 +484,7 @@ const struct rig_caps k4_caps =
     RIG_MODEL(RIG_MODEL_K4),
     .model_name =       "K4",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".3",
+    .version =      BACKEND_VER ".4",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_ALPHA,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -632,7 +633,7 @@ const struct rig_caps kx3_caps =
     RIG_MODEL(RIG_MODEL_KX3),
     .model_name =       "KX3",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".3",
+    .version =      BACKEND_VER ".4",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_BETA,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -781,7 +782,7 @@ const struct rig_caps kx2_caps =
     RIG_MODEL(RIG_MODEL_KX2),
     .model_name =       "KX2",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".3",
+    .version =      BACKEND_VER ".4",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_BETA,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -1159,15 +1160,18 @@ int k3_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 
 /* The K3 changes "VFOs" by swapping the contents of
  * the upper display with the lower display.  This function
- * accomplishes this by sending the emulation command, SWT11;
+ * accomplishes this by sending the emulation command, SWT11, KX3 is SWT24;
  * to the K3 to emulate a tap of the A/B button.
  */
 
 int k3_set_vfo(RIG *rig, vfo_t vfo)
 {
     int err;
+    // Does SWT11 work for the K4 or do we need to emulate set/get vfo?
+    char *cmd = "SWT11";
+    struct kenwood_priv_data *priv = rig->state.priv;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    ENTERFUNC;
 
     // vfo is toggle so we check first to see if we need to switch
     vfo_t tvfo;
@@ -1180,32 +1184,42 @@ int k3_set_vfo(RIG *rig, vfo_t vfo)
 
     if (tvfo == vfo) RETURNFUNC(RIG_OK);
 
-    err = kenwood_transaction(rig, "SWT11", NULL, 0);
+    if (priv->is_kx3)
+    {
+        cmd = "SWT24";
+    }
+    else if (priv->is_k4)
+    {
+        cmd = "AB2";
+    }
+    err = kenwood_transaction(rig, cmd, NULL, 0);
 
     if (err != RIG_OK)
     {
         RETURNFUNC(err);
     }
 
-    return RIG_OK;
+    RETURNFUNC(RIG_OK);
 }
 
 int k3_get_vfo(RIG *rig, vfo_t *vfo)
 {
     char buf[KENWOOD_MAX_BUF_LEN];
-    int err;
+    int ret;
+    struct kenwood_priv_data *priv = rig->state.priv;
 
-    err = kenwood_safe_transaction(rig, "IC", buf, KENWOOD_MAX_BUF_LEN, 3);
+    ret = write_block(&rig->state.rigport, "IC;", 3);
 
-    if (err != RIG_OK)
+    if (ret != RIG_OK)
     {
-        rig_debug(RIG_DEBUG_VERBOSE, "%s: Cannot read K3 IC value\n", __func__);
-        RETURNFUNC(err);
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: Cannot write K3 IC value\n", __func__);
+        RETURNFUNC(ret);
     }
 
-    if (strlen(buf) != 8)
+    ret = read_block(&rig->state.rigport, buf, 8);
+    if (ret != 8)
     {
-        rig_debug(RIG_DEBUG_ERR, "%s: expected 8 bytes from '%s', got %zu bytes\n", __func__, buf, strlen(buf));
+        rig_debug(RIG_DEBUG_ERR, "%s: expected 8 bytes from '%s', got %d bytes\n", __func__, buf, ret);
         RETURNFUNC(-RIG_EPROTO);
     }
     if (buf[6] == '0')

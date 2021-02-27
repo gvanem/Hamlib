@@ -232,7 +232,7 @@ int kenwood_transaction(RIG *rig, const char *cmdstr, char *data,
                                        verification may need a longer
                                        buffer than the user supplied one */
     char cmdtrm_str[2];   /* Default Command/Reply termination char */
-    int retval;
+    int retval = -RIG_EINTERNAL;
     char *cmd;
     int len;
     int retry_read = 0;
@@ -1019,7 +1019,7 @@ int kenwood_set_vfo(RIG *rig, vfo_t vfo)
      * We'll do this once if curr_mode has not been set yet
      */
     if (priv->is_emulation && priv->curr_mode > 0)
-       RETURNFUNC(RIG_OK );
+       RETURNFUNC(RIG_OK);
 
     switch (vfo)
     {
@@ -1178,7 +1178,7 @@ int kenwood_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
             retval = kenwood_set_vfo_main_sub(rig, RIG_VFO_MAIN);
 
             if (retval != RIG_OK)
-               RETURNFUNC(retval );
+               RETURNFUNC(retval);
         }
 
         snprintf(cmdbuf, sizeof(cmdbuf), "TB%c", RIG_SPLIT_ON == split ? '1' : '0');
@@ -1251,7 +1251,7 @@ int kenwood_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
                                 sizeof(cmdbuf), 3)))
         {
             if (cmdbuf[2] == vfo_function)
-               RETURNFUNC(RIG_OK );
+               RETURNFUNC(RIG_OK);
         }
     }
 
@@ -1492,7 +1492,7 @@ int kenwood_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
         err = rig_get_vfo(rig, &tvfo);
 
         if (RIG_OK != err)
-          RETURNFUNC(err );
+          RETURNFUNC(err);
     }
 
     switch (tvfo)
@@ -1630,7 +1630,7 @@ int kenwood_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
         retval = rig_get_vfo(rig, &tvfo);
 
         if (RIG_OK != retval)
-           RETURNFUNC(retval );
+           RETURNFUNC(retval);
     }
 
     /* memory frequency cannot be read with an Fx command, use IF */
@@ -1916,14 +1916,14 @@ int kenwood_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         err = kenwood_get_vfo_main_sub(rig, &curr_vfo);
 
         if (err != RIG_OK)
-           RETURNFUNC(err );
+           RETURNFUNC(err);
 
         if (vfo != RIG_VFO_CURR && vfo != curr_vfo)
         {
             err = kenwood_set_vfo_main_sub(rig, vfo);
 
             if (err != RIG_OK)
-              RETURNFUNC(err );
+              RETURNFUNC(err);
         }
 
         snprintf(buf, sizeof(buf), "OM0%c", c);  /* target vfo is ignored */
@@ -1934,7 +1934,7 @@ int kenwood_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
             int err2 = kenwood_set_vfo_main_sub(rig, curr_vfo);
 
             if (err2 != RIG_OK)
-               RETURNFUNC(err2 );
+               RETURNFUNC(err2);
         }
     }
     else
@@ -1944,7 +1944,7 @@ int kenwood_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     }
 
     if (err != RIG_OK)
-        RETURNFUNC(err );
+        RETURNFUNC(err);
 
     if (RIG_IS_TS590S || RIG_IS_TS590SG || RIG_IS_TS950S || RIG_IS_TS950SDX)
     {
@@ -1966,12 +1966,12 @@ int kenwood_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
             err = kenwood_transaction(rig, buf, NULL, 0);
 
             if (err != RIG_OK)
-               RETURNFUNC(err );
+               RETURNFUNC(err);
         }
     }
 
     if (RIG_PASSBAND_NOCHANGE == width)
-        RETURNFUNC(RIG_OK );
+        RETURNFUNC(RIG_OK);
 
     if (RIG_IS_TS450S || RIG_IS_TS690S || RIG_IS_TS850 || RIG_IS_TS950S
             || RIG_IS_TS950SDX)
@@ -2229,7 +2229,7 @@ static int kenwood_get_micgain_minmax(RIG *rig, int *micgain_now,
     retval = write_block(&rs->rigport, cmd, strlen(cmd));
 
     if (retval != RIG_OK)
-       RETURNFUNC(retval );
+       RETURNFUNC(retval);
 
     retval = read_string(&rs->rigport, levelbuf, sizeof(levelbuf), NULL, 0);
 
@@ -2328,7 +2328,7 @@ static int kenwood_get_power_minmax(RIG *rig, int *power_now, int *power_min,
     retval = write_block(&rs->rigport, cmd, strlen(cmd));
 
     if (retval != RIG_OK)
-       RETURNFUNC(retval );
+       RETURNFUNC(retval);
 
     retval = read_string(&rs->rigport, levelbuf, sizeof(levelbuf), NULL, 0);
 
@@ -2420,7 +2420,7 @@ int kenwood_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         retval = kenwood_get_power_minmax(rig, &power_now, &power_min, &power_max, 0);
 
         if (retval != RIG_OK)
-           RETURNFUNC(retval );
+           RETURNFUNC(retval);
 
         // https://github.com/Hamlib/Hamlib/issues/465
         kenwood_val = val.f * power_max;
@@ -2474,11 +2474,11 @@ int kenwood_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
                                                 &priv->micgain_max, 0);
 
             if (retval != RIG_OK)
-               RETURNFUNC(retval );
+               RETURNFUNC(retval);
         }
 
         if (val.f > 1.0 || val.f < 0)
-           RETURNFUNC(-RIG_EINVAL );
+           RETURNFUNC(-RIG_EINVAL);
 
         // is micgain_min ever > 0 ??
         kenwood_val = val.f * (priv->micgain_max - priv->micgain_min) +
@@ -2492,7 +2492,7 @@ int kenwood_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         /* XXX check level range */
         // KX2 and KX3 have range -190 to 250
         if (val.f > 1.0 || val.f < 0)
-           RETURNFUNC(-RIG_EINVAL );
+           RETURNFUNC(-RIG_EINVAL);
 
         kenwood_val = val.f * 255.0;
         snprintf(levelbuf, sizeof(levelbuf), "RG%03d", kenwood_val);
@@ -2811,7 +2811,7 @@ int kenwood_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         retval = kenwood_get_power_minmax(rig, &power_now, &power_min, &power_max, 1);
 
         if (retval != RIG_OK)
-           RETURNFUNC(retval );
+           RETURNFUNC(retval);
 
         val->f = (power_now - power_min) / (float)(power_max - power_min);
         RETURNFUNC(RIG_OK);
@@ -2867,7 +2867,7 @@ int kenwood_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         {
             priv->ag_format = -1;  // we'll keep trying next time
             rig_debug(RIG_DEBUG_WARN, "%s: Unable to set AG format?\n", __func__);
-            RETURNFUNC(RIG_OK );  // this is non-fatal for now
+            RETURNFUNC(RIG_OK);  // this is non-fatal for now
         }
 
         switch (priv->ag_format)
@@ -2910,7 +2910,7 @@ int kenwood_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
                                                 &priv->micgain_max, 1);
 
             if (retval != RIG_OK)
-              RETURNFUNC(retval );
+              RETURNFUNC(retval);
         }
 
         rig_debug(RIG_DEBUG_TRACE, "%s: micgain_min=%d, micgain_max=%d\n", __func__,
@@ -4064,7 +4064,7 @@ int kenwood_send_morse(RIG *rig, vfo_t vfo, const char *msg)
             if (!strncmp(m2, "KY1", 3))
                hl_usleep(500000);
             else
-               RETURNFUNC(-RIG_EINVAL );
+               RETURNFUNC(-RIG_EINVAL);
         }
 
         buff_len = msg_len > 24 ? 24 : msg_len;
@@ -4834,5 +4834,5 @@ DECLARE_INITRIG_BACKEND(kenwood)
     rig_register(&ts890s_caps);
     rig_register(&pt8000a_caps);
 
-    RETURNFUNC(RIG_OK );
+    RETURNFUNC(RIG_OK);
 }

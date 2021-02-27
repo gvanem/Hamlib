@@ -1577,24 +1577,31 @@ int HAMLIB_API rig_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
         rig_debug(RIG_DEBUG_TRACE, "%s: TARGETABLE_FREQ vfo=%s\n", __func__,
                   rig_strvfo(vfo));
-        int retry=5;
-        freq_t tfreq;
+        int retry = 3;
+        freq_t tfreq = 0;
         do {
             retcode = caps->set_freq(rig, vfo, freq);
             if (retcode != RIG_OK) RETURNFUNC(retcode);
             set_cache_freq(rig, RIG_VFO_ALL, (freq_t)0);
-            if (caps->set_freq)
+            if (caps->get_freq)
             {
                 retcode = rig_get_freq(rig, vfo, &tfreq);
-                if (retcode != RIG_OK) RETURNFUNC(retcode);
+                // WSJT-X does a 55Hz check so we can stop early if that's the case
+                if ((long long)freq % 100 == 55)
+                   retry = 0;
+                if (retcode != RIG_OK)
+                   RETURNFUNC(retcode);
                 if (tfreq != freq)
                 {
                     hl_usleep(50*1000);
-                    rig_debug(RIG_DEBUG_WARN, "%s: freq not set correctly?? got %.0f asked for %.0f\n", __func__, (double)tfreq, (double)freq);
+                    rig_debug(RIG_DEBUG_WARN, "%s: freq not set correctly?? got %.0f asked for %.0f, retry=%d\n", __func__, (double)tfreq, (double)freq, retry);
                 }
             }
-            else { retry = 1; }
-        } while (tfreq != freq && --retry > 0);
+            else
+              retry = 0;
+        }
+        while (tfreq != freq && retry-- > 0);
+
         if (retry == 0)
         {
             rig_debug(RIG_DEBUG_ERR, "%s: unable to set frequency!!\n", __func__);
@@ -2492,9 +2499,19 @@ int HAMLIB_API rig_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
             do
             {
                 retcode = caps->set_ptt(rig, vfo, ptt);
-                if (retcode != RIG_OK) RETURNFUNC(retcode);
+                if (retcode != RIG_OK)
+                   RETURNFUNC(retcode);
+                tptt = -1;
+                // IC-9700 is failing on get_ptt right after set_ptt in split mode
                 retcode = rig_get_ptt(rig, vfo, &tptt);
-                if (tptt != ptt) rig_debug(RIG_DEBUG_WARN, "%s: failed, retry=%d\n", __func__, retry);
+                if (retcode != RIG_OK)
+                {
+                    rig_debug(RIG_DEBUG_ERR, "%s: rig_get_ptt failed: %s\b", __func__, rigerror(retcode));
+                    retcode = RIG_OK; // fake the retcode so we retry
+                }
+
+                if (tptt != ptt)
+                   rig_debug(RIG_DEBUG_WARN, "%s: failed, retry=%d\n", __func__, retry);
             } while(tptt != ptt && retry-- > 0 && retcode == RIG_OK);
         }
         else
@@ -5700,7 +5717,6 @@ int HAMLIB_API rig_get_vfo_info(RIG *rig, vfo_t vfo, freq_t *freq, rmode_t *mode
     RETURNFUNC(retcode);
 }
 
-#ifdef NOT_USED
 /**
  * \brief get list of available vfos
  * \param rig   The rig handle
@@ -5721,7 +5737,6 @@ const char *HAMLIB_API rig_get_vfo_list(RIG *rig)
 
     RETURNFUNC(RIG_OK);
 }
-#endif
 
 /**
  * \brief get the Hamlib license
