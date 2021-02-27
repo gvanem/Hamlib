@@ -24,7 +24,7 @@ USE_LIBUSB      ?= 1
 USE_LIBUSRP     ?= 1
 USE_LIBXML2     ?= 1
 USE_LUAJIT      ?= 0
-USE_MP_COMPILE  ?= 0
+USE_MP_COMPILE  ?= 1
 
 #
 # Add support for a 'GnuRadio' device.
