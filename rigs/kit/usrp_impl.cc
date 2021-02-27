@@ -100,7 +100,7 @@ int usrp_set_conf(RIG *rig, token_t token, const char *val)
 
 	switch(token) {
 		case TOK_IFMIXFREQ:
-			sscanf(val, "%"SCNfreq, &priv->if_mix_freq);
+			sscanf(val, "%" SCNfreq, &priv->if_mix_freq);
 			break;
 		default:
 			return -RIG_EINVAL;
@@ -119,7 +119,7 @@ int usrp_get_conf(RIG *rig, token_t token, char *val)
 
 	switch(token) {
 		case TOK_IFMIXFREQ:
-			sprintf(val, "%"PRIfreq, priv->if_mix_freq);
+			sprintf(val, "%" PRIfreq, priv->if_mix_freq);
 			break;
 		default:
 			return -RIG_EINVAL;
