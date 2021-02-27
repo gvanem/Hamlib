@@ -1,8 +1,8 @@
 environment:
   matrix:
-    - BUILDER: mingw
     - BUILDER: msvc
     - BUILDER: clang
+    - BUILDER: mingw
 
 install:
   #
@@ -37,7 +37,6 @@ test_script:
   #
   # List all supported Radios, Rotators and Amplifiers
   #
-  - echo off
   - echo ---------------------------------------------------------------------------------------------------
   - rigctl.exe --list
   - echo ---------------------------------------------------------------------------------------------------
