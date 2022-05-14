@@ -15,6 +15,11 @@ install:
   #
   - cmd: del c:\msys64\usr\bin\link.exe
 
+  #
+  # Install the 'colorama' package used by 'Makefile.Windows'.
+  #
+  - cmd: py -3 -m pip install colorama
+
   - cmd: if %BUILDER%. == msvc.  call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x64
   - cmd: if %BUILDER%. == clang. call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x64
   - cmd: if %BUILDER%. == mingw. set PATH=c:\msys64\MinGW64\bin;%PATH%
