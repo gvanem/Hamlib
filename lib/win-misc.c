@@ -79,6 +79,7 @@ int clock_gettime (int clock_id, struct timespec *ts)
   return (0);
 }
 
+#if !defined(__MINGW32__)
 /*
  * Number of micro-seconds between the beginning of the Windows epoch
  * (Jan. 1, 1601) and the Unix epoch (Jan. 1, 1970).
@@ -110,6 +111,8 @@ int gettimeofday (struct timeval *tv, struct timezone *tz)
   (void) tz;
   return (0);
 }
+#endif  /* !__MINGW32__ */
+
 
 #if !defined(HAVE_STRTOK_R)
 /*
