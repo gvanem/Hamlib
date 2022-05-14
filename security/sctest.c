@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
          */
         strcpy(plaintext, pass_input);
         printf("Plaintext: %s\n", plaintext);
-        printf("Plaintext length: %lu\n", strlen(plaintext));
+        printf("Plaintext length: %zu\n", strlen(plaintext));
 
         /*
          * Encrypt the string
