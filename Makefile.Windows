@@ -1185,7 +1185,7 @@ ifneq ($(CC),gcc)
                  sys/ioctl.h)
 endif
 
-all: $(OBJ_DIR) $(OBJ_DIR)/sys $(GENERATED) install_colorama rm_elecraft $(TARGETS) programs epilogue
+all: $(OBJ_DIR) $(OBJ_DIR)/sys $(GENERATED) install_colorama $(TARGETS) programs epilogue
 
 $(OBJ_DIR) $(OBJ_DIR)/sys:
 	- $(MKDIR) $@
@@ -1198,12 +1198,6 @@ ifneq ($(APPVEYOR_PROJECT_NAME),)
 	$(call green_message, Installing 'colorama'...)
 	$(PYTHON) -m pip install colorama
 endif
-
-#
-# This is a 0-byte file that messes with 'rigs/kenwood/elecraft.c'
-#
-rm_elecraft:
-	rm -f amplifiers/elecraft/elecraft.c
 
 epilogue:
 	$(call white_message, Welcome to $(Hamlib_DLL) and $(Hamlib++_DLL) (CPU=$(CPU)).)
