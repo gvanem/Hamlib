@@ -1612,6 +1612,14 @@ $(OBJ_DIR)/Hamlib.def: $(Hamlib_STAT_LIB) $(THIS_FILE)
 	$(file >> $@,$(Hamlib_DATA))
 	$(call extract_code_symbols, $@, $<)
 
+cpp_filter.py: $(THIS_FILE)
+	$(call Generate_PY, $@)
+	$(file >> $@,$(cpp_filter_PY))
+
+check-for-unused-libraries.py: $(THIS_FILE)
+	$(call Generate_PY, $@)
+	$(file >> $@,$(check_for_unused_libraries_PY))
+
 #
 # GNU-make macros.
 #
@@ -2170,11 +2178,12 @@ define check_for_unused_libraries_PY
     colorama.init()
     Colour.RED   = colorama.Fore.RED   + colorama.Style.BRIGHT
     Colour.WHITE = colorama.Fore.WHITE + colorama.Style.BRIGHT
+    Colour.RESET = colorama.Style.RESET_ALL
   except:
     pass
 
   def cprint (color, s):
-    print ("%s%s%s" % (color, s, colorama.Style.RESET_ALL))
+    print ("%s%s%s" % (color, s, Colour.RESET))
 
   ignore_libs = [ "oldnames.lib" ]
 
@@ -2211,14 +2220,6 @@ define check_for_unused_libraries_PY
   map_file = sys.argv[1]
   report (map_file, process_map (map_file, State.IDLE))
 endef
-
-cpp_filter.py: $(THIS_FILE)
-	$(call Generate_PY, $@)
-	$(file >> $@,$(cpp_filter_PY))
-
-check-for-unused-libraries.py: $(THIS_FILE)
-	$(call Generate_PY, $@)
-	$(file >> $@,$(check_for_unused_libraries_PY))
 
 #
 # Use gcc to create a '.depend.Windows'
