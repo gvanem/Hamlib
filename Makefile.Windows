@@ -893,6 +893,9 @@ hamlib_C_SRC += $(addprefix rigs/tentec/, \
                   tentec2.c               \
                   tt550.c)
 
+#
+# 'v4l*.c' == "Video For Linux", and not for Windows.
+#
 hamlib_C_SRC += $(addprefix rigs/tuner/, \
                   tuner.c                \
                   v4l.c                  \
