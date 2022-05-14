@@ -269,7 +269,7 @@ static int ad_delay(int m)
 {
     long j;
 
-    for (j = 0; j <= m; j++);
+    for (j = 0; j <= m; j++) {}
 
     return j;
 }

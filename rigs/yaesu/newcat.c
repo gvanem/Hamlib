@@ -957,13 +957,13 @@ int newcat_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
             // we need to change vfos, BS, and change back
             if (!is_ft991 && !is_ft891 && newcat_valid_command(rig, "VS"))
             {
-            SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "VS%d;BS%02d%c",
-                     vfo1, newcat_band_index(freq), cat_term);
+                SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "VS%d;BS%02d%c",
+                         vfo1, newcat_band_index(freq), cat_term);
             }
             else
             {
-            SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "BS%02d%c",
-                     newcat_band_index(freq), cat_term);
+                SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "BS%02d%c",
+                         newcat_band_index(freq), cat_term);
             }
 
 
@@ -974,8 +974,11 @@ int newcat_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
             }
 
             hl_usleep(500 * 1000); // wait for BS to do it's thing and swap back
+
             if (newcat_valid_command(rig, "VS"))
-            SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "VS%d;", vfo2);
+            {
+                SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "VS%d;", vfo2);
+            }
         }
         else
         {
@@ -1331,7 +1334,6 @@ int newcat_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     RETURNFUNC(err);
 }
 
-
 int newcat_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
     struct newcat_priv_data *priv = (struct newcat_priv_data *)rig->state.priv;
@@ -1668,9 +1670,9 @@ int newcat_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
         // some rigs like the FT991 need time before doing anything else like set_freq
         // We won't mess with CW mode -- no freq change expected hopefully
         if (rig->state.current_mode != RIG_MODE_CW
-            && rig->state.current_mode != RIG_MODE_CWR
-            && rig->state.current_mode != RIG_MODE_CWN
-            )
+                && rig->state.current_mode != RIG_MODE_CWR
+                && rig->state.current_mode != RIG_MODE_CWN
+           )
         {
             hl_usleep(100 * 1000);
         }
@@ -3258,10 +3260,12 @@ int newcat_set_powerstat(RIG *rig, powerstat_t status)
     ENTERFUNC;
 
 #if 0 // all Yaeus rigs have PS and calling this here interferes with power on
+
     if (!newcat_valid_command(rig, "PS"))
     {
         RETURNFUNC(-RIG_ENAVAIL);
     }
+
 #endif
 
     switch (status)
@@ -4962,6 +4966,7 @@ int newcat_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         {
             RETURNFUNC(-RIG_ENAVAIL);
         }
+
         if (is_ftdx9000)
         {
             SNPRINTF(priv->cmd_str, sizeof(priv->cmd_str), "RM14%c", cat_term);
@@ -5519,7 +5524,8 @@ int newcat_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         i = 0;
         sscanf(retlvl, "%3d", &i);
         val->f = i / 255. * 100.;
-        rig_debug(RIG_DEBUG_VERBOSE, "%s: retlvl=%s, i=%d, val=%g\n", __func__, retlvl, i, val->f);
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: retlvl=%s, i=%d, val=%g\n", __func__, retlvl,
+                  i, val->f);
         break;
 
     default:
@@ -9150,10 +9156,12 @@ int newcat_get_rx_bandwidth(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t *width)
     } /* end if is_ft891 */
     else if (is_ft991)
     {
-        if ((narrow = get_narrow(rig, vfo)) < 0)
+        // some modes are fixed and can't be queried with "NA0"
+        if (mode != RIG_MODE_C4FM && mode != RIG_MODE_PKTFM && mode != RIG_MODE_PKTFMN && (narrow = get_narrow(rig, vfo)) < 0)
         {
             RETURNFUNC(-RIG_EPROTO);
         }
+        narrow = 0;
 
         switch (mode)
         {
@@ -10754,9 +10762,18 @@ rmode_t newcat_rmode_width(RIG *rig, vfo_t vfo, char mode, pbwidth_t *width)
         {
             if (newcat_mode_conv[i].chk_width == TRUE)
             {
-                if (newcat_is_rig(rig, RIG_MODEL_FT991)
-                        && mode == 'E') // crude fix because 991 hangs on NA0; command while in C4FM
+                // crude fix because 991 hangs on NA0; command while in C4FM
+                if (newcat_is_rig(rig, RIG_MODEL_FT991))
                 {
+                    if (mode == 'E')
+                    {
+                        *width = 16000;
+                    }
+                    else if (mode == 'F')
+                    {
+                        *width = 9000;
+                    }
+
                     rig_debug(RIG_DEBUG_TRACE, "991A & C4FM Skip newcat_get_narrow in %s\n",
                               __func__);
                 }
@@ -10778,7 +10795,8 @@ rmode_t newcat_rmode_width(RIG *rig, vfo_t vfo, char mode, pbwidth_t *width)
                 }
             }
 
-            RETURNFUNC(newcat_mode_conv[i].mode);
+            // don't use RETURNFUNC here as that macros expects an int for the return code
+            return (newcat_mode_conv[i].mode);
         }
     }
 

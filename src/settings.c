@@ -990,15 +990,15 @@ HAMLIB_EXPORT(int) rig_settings_save(char *setting, void *value,
     FILE *fp = fopen(settings_file, "r");
     FILE *fptmp;
     char buf[4096];
-    char *cvalue = (char*)value;
-    int *ivalue = (int*)value;
-    long *lvalue = (long*) value;
-    float *fvalue = (float*) value;
-    double *dvalue = (double*) value;
+    char *cvalue = (char *)value;
+    int *ivalue = (int *)value;
+    long *lvalue = (long *) value;
+    float *fvalue = (float *) value;
+    double *dvalue = (double *) value;
     char *vformat;
     char template[64];
 
-    strcpy(template,"hamlib_settings_XXXXXX");
+    strcpy(template, "hamlib_settings_XXXXXX");
     switch (valuetype)
     {
     case e_CHAR: cvalue = (char *)value; vformat = "%s=%s\n"; break;
@@ -1040,7 +1040,7 @@ HAMLIB_EXPORT(int) rig_settings_save(char *setting, void *value,
         return RIG_OK;
     }
 
-#if !defined(_WIN32)
+#if !defined(_MSC_VER)
     int fd = mkstemp(template);
     close(fd);
 #endif
@@ -1080,6 +1080,7 @@ HAMLIB_EXPORT(int) rig_settings_save(char *setting, void *value,
             fclose(fptmp);
             return -RIG_EINTERNAL;
         }
+
         fprintf(fptmp, vformat, s, value);
     }
 
@@ -1096,5 +1097,32 @@ HAMLIB_EXPORT(int) rig_settings_load(char *setting, void *value,
     return -RIG_ENIMPL;
 }
 
+HAMLIB_EXPORT(int) rig_settings_load_all(char *settings_file)
+{
+    FILE *fp = fopen(settings_file, "r");
+    char buf[4096];
+
+    if (fp == NULL)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: settings_file error(%s): %s\n", __func__,
+                  settings_file, strerror(errno));
+        return -RIG_EINVAL;
+    }
+
+    while (fgets(buf, sizeof(buf), fp))
+    {
+        char *s = strtok(buf, "=");
+        char *v = strtok(NULL, "\r\n");
+
+        if (strcmp(s, "sharedkey") == 0)
+        {
+            char *sharedkey = strdup(v);
+            rig_debug(RIG_DEBUG_TRACE, "%s: settings_file=%s, shared_key=%s\n", __func__, settings_file, sharedkey);
+            free(sharedkey);
+        }
+    }
+
+    return RIG_OK;
+}
 
 /*! @} */

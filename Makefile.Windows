@@ -92,11 +92,14 @@ LIBUSRP_ROOT     ?= f:/gv/dx-radio/Bor-IP/src/libusrp/usrp/host
 GNURADIO_ROOT    ?= f:/gv/dx-radio/GnuRadio/gv-build
 LIBINDI_ROOT     ?= f:/ProgramFiler/Stellarium/src/src/external/libindi
 
+#
+# For Python stuff besides the 'Hamlib.pyd' target:
+#
 PYTHON ?= py -3
 
 ifeq ($(USE_LUAJIT),1)
   LUA_ROOT = $(realpath $(LUAJIT_ROOT))
-  LUA_LIB  = $(call select, $(LUA_ROOT)/src/libluajit.a, $(LUA_ROOT)/src/luajit.lib)
+  LUA_LIB  = $(call select, $(LUA_ROOT)/src/libluajit.a, $(LUA_ROOT)/src/lua51.lib)
 else
   LUA_ROOT = $(realpath $(LUA5_ROOT))
   LUA_LIB  = $(call select, $(LUA_ROOT)/src/liblua.a, $(LUA_ROOT)/src/lua.lib)
@@ -307,7 +310,7 @@ endif
 #
 # External libraries for '$(Hamlib_DLL)':
 #
-Hamlib_EX_LIBS = $(WS2_32_LIB) advapi32.lib
+Hamlib_EX_LIBS = $(WS2_32_LIB) $(call select, -ladvapi32, advapi32.lib)
 
 #
 # The DLL and library names:
@@ -617,6 +620,7 @@ hamlib_C_SRC += $(addprefix security/, \
                   aes.c                \
                   AESStringCrypt.c     \
                   md5.c                \
+                  password.c           \
                   sha256.c)
 
 hamlib_C_SRC += $(addprefix rigs/dummy/, \
@@ -1467,7 +1471,12 @@ ifeq ($(CC),gcc)
 endif
 
 _Hamlib_PYD_deps = $(PY_WRAPPER_O) $(OBJ_DIR)/HamlibPy.res $(Hamlib_IMP_LIB)
-PY_CFLAGS        = -I$(PY_ROOT)/include -DNO_SSIZE_T -DDLL_EXPORT
+
+PY_CFLAGS = -I$(PY_ROOT)/include -DNO_SSIZE_T -DDLL_EXPORT
+
+ifeq ($(CC),cl)
+  PY_CFLAGS += -wd4197
+endif
 
 ifeq ($(USE_PY_BINDING),0)
   py_module:
@@ -1874,6 +1883,7 @@ define hamlib_config_h
   #include <stdint.h>             /* 'int64_t' etc. */
   #include <process.h>            /* 'getpid()' etc. */
   #include <malloc.h>             /* 'alloca()' etc. */
+  #include <direct.h>             /* 'getcwd()' */
 
   #define HAVE_SYS_TYPES_H        1
   #define HAVE_INTTYPES_H         1
@@ -1995,9 +2005,10 @@ define hamlib_CFG
   TAB_SIZE         = 4
   CASE_SENSE_NAMES = NO
   FULL_PATH_NAMES  = NO
+  STRIP_FROM_PATH  = $(realpath .)
   ALIASES          = \RETURNFUNC{1}="\retval RETURNFUNC(\1)"
 
-  INPUT            = index.doxygen ../src/ ../include/hamlib/
+  INPUT            = index.doxygen ../src/ ../security/ ../lib/ ../include/hamlib/
   INCLUDE_PATH     = ../include/
   EXAMPLE_PATH     = ..                              \
                      ../tests/testrig.c              \
@@ -2026,7 +2037,6 @@ define hamlib_CFG
   MACRO_EXPANSION       = YES
   SOURCE_BROWSER        = YES
   STRIP_CODE_COMMENTS   = NO
-  STRIP_FROM_PATH       = /
   GENERATE_HTMLHELP     = YES
   CHM_FILE              = Hamlib.chm
   SEARCHENGINE          = NO

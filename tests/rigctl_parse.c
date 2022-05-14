@@ -673,7 +673,8 @@ int rigctl_parse(RIG *my_rig, FILE *fin, FILE *fout, char *argv[], int argc,
             {
                 if ((retcode = scanfc(fin, "%c", &cmd)) < 1)
                 {
-                    rig_debug(RIG_DEBUG_WARN, "%s: nothing to scan#1? retcode=%d, last_cmd=%c\n", __func__,
+                    rig_debug(RIG_DEBUG_WARN, "%s: nothing to scan#1? retcode=%d, last_cmd=%c\n",
+                               __func__,
                               retcode, last_cmd);
                     return (RIGCTL_PARSE_ERROR);
                 }
@@ -752,7 +753,8 @@ int rigctl_parse(RIG *my_rig, FILE *fin, FILE *fout, char *argv[], int argc,
 
                     *pcmd = '\0';
                     cmd = parse_arg((char *)cmd_name);
-                    rig_debug(RIG_DEBUG_VERBOSE, "%s: cmd=%s handle=%d\n", __func__, cmd_name, fileno(fin));
+                    rig_debug(RIG_DEBUG_VERBOSE, "%s: cmd=%s handle=%d\n", __func__, cmd_name,
+                              fileno(fin));
                     break;
                 }
 

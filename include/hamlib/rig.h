@@ -3444,6 +3444,8 @@ extern HAMLIB_EXPORT(int) hl_usleep(rig_useconds_t msec);
 extern HAMLIB_EXPORT(int) rig_cookie(RIG *rig, enum cookie_e cookie_cmd, char *cookie, int cookie_len);
 
 extern HAMLIB_EXPORT(int) rig_password(RIG *rig, const char *key1);
+extern HAMLIB_EXPORT(void) rig_password_generate_secret(char *pass,
+        char result[HAMLIB_SECRET_LENGTH + 1]);
 
 #if 0 /* in 'include/hamlib/rotaror.h' */
   extern HAMLIB_EXPORT(int)
