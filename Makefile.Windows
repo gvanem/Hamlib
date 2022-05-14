@@ -1,7 +1,7 @@
 #
 # GNU Makefile for Hamlib (MSVC / clang-cl / MinGW).
 #
-# G. Vanem <gvanem@yahoo.no> 2019 - 2021.
+# G. Vanem <gvanem@yahoo.no> 2019 - 2022.
 #
 THIS_FILE := Makefile.Windows
 DATE      := $(shell date +%d-%B-%Y)
