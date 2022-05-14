@@ -128,7 +128,7 @@ endef
 
 ifeq ($(USER),gv)
   RC_PRIVATE = "The privat build of <gvanem@yahoo.no>."
-else ifeq ($(USER),appveyor)
+else ifneq ($(APPVEYOR_PROJECT_NAME),)
   RC_PRIVATE = "Built on Appveyor."
 else
   RC_PRIVATE = ""
@@ -286,7 +286,7 @@ else ifeq ($(CC),clang-cl)
     #
     # When on AppVeyor, do not suppress these warnings since they have an old 'clang-cl'.
     #
-    ifeq ($(APPVEYOR_PROJECT_NAME)x,x)
+    ifneq ($(APPVEYOR_PROJECT_NAME),)
       CFLAGS += -Wno-implicit-int-float-conversion \
                 -Wno-deprecated-copy-dtor
     endif
@@ -1181,10 +1181,19 @@ ifneq ($(CC),gcc)
                  sys/ioctl.h)
 endif
 
-all: $(OBJ_DIR) $(OBJ_DIR)/sys $(GENERATED) rm_elecraft $(TARGETS) programs epilogue
+all: $(OBJ_DIR) $(OBJ_DIR)/sys $(GENERATED) install_colorama rm_elecraft $(TARGETS) programs epilogue
 
 $(OBJ_DIR) $(OBJ_DIR)/sys:
 	- $(MKDIR) $@
+
+#
+# Install the Python 'colorama' package when running on AppVeyor:
+#
+install_colorama:
+ifneq ($(APPVEYOR_PROJECT_NAME),)
+	$(call green_message, Installing 'colorama'...)
+	$(PYTHON) -m pip install colorama
+endif
 
 #
 # This is a 0-byte file that messes with 'rigs/kenwood/elecraft.c'
