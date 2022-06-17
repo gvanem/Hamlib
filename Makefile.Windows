@@ -344,9 +344,10 @@ ifeq ($(USE_PTHREAD),1)
    # MinGW has it's own bundled pthread
    #
   ifeq ($(MSVC_TYPE),1)
-    CFLAGS     += -I$(PTHREAD_ROOT)/include -Dpthread_t=int
+    CFLAGS     += -I$(PTHREAD_ROOT)/include
     PTHREAD_LIB = $(PTHREAD_ROOT)/lib/pthreadVC3.lib
   else
+    CFLAGS     += -DHAVE_PTHREAD_T
     PTHREAD_LIB = -lwinpthread
   endif
 else
@@ -1925,7 +1926,7 @@ define hamlib_config_h
     #define HAMLIB_C_EXTERN extern
   #endif
 
-  /*
+  /**
    * MSVC/clang-cl:
    *   Except for .cc code (the 'LIBUSB_ROOT' code that needs Boost), and
    *   while doing 'make depend', pretend we are MinGW.
@@ -1976,6 +1977,10 @@ define hamlib_config_h
   #define HAVE_SSLEEP             1
   #define HAVE_SLEEP              1
 
+  #if !defined(HAVE_PTHREAD_T)
+    #define pthread_t  int
+  #endif
+
   #if defined(_MSC_VER)
     #ifndef __clang__
     #define __attribute__(x)
@@ -1988,7 +1993,8 @@ define hamlib_config_h
     HAMLIB_C_EXTERN int usleep (unsigned long usec);
   #endif
 
-  /* Since 'WIN32_LEAN_AND_MEAN' is defined, this header is
+  /**
+   * Since 'WIN32_LEAN_AND_MEAN' is defined, this header is
    * not included in <windows.h>. So do it explicitly, but it is
    * only needed in 'rigs/winradio/g313-win.c'.
    */
@@ -2035,7 +2041,8 @@ define hamlib_config_h
           } while (0)
   #endif
 
-  /* Hack for using libusrp dynamically (untested)
+  /**
+   * Hack for using libusrp dynamically (untested)
    */
   #ifdef HAVE_USRP
   #define LIBUSRP_SPEC        __declspec(dllimport)
@@ -2044,7 +2051,8 @@ define hamlib_config_h
   #define PACKAGE_NAME       "Hamlib"
   #define PACKAGE_VERSION    "$(VERSION)"
 
-  /* Functions in 'lib/win-misc.c':
+  /**
+   * Functions in 'lib/win-misc.c':
    */
   #ifndef CLOCK_REALTIME
   #define CLOCK_REALTIME  0
