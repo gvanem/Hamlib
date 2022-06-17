@@ -340,8 +340,6 @@ TARGETS += $(Hamlib++_DLL) $(Hamlib++_IMP_LIB)
 # and these external libraries:
 #
 ifeq ($(USE_PTHREAD),1)
-  CFLAGS += -DHAVE_PTHREAD
-
    #
    # MinGW has it's own bundled pthread
    #
@@ -349,6 +347,7 @@ ifeq ($(USE_PTHREAD),1)
     CFLAGS     += -I$(PTHREAD_ROOT)/include
     PTHREAD_LIB = $(PTHREAD_ROOT)/lib/pthreadVC3.lib
   else
+    CFLAGS     += -DHAVE_PTHREAD
     PTHREAD_LIB = -lwinpthread
   endif
 else
