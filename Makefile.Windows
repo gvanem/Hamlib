@@ -344,10 +344,9 @@ ifeq ($(USE_PTHREAD),1)
    # MinGW has it's own bundled pthread
    #
   ifeq ($(MSVC_TYPE),1)
-    CFLAGS     += -I$(PTHREAD_ROOT)/include
+    CFLAGS     += -I$(PTHREAD_ROOT)/include -Dpthread_t=int
     PTHREAD_LIB = $(PTHREAD_ROOT)/lib/pthreadVC3.lib
   else
-    CFLAGS     += -DHAVE_PTHREAD_T
     PTHREAD_LIB = -lwinpthread
   endif
 else
@@ -1976,10 +1975,6 @@ define hamlib_config_h
   #define HAVE_SELECT             1
   #define HAVE_SSLEEP             1
   #define HAVE_SLEEP              1
-
-  #if !defined(HAVE_PTHREAD_T)
-    #define pthread_t  int
-  #endif
 
   #if defined(_MSC_VER)
     #ifndef __clang__
