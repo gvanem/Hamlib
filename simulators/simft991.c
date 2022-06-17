@@ -6,7 +6,6 @@
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
-#include <hamlib/config.h>
 #include <hamlib/rig.h>
 
 #define BUFSIZE 256
@@ -46,8 +45,7 @@ getmyline(int fd, char *buf)
     {
         buf[i++] = c;
 
-        if (c == ';')
-           break;
+        if (c == ';') { return strlen(buf); }
     }
 
     return strlen(buf);

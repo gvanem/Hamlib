@@ -263,7 +263,7 @@ static int netrigctl_open(RIG *rig)
     struct netrigctl_priv_data *priv;
 
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    ENTERFUNC;
 
     priv = (struct netrigctl_priv_data *)rig->state.priv;
     priv->rx_vfo = RIG_VFO_A;
@@ -301,7 +301,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        RETURNFUNC( (ret < 0) ? ret : -RIG_EPROTO);
     }
 
     prot_ver = atoi(buf);
@@ -309,7 +309,7 @@ static int netrigctl_open(RIG *rig)
 
     if (prot_ver < RIGCTLD_PROT_VER)
     {
-        return -RIG_EPROTO;
+        RETURNFUNC( -RIG_EPROTO);
     }
 
     ret = read_string(&rig->state.rigport, (unsigned char *) buf, BUF_MAX, "\n", 1,
@@ -317,7 +317,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
     }
 
     ret = read_string(&rig->state.rigport, (unsigned char *) buf, BUF_MAX, "\n", 1,
@@ -325,7 +325,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
     }
 
     rs->deprecated_itu_region = atoi(buf);
@@ -337,7 +337,7 @@ static int netrigctl_open(RIG *rig)
 
         if (ret <= 0)
         {
-            return (ret < 0) ? ret : -RIG_EPROTO;
+            RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
         }
 
         ret = num_sscanf(buf, "%"SCNfreq"%"SCNfreq"%"SCNXll"%d%d%x%x",
@@ -352,7 +352,7 @@ static int netrigctl_open(RIG *rig)
 
         if (ret != 7)
         {
-            return -RIG_EPROTO;
+            RETURNFUNC(-RIG_EPROTO);
         }
 
         if (RIG_IS_FRNG_END(rs->rx_range_list[i]))
@@ -368,7 +368,7 @@ static int netrigctl_open(RIG *rig)
 
         if (ret <= 0)
         {
-            return (ret < 0) ? ret : -RIG_EPROTO;
+            RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
         }
 
         ret = num_sscanf(buf, "%"SCNfreq"%"SCNfreq"%"SCNXll"%d%d%x%x",
@@ -383,7 +383,7 @@ static int netrigctl_open(RIG *rig)
 
         if (ret != 7)
         {
-            return -RIG_EPROTO;
+            RETURNFUNC(-RIG_EPROTO);
         }
 
         if (RIG_IS_FRNG_END(rs->tx_range_list[i]))
@@ -411,7 +411,7 @@ static int netrigctl_open(RIG *rig)
 
         if (ret <= 0)
         {
-            return (ret < 0) ? ret : -RIG_EPROTO;
+            RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
         }
 
         ret = sscanf(buf, "%"SCNXll"%ld",
@@ -420,7 +420,7 @@ static int netrigctl_open(RIG *rig)
 
         if (ret != 2)
         {
-            return -RIG_EPROTO;
+            RETURNFUNC(-RIG_EPROTO);
         }
 
         if (RIG_IS_TS_END(rs->tuning_steps[i]))
@@ -436,7 +436,7 @@ static int netrigctl_open(RIG *rig)
 
         if (ret <= 0)
         {
-            return (ret < 0) ? ret : -RIG_EPROTO;
+            RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
         }
 
         ret = sscanf(buf, "%"SCNXll"%ld",
@@ -445,7 +445,7 @@ static int netrigctl_open(RIG *rig)
 
         if (ret != 2)
         {
-            return -RIG_EPROTO;
+            RETURNFUNC(-RIG_EPROTO);
         }
 
         if (RIG_IS_FLT_END(rs->filters[i]))
@@ -464,7 +464,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
     }
 
     rig->caps->max_rit = rs->max_rit = atol(buf);
@@ -474,7 +474,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
     }
 
     rig->caps->max_xit = rs->max_xit = atol(buf);
@@ -484,7 +484,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
     }
 
     rig->caps->max_ifshift = rs->max_ifshift = atol(buf);
@@ -494,7 +494,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
     }
 
     rs->announces = atoi(buf);
@@ -504,7 +504,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
     }
 
     ret = sscanf(buf, "%d%d%d%d%d%d%d",
@@ -532,7 +532,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
     }
 
     ret = sscanf(buf, "%d%d%d%d%d%d%d",
@@ -560,7 +560,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
     }
 
     rig->caps->has_get_func = rs->has_get_func = strtoll(buf, NULL, 0);
@@ -570,7 +570,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
     }
 
     rig->caps->has_set_func = rs->has_set_func = strtoll(buf, NULL, 0);
@@ -580,7 +580,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
     }
 
     rig->caps->has_get_level = rs->has_get_level = strtoll(buf, NULL, 0);
@@ -603,7 +603,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
     }
 
     rig->caps->has_set_level = rs->has_set_level = strtoll(buf, NULL, 0);
@@ -613,7 +613,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
     }
 
     rs->has_get_parm = strtoll(buf, NULL, 0);
@@ -623,7 +623,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
     }
 
     rig->caps->has_set_parm = rs->has_set_parm = strtoll(buf, NULL, 0);
@@ -654,7 +654,7 @@ static int netrigctl_open(RIG *rig)
         rs->vfo_list = RIG_VFO_A | RIG_VFO_B;
     }
 
-    if (prot_ver == 0) { return RIG_OK; }
+    if (prot_ver == 0) { RETURNFUNC(RIG_OK); }
 
     // otherwise we continue reading protocol 1 fields
 
@@ -668,10 +668,10 @@ static int netrigctl_open(RIG *rig)
 
         if (ret <= 0)
         {
-            return (ret < 0) ? ret : -RIG_EPROTO;
+            RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
         }
 
-        if (strncmp(buf, "done", 4) == 0) { return RIG_OK; }
+        if (strncmp(buf, "done", 4) == 0) { RETURNFUNC(RIG_OK); }
 
         if (sscanf(buf, "%31[^=]=%1023[^\t\n]", setting, value) == 2)
         {
@@ -684,8 +684,10 @@ static int netrigctl_open(RIG *rig)
             else if (strcmp(setting, "ptt_type") == 0)
             {
                 ptt_type_t temp = (ptt_type_t)strtol(value, NULL, 0);
+                rig_debug(RIG_DEBUG_ERR, "%s: ptt_type='%s'(%d)\n", __func__, value, temp);
 
-                if (RIG_PTT_RIG_MICDATA == rig->state.pttport.type.ptt && RIG_PTT_NONE == temp)
+                if (RIG_PTT_RIG_MICDATA == rig->state.pttport.type.ptt
+                        || temp == RIG_PTT_RIG_MICDATA)
                 {
                     /*
                      * remote PTT must always be RIG_PTT_RIG_MICDATA
@@ -699,6 +701,7 @@ static int netrigctl_open(RIG *rig)
                 }
                 else
                 {
+                    rig_debug(RIG_DEBUG_VERBOSE, "%s: ptt_type= %d\n", __func__, temp);
                     rig->state.pttport.type.ptt = temp;
                     rig->caps->ptt_type = temp;
                 }
@@ -834,7 +837,7 @@ static int netrigctl_open(RIG *rig)
     }
     while (1);
 
-    return RIG_OK;
+    RETURNFUNC(RIG_OK);
 }
 
 static int netrigctl_close(RIG *rig)
@@ -2649,6 +2652,38 @@ int netrigctl_password(RIG *rig, const char *key1)
     RETURNFUNC(retval);
 }
 
+int netrigctl_set_lock_mode(RIG *rig, int lock)
+{
+    char cmdbuf[256];
+    char buf[BUF_MAX];
+    int ret;
+
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "\\set_lock_mode %d\n", lock);
+
+    ret = netrigctl_transaction(rig, cmdbuf, strlen(cmdbuf), buf);
+
+    if (ret > 0)
+    {
+        return -RIG_EPROTO;
+    }
+    return (RIG_OK);
+}
+
+int netrigctl_get_lock_mode(RIG *rig, int *lock)
+{
+    char cmdbuf[256];
+    char buf[BUF_MAX];
+    int ret;
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "\\get_lock_mode\n");
+    ret = netrigctl_transaction(rig, cmdbuf, strlen(cmdbuf), buf);
+    if (ret == 0)
+    {
+        return -RIG_EPROTO;
+    }
+    sscanf(buf,"%d", lock);
+    return (RIG_OK);
+}
+
 /*
  * Netrigctl rig capabilities.
  */
@@ -2658,7 +2693,7 @@ struct rig_caps netrigctl_caps =
     RIG_MODEL(RIG_MODEL_NETRIGCTL),
     .model_name =     "NET rigctl",
     .mfg_name =       "Hamlib",
-    .version =        "20211123.0",
+    .version =        "20220612.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_OTHER,
@@ -2764,6 +2799,8 @@ struct rig_caps netrigctl_caps =
     .power2mW =   netrigctl_power2mW,
     .mW2power =   netrigctl_mW2power,
     .password =   netrigctl_password,
+    .set_lock_mode = netrigctl_set_lock_mode,
+    .get_lock_mode = netrigctl_get_lock_mode,
 
     .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

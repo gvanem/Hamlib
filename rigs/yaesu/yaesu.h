@@ -66,6 +66,7 @@ extern const struct rig_caps ft920_caps;
 extern const struct rig_caps ft950_caps;
 extern const struct rig_caps ft980_caps;
 extern const struct rig_caps ft990_caps;
+extern const struct rig_caps ft990uni_caps;
 extern const struct rig_caps ft991_caps;
 extern const struct rig_caps ft1000mp_caps;
 extern const struct rig_caps ft1000mpmkv_caps;
@@ -87,5 +88,6 @@ extern const struct rig_caps ft818_caps;
 extern const struct rig_caps ftdx10_caps;
 extern const struct rig_caps ftdx101mp_caps;
 extern const struct rig_caps mchfqrp_caps;
+extern const struct rig_caps ft650_caps;
 
 #endif /* _YAESU_H */

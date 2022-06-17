@@ -5387,11 +5387,11 @@ int icom_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
                 subcmd = 0x00;
             }
 
-            retry_save = rig->caps->retry;
-            rig->caps->retry = 1;
+            retry_save = rig->state.rigport.retry;
+            rig->state.rigport.retry = 1;
             retval = icom_transaction(rig, cmd, subcmd, freqbuf, freq_len, ackbuf,
                                       &ack_len);
-            rig->caps->retry = retry_save;
+            rig->state.rigport.retry = retry_save;
 
             if (retval == RIG_OK) // then we're done!!
             {
@@ -5601,7 +5601,8 @@ int icom_get_split_freq(RIG *rig, vfo_t vfo, freq_t *tx_freq)
                 int retry_save = rs->rigport.retry;
                 rs->rigport.retry = 0;
                 cmd = C_SEND_SEL_FREQ;
-                subcmd = 0x01; // get the unselected vfo
+                // when transmitting in split mode the split VFO is active
+                subcmd = (rig->state.cache.split && rig->state.cache.ptt)? 0x00 : 0x01; // get the unselected vfo
                 retval = icom_transaction(rig, cmd, subcmd, NULL, 0, ackbuf,
                                           &ack_len);
 

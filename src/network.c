@@ -980,7 +980,7 @@ int network_multicast_publisher_start(RIG *rig, const char *multicast_addr,
 
     ENTERFUNC;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):address=%s, port=%d\n", __FILE__, __LINE__,
+    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):multicast address=%s, port=%d\n", __FILE__, __LINE__,
               multicast_addr, multicast_port);
 
     if (strcmp(multicast_addr, "0.0.0.0") == 0)
@@ -1068,12 +1068,12 @@ int network_multicast_publisher_start(RIG *rig, const char *multicast_addr,
 
     if (err)
     {
+        rig_debug(RIG_DEBUG_ERR, "%s(%d) pthread_create error %s\n", __FILE__, __LINE__,
+                  strerror(errno));
         multicast_publisher_close_data_pipe(mcast_publisher_priv);
         free(mcast_publisher_priv);
         rs->multicast_publisher_priv_data = NULL;
         close(socket_fd);
-        rig_debug(RIG_DEBUG_ERR, "%s(%d) pthread_create error %s\n", __FILE__, __LINE__,
-                  strerror(errno));
         RETURNFUNC(-RIG_EINTERNAL);
     }
 
@@ -1104,7 +1104,7 @@ int network_multicast_publisher_stop(RIG *rig)
         RETURNFUNC(RIG_OK);
     }
 
-    if (mcast_publisher_priv->thread_id != 0)
+    if (PTHREAD_ID(mcast_publisher_priv->thread_id))
     {
         int err = pthread_join(mcast_publisher_priv->thread_id, NULL);
 
@@ -1115,7 +1115,7 @@ int network_multicast_publisher_stop(RIG *rig)
             // just ignore it
         }
 
-        mcast_publisher_priv->thread_id = 0;
+        PTHREAD_ID_CLEAR(mcast_publisher_priv->thread_id);
     }
 
     multicast_publisher_close_data_pipe(mcast_publisher_priv);

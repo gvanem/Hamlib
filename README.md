@@ -33,7 +33,7 @@ for calculating distance and bearing and grid square conversion are included.
 
 `libhamlib.so` - library that provides generic API for all RIG types.
     This is what Application programmers will "see".  Will have different
-    names on other platforms, e.g. `libhamlib-4.dll` on MS windows.  Also
+    names on other platforms, e.g. `Hamlib-4.dll` on MS windows.  Also
     contains all radio and rotator *backends* (formerly in their own
     `dlopen`'ed libraries) provided by Hamlib.
 
@@ -88,7 +88,7 @@ The library may be recompiled by the familiar *three step*:
 
 See the [`INSTALL`](INSTALL) file for more information.
 
-I've patched Hamlib heavily to support clang-cl and MSVC-2019+.
+This Hamlib version is heavily patched to support clang-cl and MSVC-2019+.
 Using the `Makefile.Windows CC=cl clean all`, it will build both
 `Hamlib-4.dll` and `Hamlib-4++.dll` in 45 seconds thanks to the use
 of `cl -MP`. This is on a 3.5 GHz Intel I7 machine.
@@ -132,14 +132,14 @@ are not.  Hamlib releases now follow the format of:
 
 Where
 
-**Major**:  Currently at 3, but can be advanced when changes to the API require
+**Major**:  Currently at 4, but can be advanced when changes to the API require
   client programs to be rewritten to take advantage of new features of
   Hamlib.  This number has advanced a couple of times throughout the life of
   Hamlib.  Advancement of the major number is only for frontend API changes
   that require modification of client source.  ABI compatibility is presently
   maintained to prior releases so that a program linked to an earlier
-  1.2.Y.[Z] release will work with a later 3.Y[.Z] release without
-  recompiling.  Itis our intention to maintain such ABI compatibility as long
+  1.2.Y.[Z] release will work with a later 4.Y[.Z] release without
+  recompiling.  It is our intention to maintain such ABI compatibility as long
   as practical.
 
 **Minor**:  This number advances when either new backend(s) or new rig
@@ -148,22 +148,11 @@ Where
   support has been added.  Will also include bug fixes since the last
   Incremental release.
 
-**Incremental**:    May be undefined (e.g. Hamlib 3.0) and would advance to 1
-  (e.g. Hamlib 3.0.1) for any bug fixes or feature additions to existing
+**Incremental**:    May be undefined (e.g. Hamlib 4.0) and would advance to 1
+  (e.g. Hamlib 4.0.1) for any bug fixes or feature additions to existing
   model(s) or backend(s), then to 2, etc.  New rig models or backends are not
   included in Incremental.  When Release is advanced, Incremental will reset
   to undefined and will not be included as part of the version number.
-
-Release schedule
-----------------
-
-Hamlib has in the past maintained a "ready when it's ready" philosophy.
-However, given that much of the Linux user base is now influenced by the
-Ubuntu distribution and its timed six month release schedule, Hamlib
-releases will be scheduled in advance of Ubuntu releases.  Planned release
-dates for Hamlib are now 1 February and 1 August of each calendar year.
-Between those dates various Incremental releases will occur as development
-warrants.
 
 
 Have Fun / Frank S / Stephane F / The Hamlib Group

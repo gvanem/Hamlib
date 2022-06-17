@@ -332,4 +332,57 @@ FILE *HAMLIB_API rig_set_debug_file(FILE *stream)
     return prev_stream;
 }
 
+#if defined(USE_GV_DEBUG)
+/*
+ * Windows compilers can contain both '/' and '\\' in a '__FILE__' built-in!
+ */
+const char *rig_debug_filename(const char *file)
+{
+  const char *ret = strrchr(file, '/');
+
+#ifdef _WIN32
+    if (!ret)
+       ret = strrchr (file, '\\');
+#endif
+
+    if (ret)
+         ret++;
+    else ret = file;
+
+    return (ret);
+}
+
+void __rig_debug (enum rig_debug_level_e debug_level, const char *file, unsigned line, const char *fmt, ...)
+{
+  va_list ap;
+  char file_line [1000];
+
+  if (rig_debug_level < debug_level)
+     return;
+
+  va_start(ap, fmt);
+  if (rig_vprintf_cb)
+  {
+ // (*rig_printf_cb)(debug_level, rig_vprintf_arg, "%s(%u): ", rig_debug_filename(file), line);
+    (*rig_vprintf_cb)(debug_level, rig_vprintf_arg, fmt, ap);
+  }
+  else
+  {
+    if (!rig_debug_stream)
+        rig_debug_stream = stderr;
+
+    if (rig_debug_time_stamp)
+    {
+      char buf[256];
+      fprintf(rig_debug_stream, "%s: ", date_strget(buf, sizeof(buf), 1));
+    }
+    fprintf (rig_debug_stream, "%s(%u): ", rig_debug_filename(file), line);
+    vfprintf (rig_debug_stream, fmt, ap);
+    fflush (rig_debug_stream);
+  }
+  va_end(ap);
+}
+
+#endif
+
 /** @} */

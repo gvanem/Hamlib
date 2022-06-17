@@ -41,6 +41,7 @@
 
 #include "amp_conf.h"
 #include "token.h"
+#include "misc.h"
 
 
 /*
@@ -138,7 +139,7 @@ int frontamp_set_conf(AMP *amp, token_t token, const char *val)
 
     rs = &amp->state;
 
-    amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    ENTERFUNC2;
 
     switch (token)
     {
@@ -345,7 +346,7 @@ int frontamp_get_conf2(AMP *amp, token_t token, char *val, int val_len)
 
     rs = &amp->state;
 
-    amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    ENTERFUNC2;
 
     switch (token)
     {
@@ -499,7 +500,7 @@ int HAMLIB_API amp_token_foreach(AMP *amp,
 {
     const struct confparams *cfp;
 
-    amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    ENTERFUNC2;
 
     if (!amp || !amp->caps || !cfunc)
     {
@@ -562,7 +563,7 @@ const struct confparams *HAMLIB_API amp_confparam_lookup(AMP *amp,
     const struct confparams *cfp;
     token_t token;
 
-    amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    ENTERFUNC2;
 
     if (!amp || !amp->caps)
     {
@@ -621,7 +622,7 @@ token_t HAMLIB_API amp_token_lookup(AMP *amp, const char *name)
 {
     const struct confparams *cfp;
 
-    amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    ENTERFUNC2;
 
     cfp = amp_confparam_lookup(amp, name);
 
@@ -654,7 +655,7 @@ token_t HAMLIB_API amp_token_lookup(AMP *amp, const char *name)
  */
 int HAMLIB_API amp_set_conf(AMP *amp, token_t token, const char *val)
 {
-    amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    ENTERFUNC2;
 
     if (!amp || !amp->caps)
     {
@@ -710,7 +711,7 @@ int HAMLIB_API amp_set_conf(AMP *amp, token_t token, const char *val)
  */
 int HAMLIB_API amp_get_conf2(AMP *amp, token_t token, char *val, int val_len)
 {
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    ENTERFUNC2;
 
     if (!amp || !amp->caps || !val)
     {

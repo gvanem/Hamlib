@@ -88,16 +88,18 @@ extern int read_history();
 #define ARG_OUT3 0x20
 #define ARG_IN4  0x40
 #define ARG_OUT4 0x80
+#define ARG_OUT5 0x100
 #define ARG_IN_LINE 0x4000
 #define ARG_NOVFO 0x8000
 
 #define ARG_IN  (ARG_IN1|ARG_IN2|ARG_IN3|ARG_IN4)
-#define ARG_OUT (ARG_OUT1|ARG_OUT2|ARG_OUT3|ARG_OUT4)
+#define ARG_OUT (ARG_OUT1|ARG_OUT2|ARG_OUT3|ARG_OUT4|ARG_OUT5)
 
 static int chk_vfo_executed;
 char rigctld_password[64];
 int is_passwordOK;
 int is_rigctld;
+
 
 
 /* variables for readline support */
@@ -140,6 +142,7 @@ struct test_table
     const char *arg3;
     const char *arg4;
     const char *arg5;
+    const char *arg6;
 };
 
 
@@ -248,6 +251,10 @@ declare_proto_rig(password);
 //declare_proto_rig(set_password);
 declare_proto_rig(set_clock);
 declare_proto_rig(get_clock);
+declare_proto_rig(set_separator);
+declare_proto_rig(get_separator);
+declare_proto_rig(set_lock_mode);
+declare_proto_rig(get_lock_mode);
 
 
 /*
@@ -344,7 +351,7 @@ static struct test_table test_list[] =
     { 0x8f, "dump_state",       ACTION(dump_state),     ARG_OUT | ARG_NOVFO },
     { 0xf0, "chk_vfo",          ACTION(chk_vfo),        ARG_NOVFO, "ChkVFO" },   /* rigctld only--check for VFO mode */
     { 0xf2, "set_vfo_opt",      ACTION(set_vfo_opt),    ARG_NOVFO | ARG_IN, "Status" }, /* turn vfo option on/off */
-    { 0xf3, "get_vfo_info",     ACTION(get_vfo_info),   ARG_NOVFO | ARG_IN1 | ARG_OUT4, "Freq", "Mode", "Width", "Split", "SatMode" }, /* get several vfo parameters at once */
+    { 0xf3, "get_vfo_info",     ACTION(get_vfo_info),   ARG_IN1 | ARG_NOVFO | ARG_OUT5, "VFO", "Freq", "Mode", "Width", "Split", "SatMode" }, /* get several vfo parameters at once */
     { 0xf5, "get_rig_info",     ACTION(get_rig_info),   ARG_NOVFO | ARG_OUT, "RigInfo" }, /* get several vfo parameters at once */
     { 0xf4, "get_vfo_list",    ACTION(get_vfo_list),   ARG_OUT | ARG_NOVFO, "VFOs" },
     { 0xf6, "get_modes",       ACTION(get_modes),   ARG_OUT | ARG_NOVFO, "Modes" },
@@ -356,6 +363,10 @@ static struct test_table test_list[] =
     { 0x98, "password",         ACTION(password),       ARG_IN | ARG_NOVFO, "Password" },
 //    { 0x99, "set_password",     ACTION(set_password),   ARG_IN | ARG_NOVFO, "Password" },
     { 0xf7, "get_mode_bandwidths", ACTION(get_mode_bandwidths),   ARG_IN | ARG_NOVFO, "Mode" },
+    { 0xa0, "set_separator",     ACTION(set_separator), ARG_IN | ARG_NOVFO, "Separator" },
+    { 0xa1, "get_separator",     ACTION(get_separator), ARG_NOVFO, "Separator" },
+    { 0xa2, "set_lock_mode",     ACTION(set_lock_mode), ARG_IN | ARG_NOVFO, "Locked" },
+    { 0xa3, "get_lock_mode",     ACTION(get_lock_mode), ARG_NOVFO, "Locked" },
     { 0x00, "", NULL },
 };
 
@@ -674,7 +685,7 @@ int rigctl_parse(RIG *my_rig, FILE *fin, FILE *fout, char *argv[], int argc,
                 if ((retcode = scanfc(fin, "%c", &cmd)) < 1)
                 {
                     rig_debug(RIG_DEBUG_WARN, "%s: nothing to scan#1? retcode=%d, last_cmd=%c\n",
-                               __func__,
+                              __func__,
                               retcode, last_cmd);
                     return (RIGCTL_PARSE_ERROR);
                 }
@@ -1706,19 +1717,19 @@ readline_repeat:
     else
     {
         retcode = (*cmd_entry->rig_routine)(my_rig,
-                                        fout,
-                                        fin,
-                                        interactive,
-                                        prompt,
-                                        vfo_opt,
-                                        send_cmd_term,
-                                        *ext_resp_ptr,
-                                        *resp_sep_ptr,
-                                        cmd_entry,
-                                        vfo,
-                                        p1,
-                                        p2 ? p2 : "",
-                                        p3 ? p3 : "");
+                                            fout,
+                                            fin,
+                                            interactive,
+                                            prompt,
+                                            vfo_opt,
+                                            send_cmd_term,
+                                            *ext_resp_ptr,
+                                            *resp_sep_ptr,
+                                            cmd_entry,
+                                            vfo,
+                                            p1,
+                                            p2 ? p2 : "",
+                                            p3 ? p3 : "");
     }
 
 
@@ -1773,6 +1784,8 @@ readline_repeat:
             }
         }
     }
+
+    if (*resp_sep_ptr != '\n') { fprintf(fout, "\n"); }
 
     fflush(fout);
 
@@ -2147,6 +2160,8 @@ declare_proto_rig(set_mode)
 
     ENTERFUNC;
 
+    if (rig->state.lock_mode || lock_mode) { RETURNFUNC(RIG_OK); }
+
     if (!strcmp(arg1, "?"))
     {
         char s[SPRINTF_MAX_SIZE];
@@ -2157,6 +2172,9 @@ declare_proto_rig(set_mode)
 
     mode = rig_parse_mode(arg1);
     CHKSCN1ARG(sscanf(arg2, "%ld", &width));
+
+    if (rig->state.lock_mode) { RETURNFUNC(RIG_OK); }
+
     RETURNFUNC(rig_set_mode(rig, vfo, mode, width));
 }
 
@@ -2309,15 +2327,17 @@ declare_proto_rig(get_vfo_info)
 
     if ((interactive && prompt) || (interactive && !prompt && ext_resp))
     {
-        fprintf(fout, "%s: %.0f\n", cmd->arg1, freq);
-        fprintf(fout, "%s: %s\n", cmd->arg2, modestr);
-        fprintf(fout, "%s: %d\n", cmd->arg3, (int)width);
-        fprintf(fout, "%s: %d\n", cmd->arg4, (int)split);
-        fprintf(fout, "%s: %d\n", cmd->arg5, (int)satmode);
+        fprintf(fout, "%s: %.0f%c", cmd->arg2, freq, resp_sep);
+        fprintf(fout, "%s: %s%c", cmd->arg3, modestr, resp_sep);
+        fprintf(fout, "%s: %d%c", cmd->arg4, (int)width, resp_sep);
+        fprintf(fout, "%s: %d%c", cmd->arg5, (int)split, resp_sep);
+        fprintf(fout, "%s: %d%c", cmd->arg6, (int)satmode, resp_sep);
     }
     else
     {
-        fprintf(fout, "%.0f\n%s\n%d\n", freq, modestr, (int)width);
+        fprintf(fout, "%.0f%c%s%c%d%c%d%c%d\n", freq, resp_sep, modestr, resp_sep,
+                (int)width, resp_sep, (int)split, resp_sep,
+                (int)satmode);
     }
 
     ELAPSED2;
@@ -2439,6 +2459,7 @@ declare_proto_rig(set_ptt)
 
     CHKSCN1ARG(sscanf(arg1, "%d", &scr));
     ptt = scr;
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: set_ptt ptt=%d\n", __func__, ptt);
 
     /*
      * We allow RIG_PTT_ON_MIC and RIG_PTT_ON_DATA arriving from netrigctl.
@@ -2453,11 +2474,19 @@ declare_proto_rig(set_ptt)
     case RIG_PTT_ON_MIC:
     case RIG_PTT_ON_DATA:
 
+        // No longer map this -- is confusing rigctld and MICDATA rigs
+        // https://github.com/Hamlib/Hamlib/issues/998
+#if 0
+
         // map to a legal value
-        if (rig->state.pttport.type.ptt != RIG_PTT_RIG_MICDATA)
+        if (rig->caps->ptt_type != RIG_PTT_RIG_MICDATA)
         {
+            rig_debug(RIG_DEBUG_ERR, "%s: pttport.type.ptt=%d\n", __func__,
+                      rig->state.pttport.type.ptt);
             ptt = RIG_PTT_ON;
         }
+
+#endif
 
         break;
 
@@ -2473,6 +2502,7 @@ declare_proto_rig(set_ptt)
         RETURNFUNC(-RIG_EINVAL);
     }
 
+    rig_debug(RIG_DEBUG_ERR, "%s: ptt=%d\n", __func__, ptt);
     RETURNFUNC(rig_set_ptt(rig, vfo, ptt));
 }
 
@@ -3213,10 +3243,10 @@ declare_proto_rig(get_level)
         if (rig->caps->get_ext_level)
         {
             sprintf_level_ext(s, sizeof(s), rig->caps->extlevels);
-            fputs(s, fout);
+            fprintf(fout, "%s%c", s, resp_sep);
         }
 
-        fputc('\n', fout);
+        //fputc('\n', fout);
         RETURNFUNC(RIG_OK);
     }
 
@@ -3286,11 +3316,11 @@ declare_proto_rig(get_level)
 
     if (RIG_LEVEL_IS_FLOAT(level))
     {
-        fprintf(fout, "%f\n", val.f);
+        fprintf(fout, "%f%c", val.f, resp_sep);
     }
     else
     {
-        fprintf(fout, "%d\n", val.i);
+        fprintf(fout, "%d%c", val.i, resp_sep);
     }
 
     RETURNFUNC(status);
@@ -4367,7 +4397,7 @@ declare_proto_rig(dump_state)
     {
         fprintf(fout, "vfo_ops=0x%x\n", rig->caps->vfo_ops);
         fprintf(fout, "ptt_type=0x%x\n",
-                rig->state.pttport.type.ptt == RIG_PTT_NONE ? RIG_PTT_NONE : RIG_PTT_RIG);
+                rig->state.pttport.type.ptt);
         fprintf(fout, "targetable_vfo=0x%x\n", rig->caps->targetable_vfo);
         fprintf(fout, "has_set_vfo=%d\n", rig->caps->set_vfo != NULL);
         fprintf(fout, "has_get_vfo=%d\n", rig->caps->get_vfo != NULL);
@@ -4461,7 +4491,7 @@ declare_proto_rig(get_ant)
     int status;
     ant_t ant, ant_curr, ant_tx, ant_rx;
     value_t option;
-    char antbuf[32];
+    char antbuf[64];
 
     ENTERFUNC;
 
@@ -5156,4 +5186,87 @@ declare_proto_rig(get_clock)
             aoffset / 100, aoffset % 100);
 
     return retval;
+}
+
+char rig_resp_sep = '\n';
+/* '0xa0' */
+declare_proto_rig(set_separator)
+{
+    CHKSCN1ARG(sscanf(arg1, "%c", &rig_resp_sep));
+    rig_debug(RIG_DEBUG_ERR, "%s: arg1=%s, resp_sep=0x%x, %p\n", __func__, arg1,
+              (unsigned int)rig_resp_sep, &rig_resp_sep);
+    return RIG_OK;
+}
+
+/* '0xa1' */
+declare_proto_rig(get_separator)
+{
+    char buf[32];
+
+    if ((interactive && prompt) || (interactive && !prompt && ext_resp))
+    {
+        fprintf(fout, "%s: ", cmd->arg1);
+    }
+
+    sprintf(buf, "0x%x", rig_resp_sep);
+
+    fprintf(fout, "%s\n", buf);
+    return RIG_OK;
+}
+
+/* '0xa2' */
+declare_proto_rig(set_lock_mode)
+{
+    int lock;
+    int retval;
+    rig_debug(RIG_DEBUG_TRACE, "%s:\n", __func__);
+    CHKSCN1ARG(sscanf(arg1, "%d", &lock));
+
+    if (is_rigctld)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: rigctld lock\n", __func__);
+        lock_mode = lock;
+        retval = RIG_OK;
+    }
+    else
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: rig lock\n", __func__);
+        retval =  rig_set_lock_mode(rig, lock);
+    }
+
+    return retval;
+}
+
+/* '0xa3' */
+declare_proto_rig(get_lock_mode)
+{
+    int retval;
+    int lock;
+
+    rig_debug(RIG_DEBUG_TRACE, "%s:\n", __func__);
+
+    if ((interactive && prompt) || (interactive && !prompt && ext_resp))
+    {
+        fprintf(fout, "%s: ", cmd->arg1);
+    }
+
+    if (is_rigctld)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: rigctld lock\n", __func__);
+        lock = lock_mode;
+        retval = RIG_OK;
+    }
+    else
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: rig lock\n", __func__);
+        retval = rig_get_lock_mode(rig, &lock);
+    }
+
+    if (retval != RIG_OK)
+    {
+        return retval;
+    }
+
+    fprintf(fout, "%d\n", lock);
+    return RIG_OK;
 }

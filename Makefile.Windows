@@ -25,6 +25,8 @@ USE_LIBUSB      ?= 1
 USE_LIBUSRP     ?= 1
 USE_LIBXML2     ?= 1
 USE_LUAJIT      ?= 1
+USE_PTHREAD     ?= 1
+USE_GV_DEBUG    ?= 1
 USE_MP_COMPILE  ?= 1
 
 #
@@ -43,15 +45,6 @@ USE_GNURADIO ?= 0
 #   https://github.com/gvanem/wsock-trace
 #
 USE_WSOCK_TRACE ?= 1
-
-#
-# Use '$(Hamlib_DLL)' for all C programs.
-# And '$(Hamlib++_DLL)' for all C++ programs.
-#
-# This has no effect on the Python / Lua modules
-# which should always be using the '$(Hamlib_DLL)'.
-#
-USE_DLLs_FOR_PROGRAMS ?= 1
 
 #
 # Set to 0 for no Python module.
@@ -81,16 +74,18 @@ VCPKG_ROOT := $(realpath $(VCPKG_ROOT))
 # Change these as needed:
 # (or create env-vars like 'LIBXML2_ROOT=c:/whatever/xml2').
 #
+BOOST_ROOT       ?= f:/MinGW32/src/CPP/Boost_1_79_0
+GNURADIO_ROOT    ?= f:/gv/dx-radio/GnuRadio/gv-build
 LIBXML2_ROOT     ?= f:/MinGW32/src/Parsers/libxml2
 LIBICONV_ROOT    ?= f:/MinGW32/src/libiconv-1.15
-LIBGD_ROOT       ?= $(VCPKG_ROOT)/installed/$(CPU)-windows
 LIBREADLINE_ROOT ?= f:/MinGW32/src/misc/libreadline
 LUAJIT_ROOT      ?= f:/MinGW32/src/LUA/LuaJIT
 LUA5_ROOT        ?= f:/MinGW32/src/LUA/Lua-5.4
 LIBUSB_ROOT      ?= f:/MinGW32/src/USB/libusb
 LIBUSRP_ROOT     ?= f:/gv/dx-radio/Bor-IP/src/libusrp/usrp/host
-GNURADIO_ROOT    ?= f:/gv/dx-radio/GnuRadio/gv-build
 LIBINDI_ROOT     ?= f:/ProgramFiler/Stellarium/src/src/external/libindi
+LIBGD_ROOT       ?= $(VCPKG_ROOT)/installed/$(CPU)-windows
+PTHREAD_ROOT     ?= $(VCPKG_ROOT)/installed/$(CPU)-windows
 
 #
 # For Python stuff besides the 'Hamlib.pyd' target:
@@ -99,10 +94,10 @@ PYTHON ?= py -3
 
 ifeq ($(USE_LUAJIT),1)
   LUA_ROOT = $(realpath $(LUAJIT_ROOT))
-  LUA_LIB  = $(call select, $(LUA_ROOT)/src/libluajit.a, $(LUA_ROOT)/src/lua51.lib)
+  LUA_LIB  = $(call select, $(LUA_ROOT)/src/lua51.lib, $(LUA_ROOT)/src/libluajit.a)
 else
   LUA_ROOT = $(realpath $(LUA5_ROOT))
-  LUA_LIB  = $(call select, $(LUA_ROOT)/src/liblua.a, $(LUA_ROOT)/src/lua.lib)
+  LUA_LIB  = $(call select, $(LUA_ROOT)/src/lua.lib, $(LUA_ROOT)/src/liblua.a)
 endif
 
 MKDIR = mkdir
@@ -141,7 +136,6 @@ ifeq ($(CC),gcc)
   OBJ_DIR   = MinGW_obj
   MSVC_TYPE = 0
 
-
 else ifeq ($(CC),clang-cl)
   OBJ_DIR   = clang_obj
   MSVC_TYPE = 1
@@ -158,10 +152,31 @@ ifneq ($(CC),cl)
   USE_MP_COMPILE := 0
 endif
 
-ifeq ($(CC),gcc)
+ifeq ($(MSVC_TYPE),1)
+  select  = $(1)
+  CFLAGS  = -nologo -MD -W3 -Zi -O2 -EHsc -DWIN32 -FI./include/hamlib/config.h
+  LDFLAGS = -nologo -debug -incremental:no -verbose -machine:$(CPU) -nodefaultlib:uuid.lib
+  RCFLAGS = -nologo
+  O       = obj
+  A       = lib
+
+  ifeq ($(CC),clang-cl)
+    RCFLAGS += -D__clang__
+    CFLAGS  += -fms-compatibility -ferror-limit=5
+  else
+    RCFLAGS += -D_MSC_VER
+  endif
+
+  ifeq ($(USE_WSOCK_TRACE),1)
+    WS2_32_LIB = wsock_trace.lib
+  else
+    WS2_32_LIB = ws2_32.lib
+  endif
+
+else
   USE_LIBUSRP = 0
 
-  select  = $(1)
+  select  = $(2)
   CFLAGS  = -m$(BITS) -O2 -g --include include/hamlib/config.h
   LDFLAGS = -m$(BITS) -Wl,--print-map,--sort-common
   O       = o
@@ -188,30 +203,10 @@ ifeq ($(CC),gcc)
   endif
 
   WS2_32_LIB = -lws2_32
-
-else
-  select  = $(2)
-  CFLAGS  = -nologo -MD -W3 -Zi -O2 -EHsc -DWIN32 -FI./include/hamlib/config.h
-  LDFLAGS = -nologo -debug -incremental:no -verbose -machine:$(CPU) -nodefaultlib:uuid.lib
-  RCFLAGS = -nologo
-  O       = obj
-  A       = lib
-
-  ifeq ($(CC),clang-cl)
-    RCFLAGS += -D__clang__
-    CFLAGS  += -fms-compatibility -ferror-limit=5
-  else
-    RCFLAGS += -D_MSC_VER
-  endif
-
-  ifeq ($(USE_WSOCK_TRACE),1)
-    WS2_32_LIB = wsock_trace.lib
-  else
-    WS2_32_LIB = ws2_32.lib
-  endif
 endif
 
 RCFLAGS += -I.
+
 
 #
 # Warning control:
@@ -259,7 +254,6 @@ else ifeq ($(CC),clang-cl)
               -Wno-c++98-compat-pedantic              \
               -Wno-old-style-cast                     \
               -Wno-reserved-identifier                \
-              -Wno-extra-semi-stmt                    \
               -Wno-cast-function-type                 \
               -Wno-missing-field-initializers         \
               -Wno-missing-noreturn                   \
@@ -310,25 +304,25 @@ endif
 #
 # External libraries for '$(Hamlib_DLL)':
 #
-Hamlib_EX_LIBS = $(WS2_32_LIB) $(call select, -ladvapi32, advapi32.lib)
+Hamlib_EX_LIBS = $(PTHREAD_LIB) $(WS2_32_LIB) $(call select, advapi32.lib, -ladvapi32)
 
 #
 # The DLL and library names:
 #
 Hamlib_DLL      = Hamlib-$(ABI_VER).dll
-Hamlib_IMP_LIB  = $(call select, libHamlib-$(ABI_VER).dll.a, Hamlib-$(ABI_VER)_imp.lib)
-Hamlib_STAT_LIB = $(call select, libHamlib-$(ABI_VER).a,     Hamlib-$(ABI_VER).lib)
+Hamlib_IMP_LIB  = $(call select, Hamlib-$(ABI_VER)_imp.lib, libHamlib-$(ABI_VER).dll.a)
+Hamlib_STAT_LIB = $(call select, Hamlib-$(ABI_VER).lib,     libHamlib-$(ABI_VER).a)
 
 #
 # The C++ library
 #
 Hamlib++_DLL     = Hamlib-$(ABI_VER)++.dll
-Hamlib++_IMP_LIB = $(call select, libHamlib-$(ABI_VER)++.dll.a, Hamlib-$(ABI_VER)++_imp.lib)
+Hamlib++_IMP_LIB = $(call select, Hamlib-$(ABI_VER)++_imp.lib, libHamlib-$(ABI_VER)++.dll.a)
 
 #
 # The internal utility library; '$(hamlib_misc_SRC)'.
 #
-misc_LIB = $(call select, libmisc.a, misc.lib)
+misc_LIB = $(call select, misc.lib, libmisc.a)
 
 #
 # What to build:
@@ -345,33 +339,34 @@ TARGETS += $(Hamlib++_DLL) $(Hamlib++_IMP_LIB)
 # For 'test/*.c' only. They all use '$(Hamlib_DLL)'
 # and these external libraries:
 #
-PROG_EX_LIBS =  $(call select, -lwinpthread)
+ifeq ($(USE_PTHREAD),1)
+  CFLAGS += -DHAVE_PTHREAD
 
-ifeq ($(USE_DLLs_FOR_PROGRAMS),1)
-  #
-  # A strangely named macro ('-DUSE_Hamlib_DLL' would be better), but
-  # this will let all .c and .cc programs to use '$(Hamlib_DLL)'.
-  # It boils down to adding a '__declspec(dllimport)' for all code/data
-  # in 'Hamlib--$(ABI_VER).dll'.
-  #
-  PROG_CFLAGS = -DDLL_EXPORT
-
-  #
-  # Use '$(Hamlib_DLL)' for C programs.
-  #
-  C_PROG_LIBS = $(misc_LIB) $(Hamlib_IMP_LIB)
-
-  #
-  # Use '$(HAMLIB++_DLL) and '$(Hamlib_DLL)' for C++ programs.
-  # The library order matter for MinGW only.
-  #
-  CPP_PROG_LIBS = $(Hamlib_IMP_LIB) $(Hamlib++_IMP_LIB)
+   #
+   # MinGW has it's own bundled pthread
+   #
+  ifeq ($(MSVC_TYPE),1)
+    CFLAGS     += -I$(PTHREAD_ROOT)/include
+    PTHREAD_LIB = $(PTHREAD_ROOT)/lib/pthreadVC3.lib
+  else
+    PTHREAD_LIB = -lwinpthread
+  endif
 else
-  PROG_CFLAGS   =
-  PROG_EX_LIBS  = $(Hamlib_EX_LIBS)
-  C_PROG_LIBS   = $(Hamlib_STAT_LIB) $(misc_LIB)
-  CPP_PROG_LIBS = $(Hamlib_STAT_LIB) $(misc_LIB) $(Hamlib++_IMP_LIB) $(Hamlib_EX_LIBS)
+  PTHREAD_LIB =
 endif
+
+PROG_EX_LIBS = $(PTHREAD_LIB)
+
+#
+# Use '$(Hamlib_DLL)' for C programs.
+#
+C_PROG_LIBS = $(misc_LIB) $(Hamlib_IMP_LIB)
+
+#
+# Use '$(HAMLIB++_DLL) and '$(Hamlib_DLL)' for C++ programs.
+# The library order matter for MinGW only.
+#
+CPP_PROG_LIBS = $(Hamlib_IMP_LIB) $(Hamlib++_IMP_LIB)
 
 ifeq ($(CC),gcc)
   CPP_PROG_LIBS += -lstdc++
@@ -379,17 +374,17 @@ endif
 
 #
 # For 'rigs/kit/usrp.c' and 'rigs/kit/usrp_impl.cc'.
-# This needs Boost too. Untested by me.
+# This needs Boost too.
 #
 ifeq ($(USE_LIBUSRP),1)
   CFLAGS += -DHAVE_USRP               \
+            -I$(BOOST_ROOT)           \
             -I$(LIBUSRP_ROOT)/include \
             -I$(LIBUSRP_ROOT)/include/usrp
 
-  Hamlib_EX_LIBS += $(call select, $(LIBUSRP_ROOT)/libUSRP.a, \
-                                   $(LIBUSRP_ROOT)/libUSRP_imp.lib)
+  Hamlib_EX_LIBS += $(call select, $(LIBUSRP_ROOT)/libUSRP_imp.lib, $(LIBUSRP_ROOT)/libUSRP.a)
 
-  hamlib_CC_SRC = kit/usrp_impl.cc
+  hamlib_CC_SRC = rigs/kit/usrp_impl.cc
 endif
 
 ifeq ($(USE_LIBUSB),1)
@@ -397,8 +392,7 @@ ifeq ($(USE_LIBUSB),1)
             -DHAVE_LIBUSB_H \
             -I$(LIBUSB_ROOT)/libusb
 
-  Hamlib_EX_LIBS += $(call select, $(LIBUSB_ROOT)/libusb-1.0.dll.a, \
-                                   $(LIBUSB_ROOT)/libusb-1.0_imp.lib)
+  Hamlib_EX_LIBS += $(call select, $(LIBUSB_ROOT)/libusb-1.0_imp.lib, $(LIBUSB_ROOT)/libusb-1.0.dll.a)
 endif
 
 #
@@ -408,8 +402,7 @@ ifeq ($(USE_LIBREADLINE),1)
   CFLAGS += -DHAVE_LIBREADLINE \
             -I$(LIBREADLINE_ROOT)/include
 
-  Hamlib_EX_LIBS += $(call select, $(LIBREADLINE_ROOT)/libreadline.a, \
-                                   $(LIBREADLINE_ROOT)/libreadline.lib)
+  Hamlib_EX_LIBS += $(call select, $(LIBREADLINE_ROOT)/libreadline.lib, $(LIBREADLINE_ROOT)/libreadline.a)
 endif
 
 CFLAGS += -I.                \
@@ -424,7 +417,7 @@ ifeq ($(USE_VERBOSE_DEBUG),1)
   CFLAGS += -DDEBUG_HOSED -DDEBUG_VERBOSE -DHASH_BLOOM
 endif
 
-ifneq ($(CC),gcc)
+ifeq ($(MSVC_TYPE),1)
   CFLAGS         += -I./$(OBJ_DIR)
   Hamlib_EX_LIBS += kernel32.lib
 endif
@@ -484,6 +477,7 @@ VPATH += $(addprefix rotators/, \
            easycomm             \
            ether6               \
            fodtrack             \
+           grbltrk              \
            gs232a               \
            heathkit             \
            indi                 \
@@ -544,30 +538,43 @@ TEST_PROGS += simelecraft.exe \
 
 ifeq ($(USER),appveyor)
   #
-  # TODO: build with 'LIBUSB_ROOT = ./CI/libusb', 'LIBXML2_ROOT = ./CI/libxml2' etc.
-  #       when running via 'appveyor.yml'
+  # TODO:
+  #   build with 'LIBUSB_ROOT = ./CI/libusb', 'LIBXML2_ROOT = ./CI/libxml2' etc.
+  #  when running via 'appveyor.yml'
   #
+endif
+
+
+ifeq ($(USE_GV_DEBUG),1)
+  CFLAGS += -DUSE_GV_DEBUG
 endif
 
 ifeq ($(USE_LIBXML2),1)
-  TEST_PROGS  += rigmem.exe
-  PROG_CFLAGS += -I$(LIBXML2_ROOT)/include  \
-                 -I$(LIBICONV_ROOT)/include \
-                 -DHAVE_XML2
+  TEST_PROGS += rigmem.exe
+  CFLAGS += -I$(LIBXML2_ROOT)/include  \
+            -I$(LIBICONV_ROOT)/include \
+            -DHAVE_XML2
 
   #
   # Use the dynamic version of 'libxml2'.
-  # I.e. do not set 'PROG_CFLAGS += -DLIBXML_STATIC'.
+  # I.e. do not set 'CFLAGS += -DLIBXML_STATIC'.
   # Otherwise we could need to link to a static 'Iconv', 'Zlib' and
   # a 'liblzma' too (depending on how 'libxml2' was built).
   #
-  XML2_LIB = $(call select, $(LIBXML2_ROOT)/libxml2.dll.a, \
-                            $(LIBXML2_ROOT)/xml2_imp.lib)
+  XML2_LIB = $(call select, $(LIBXML2_ROOT)/xml2_imp.lib, $(LIBXML2_ROOT)/libxml2.dll.a)
 endif
 
 ifeq ($(USE_LIBGD),1)
-  TEST_PROGS  += rigmatrix.exe
-  PROG_CFLAGS += -I$(LIBGD_ROOT)/include -I$(LIBGD_ROOT)/src
+  TEST_PROGS += rigmatrix.exe
+  CFLAGS     += -I$(LIBGD_ROOT)/include -I$(LIBGD_ROOT)/src
+endif
+
+#
+# Since there may be an incompatible '$(VCPKG_ROOT)/installed/$(CPU)-windows/include/getopt.h'
+# breaking 'lib/getopt.h'.
+#
+ifeq ($(MSVC_TYPE),1)
+  CFLAGS += -D__GETOPT_H_
 endif
 
 #
@@ -992,6 +999,9 @@ hamlib_C_SRC += $(addprefix rotators/,  \
                   spid/spid.c           \
                   ts7400/ts7400.c)
 
+hamlib_C_SRC += $(addprefix rotators/grbltrk/, \
+                  grbltrk.c)
+
 hamlib_C_SRC += $(addprefix rotators/gs232a/, \
                   gs232.c                     \
                   gs232a.c                    \
@@ -1041,7 +1051,7 @@ hamlib_misc_SRC = $(addprefix lib/, \
                     termios.c       \
                     win-misc.c)
 
-ifneq ($(CC),gcc)
+ifeq ($(MSVC_TYPE),1)
   hamlib_misc_SRC += $(addprefix lib/, \
                        getopt_long.c   \
                        usleep.c)
@@ -1169,14 +1179,21 @@ all_test_OBJ += $(ampctl_OBJ)    \
 
 all_test_I = $(notdir $(all_test_OBJ:.$(O)=.i))
 
-$(all_test_OBJ) $(all_test_I): EXTRA_CFLAGS = $(PROG_CFLAGS)
+#
+# A strangely named macro ('-DUSE_Hamlib_DLL' would be better), but
+# defining 'DLL_EXPORT' lets all .c and .cc programs use '$(Hamlib_DLL)'.
+#
+# It boils down to adding a '__declspec(dllimport)' for all code/data
+# in '$(Hamlib_DLL)'.
+#
+$(all_test_OBJ) $(all_test_I): EXTRA_CFLAGS = -DDLL_EXPORT
 
 .SECONDARY: $(all_test_OBJ)
 
 GENERATED = include/hamlib/config.h \
             src/hamlibdatetime.h
 
-ifneq ($(CC),gcc)
+ifeq ($(MSVC_TYPE),1)
   GENERATED += $(addprefix $(OBJ_DIR)/, \
                  unistd.h               \
                  termios.h              \
@@ -1195,7 +1212,7 @@ $(OBJ_DIR) $(OBJ_DIR)/sys:
 #
 install_colorama:
 ifneq ($(APPVEYOR_PROJECT_NAME),)
-	$(call green_message, Installing 'colorama'...)
+	$(call green_message, Installing 'colorama' ...)
 	$(PYTHON) -m pip install colorama
 endif
 
@@ -1203,7 +1220,12 @@ epilogue:
 	$(call white_message, Welcome to $(Hamlib_DLL) and $(Hamlib++_DLL) (CPU=$(CPU)).)
 	$(call green_message, You could also do a $(BRIGHT_WHITE)make -f $(THIS_FILE) [doxy_docs | py_module | lua_module | rigmatrix_table]\n)
 
+ifeq ($(USER),gv)
+  TEST_PROGS += py_module lua_module
+endif
+
 programs: $(GENERATED) $(TEST_PROGS)
+
 
 $(hamlib_misc_OBJ): EXTRA_CFLAGS += -DIN_HAMLIB_MISC_LIB
 
@@ -1217,10 +1239,10 @@ $(Hamlib_IMP_LIB):   $(Hamlib_DLL)
 $(Hamlib++_IMP_LIB): $(Hamlib++_DLL)
 
 $(Hamlib_DLL): $(OBJ_DIR)/Hamlib.def $(Hamlib_STAT_LIB) $(misc_LIB) $(OBJ_DIR)/Hamlib.res | check-for-unused-libraries.py
-	$(call link_DLL, $@, $(Hamlib_IMP_LIB), $(call select,,-def:)$^ $(Hamlib_EX_LIBS))
+	$(call link_DLL, $@, $(Hamlib_IMP_LIB), $(call select,-def:)$^ $(Hamlib_EX_LIBS))
 
 $(Hamlib++_DLL): $(hamlib++_OBJ) $(Hamlib_IMP_LIB) $(OBJ_DIR)/Hamlib++.res | check-for-unused-libraries.py
-	$(call link_DLL, $@, $(Hamlib++_IMP_LIB), $^ $(call select, -lstdc++,) $(Hamlib++_EX_LIBS))
+	$(call link_DLL, $@, $(Hamlib++_IMP_LIB), $^ $(call select,, -lstdc++) $(Hamlib++_EX_LIBS))
 
 #
 # For MSVC only.
@@ -1254,9 +1276,14 @@ ifeq ($(USE_MP_COMPILE),1)
 	$(call Compile_MP, -DIN_HAMLIB $(SRC_chunk_5))
 endif
 
+#
+# Put the '-Dxx' arguments from the 'CFLAGS' and sort them first in result.
+#
+filter_D_args_first = $(sort $(filter -D%, $(1))) $(filter-out -D%, $(1))
+
 $(CC).args: $(THIS_FILE)
 	$(call green_message, Creating $@)
-	$(call create_resp_file, $@, $(CFLAGS) -c)
+	$(call create_resp_file, $@, -c $(call filter_D_args_first, $(CFLAGS)))
 
 #
 # C++ test programs:
@@ -1298,14 +1325,13 @@ rotctld.exe: $(rotctld_OBJ) $(C_PROG_LIBS)
 	$(call link_EXE, $@, $^ $(PROG_EX_LIBS) $(WS2_32_LIB))
 
 #
-# Copy it's needed .DLL here to avoid another DLL-hell.
+# The 'libgd' import-library.
 #
-ifeq ($(CC),gcc)
-  LIBGD_LIB  = $(LIBGD_ROOT)/src/libgd.dll.a
-else
-  LIBGD_LIB  = $(LIBGD_ROOT)/lib/libgd.lib
-endif
+LIBGD_LIB = $(call select, $(LIBGD_ROOT)/lib/libgd.lib, $(LIBGD_ROOT)/src/libgd.dll.a)
 
+#
+# Copy the needed .DLLs here to avoid another DLL-hell.
+#
 LIBGD_DLLs = $(LIBGD_ROOT)/bin/libgd.dll        \
              $(LIBGD_ROOT)/bin/libpng16.dll     \
              $(LIBGD_ROOT)/bin/jpeg62.dll       \
@@ -1377,7 +1403,7 @@ clean: clean_docs clean_libgd_DLLs clean_rigmatrix
 	      _Hamlib.{pyd,,map,pdb,exp,lib}        \
 	      HamlibLua.{dll,lib,a,map,pdb,exp}     \
 	      $(GENERATED) vc1*.pdb cl.args clang-cl.args gcc.args lib.args link.args link.tmp \
-	      cpp_filter.py check-for-unused-libraries.py
+	      depend_c.args depend_cc.args cpp_filter.py check-for-unused-libraries.py
 
 vclean realclean: clean
 	rm -f $(TARGETS) $(TEST_PROGS) .depend.Windows
@@ -1463,7 +1489,7 @@ ifneq ($(USE_PY_BINDING),0)
   endif
 endif
 
-ifeq ($(CC),gcc)
+ifeq ($(MSVC_TYPE),0)
   PYD_LIBS = $(wildcard $(PY_ROOT)/libs/libpython$(USE_PY_BINDING)*.a)
 endif
 
@@ -1482,7 +1508,7 @@ ifeq ($(USE_PY_BINDING),0)
 else
   py_module: _Hamlib.pyd $(OBJ_DIR)/Hamlib.py $(Hamlib_DLL)
 	$(COPY) $^ $(PY_ROOT)/Lib/site-packages
-ifneq ($(CC),gcc)
+ifeq ($(MSVC_TYPE),1)
 	$(COPY) _Hamlib.pdb $(PY_ROOT)/Lib/site-packages
 endif
 endif
@@ -1491,9 +1517,20 @@ $(OBJ_DIR)/Hamlib.py: $(PY_WRAPPER_C)
 
 SWIG_FLAGS = -I./include -I./bindings -D_WIN32
 
-$(PY_WRAPPER_C): bindings/Hamlib.swg include/hamlib/rig.h
+#
+# Wrapper depndencies:
+#
+WRAP_DEPS = bindings/Hamlib.swg    \
+            bindings/ignore.swg    \
+            bindings/rig.swg       \
+            bindings/rotator.swg   \
+            bindings/amplifier.swg \
+            include/hamlib/rig.h
+
+
+$(PY_WRAPPER_C): $(WRAP_DEPS)
 	$(call green_message, Generating $@ and $(OBJ_DIR)/Hamlib.py)
-	swig -python $(SWIG_FLAGS) -o $@ $<
+	swig -python $(SWIG_FLAGS) -o $@ bindings/Hamlib.swg
 
 $(PY_WRAPPER_O) $(PY_WRAPPER_C:.c=.i): EXTRA_CFLAGS += $(PY_CFLAGS)
 
@@ -1511,14 +1548,14 @@ lua_module: HamlibLua.dll lua_epilogue
 
 lua_epilogue:
 	$(call green_message, \
-	       Remember to update your $(BRIGHT_WHITE)LUA_CPATH$(BRIGHT_GREEN) \
-	       for $(BRIGHT_WHITE)HamlibLua.dll$(BRIGHT_GREEN).\n \
-	       \bAnd your $(BRIGHT_WHITE)PATH $(BRIGHT_GREEN)for the needed $(BRIGHT_WHITE)$(Hamlib_DLL).)
+	       Remember to update your $(BRIGHT_WHITE)LUA_CPATH $(BRIGHT_GREEN) \
+	       for $(BRIGHT_WHITE)HamlibLua.dll.                                \
+	       \n$(BRIGHT_GREEN)And your $(BRIGHT_WHITE)PATH $(BRIGHT_GREEN)for the needed $(BRIGHT_WHITE)$(Hamlib_DLL).\n)
 #	$(COPY) HamlibLua.dll $(some_where_on_PATH_and_LUA_CPATH)
 
-$(OBJ_DIR)/HamlibLua_wrap.c: bindings/Hamlib.swg
+$(OBJ_DIR)/HamlibLua_wrap.c: $(WRAP_DEPS)
 	$(call green_message, Generating $@)
-	swig -lua $(SWIG_FLAGS) -o $@ $<
+	swig -lua $(SWIG_FLAGS) -o $@ bindings/Hamlib.swg
 
 #
 # Extra CFLAGS for compiling the Lua wrapper:
@@ -1548,8 +1585,7 @@ ifeq ($(USE_LIBGD),1)
   rigmatrix.html rigmatrix_table : rigmatrix.exe
 	$(call green_message, Generating 'rigmatrix.html')
 	export WSOCK_TRACE_LEVEL=0 ; \
-	cat tests/rigmatrix_head.html > rigmatrix.html
-	rigmatrix.exe                >> rigmatrix.html
+	( cat tests/rigmatrix_head.html & rigmatrix.exe ) > rigmatrix.html
 	@echo
 else
   rigmatrix.html rigmatrix_table:
@@ -1592,23 +1628,25 @@ else
 endif
 
 #
-# Export all code symbols.
+# Export 'rig_', 'rot_' and 'amp_' and some 'extra_symbols'.
 #
-extract_code_symbols = nm $(2) | grep ' T $(uscore)[a-zA-Z0-9_]*' | \
-                       sed -e 's@^.* $(uscore)@  @g'                \
-                           -e 's@ Wspiapi.*@@g'                     \
+main_symbols = -e ' T $(uscore)rig_*' -e ' T $(uscore)rot_*' -e ' T $(uscore)amp_*'
+
+extract_code_symbols = nm $(2) | grep $(main_symbols) | \
+                       sed -e 's@^.* $(uscore)@  @g'    \
+                           -e 's@ Wspiapi.*@@g'         \
                            -e 's@ _.*@@g' | sort | uniq >> $(1)
 
 define Hamlib_DATA
-  hamlib_version    DATA
-  hamlib_copyright  DATA
-  hamlib_version2   DATA
-  hamlib_copyright2 DATA
   cookie_use        DATA
   debugmsgsave      DATA
   debugmsgsave2     DATA
   debugmsgsave3     DATA
-
+  hamlib_copyright  DATA
+  hamlib_copyright2 DATA
+  hamlib_version    DATA
+  hamlib_version2   DATA
+  lock_mode         DATA
   ;
   ; Exported functions:
   ;
@@ -1621,6 +1659,7 @@ $(OBJ_DIR)/Hamlib.def: $(Hamlib_STAT_LIB) $(THIS_FILE)
 	$(call Generate, $@, ;)
 	$(file >> $@, LIBRARY $(Hamlib_DLL))
 	$(file >> $@, EXPORTS)
+	$(file >> $@,$(extra_symbols))
 	$(file >> $@,$(Hamlib_DATA))
 	$(call extract_code_symbols, $@, $<)
 
@@ -1684,11 +1723,14 @@ define link_EXE_0
   @echo
 endef
 
+#
+# Ignore '$(PTHREAD_LIB)' too.
+#
 define link_EXE_1
   link -out:$(strip $(1)) @link.args > link.tmp
   @cat link.tmp >> $(1:.exe=.map)
   @rm -f $(1:.exe=.exp)
-  @$(PYTHON) check-for-unused-libraries.py link.tmp
+  @$(PYTHON) check-for-unused-libraries.py link.tmp $(notdir $(PTHREAD_LIB))
 endef
 
 #
@@ -1755,8 +1797,8 @@ define create_res_file
   @echo
 endef
 
-create_res_file_0 = windres $(RCFLAGS) -o $(2) -i $(1)
-create_res_file_1 = rc $(RCFLAGS) -Fo./$(strip $(2)) $(1)
+create_res_file_0 = windres $(RCFLAGS) -o $(strip $(2) -i $(1))
+create_res_file_1 = rc $(RCFLAGS) -Fo./$(strip $(2) $(1))
 
 #
 # Create a static library:
@@ -1781,6 +1823,44 @@ create_lib_1 = lib -nologo -out:$(strip $(1)) -machine:$(CPU) @lib.args
 define create_resp_file
   $(file > $(1))
   $(foreach f, $(2), $(file >> $(1),$(strip $(f))) )
+endef
+
+#
+# These are needed by many programs:
+#
+define extra_symbols
+  AESStringCrypt
+  AESStringDecrypt
+  add2debugmsgsave
+  azimuth_long_path
+  date_strget
+  dec2dmmm
+  dec2dms
+  distance_long_path
+  dmmm2dec
+  dms2dec
+  dump_hex
+  elapsed_ms
+  flrig_cat_string
+  from_bcd
+  from_bcd_be
+  hl_usleep
+  locator2longlat
+  longlat2locator
+  netrigctl_get_vfo_mode
+  network_multicast_publisher_start
+  network_multicast_publisher_stop
+  port_open
+  print_ext_param
+  qrb
+  read_string
+  spaces
+  sprintf_freq
+  sprintf_level_ext
+  to_bcd
+  to_bcd_be
+  vfo_fixup2a
+  write_block
 endef
 
 define Warning
@@ -1823,6 +1903,11 @@ define hamlib_config_h
   #error "Do not use '-DDLL_EXPORT' since we use a .def-file to control the exports."
   #endif
 
+  /*
+   * Since most files here needs 'src/misc.h'.
+   */
+  #define BUILDING_HAMLIB
+
   #ifndef WIN32
   #define WIN32 1
   #endif
@@ -1850,11 +1935,10 @@ define hamlib_config_h
   #if defined(_MSC_VER)
     #define _CRT_SECURE_NO_WARNINGS
     #define _CRT_NONSTDC_NO_WARNINGS
+    #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
     struct timeval;    /* Forward */
     struct timezone;   /* Forward */
-
-    #define pthread_t int
 
     HAMLIB_C_EXTERN int gettimeofday (struct timeval *, struct timezone *);
 
@@ -1862,7 +1946,6 @@ define hamlib_config_h
     /*
      * MinGW section:
      */
-    #define HAVE_PTHREAD          1
     #define HAVE_UNISTD_H         1
     #define HAVE_SELECT           1
     #define HAVE_SSLEEP           1
@@ -1895,6 +1978,10 @@ define hamlib_config_h
   #define HAVE_SSLEEP             1
   #define HAVE_SLEEP              1
 
+  #if !defined(HAVE_PTHREAD)
+    #define pthread_t  int
+  #endif
+
   #if defined(_MSC_VER)
     #ifndef __clang__
     #define __attribute__(x)
@@ -1906,10 +1993,6 @@ define hamlib_config_h
 
     HAMLIB_C_EXTERN int usleep (unsigned long usec);
   #endif
-
-  /* No point in defining this
-   */
-//#define HAVE_SIGNAL     1
 
   /* Since 'WIN32_LEAN_AND_MEAN' is defined, this header is
    * not included in <windows.h>. So do it explicitly, but it is
@@ -2109,7 +2192,7 @@ endef
 
 ifeq ($(USE_ASTYLE),1)
   define cxx_preprocess
-    $(file  > $(1),/* The preprocessed and AStyle formatter output of '$(strip $(2))':)
+    $(file  > $(1),/* The preprocessed and AStyle formatted output of '$(strip $(2))':)
     $(file >> $(1), * $(CC) -E)
     @$(foreach f, $(CFLAGS), $(file >> $(1), *  $(f)))
     $(file >> $(1), * And these 'EXTRA_CFLAGS':)
@@ -2131,42 +2214,23 @@ else
 endif
 
 define cpp_filter_PY
-  import sys, os, ntpath
+  import sys, os
 
-  def _win32_abspath (path):
-    path = ntpath.abspath (path)
-    return path.replace ('\\', '/')
-
-  cwd = _win32_abspath (os.getcwd()) + '/'
-
-  last_line  = '??'
-  last_fname = '??'
   empty_lines = 0
-
   while True:
     line = sys.stdin.readline()
     if not line:
-      break
-    if line.startswith('\n') or line.startswith('\r'):
-      empty_lines += 1
-      continue
+       break
+    if line.startswith('\r') or line.startswith('\n'):
+       empty_lines += 1
+       continue
 
-    line = line.replace ("\\\\", "/")
-    fname = None
-    quote = line.find ('\"')
+    if line.strip() != "":
+       print (line, end="")
 
-    if line.startswith ("#line ") and quote > 0:
-      fname = _win32_abspath (line[quote:])
-      last_fname = fname
-
-    if line.strip() != '' and last_line != '':
-      if fname is None or fname != last_fname:
-        print (line, end="")
-
-        if line.strip() == '}':  # Print a newline after a function
-          print ("")
-
-    last_line = line
+    # Print a newline after functions and classes
+    if line.strip() == '}':
+       print ("")
 
   if empty_lines > 0:
      print ("Removed %d empty lines.\n" % empty_lines, file=sys.stderr)
@@ -2179,6 +2243,8 @@ define check_for_unused_libraries_PY
   #
   import os, sys
 
+  ignore_libs = [ "oldnames.lib" ]
+
   class State():
     IDLE   = 0
     UNUSED = 1
@@ -2187,18 +2253,16 @@ define check_for_unused_libraries_PY
     RED = WHITE = RESET = ""
 
   try:
-    import colorama
-    colorama.init()
-    Colour.RED   = colorama.Fore.RED   + colorama.Style.BRIGHT
-    Colour.WHITE = colorama.Fore.WHITE + colorama.Style.BRIGHT
-    Colour.RESET = colorama.Style.RESET_ALL
+    from colorama import init, Fore, Style
+    init()
+    Colour.RED   = Fore.RED   + Style.BRIGHT
+    Colour.WHITE = Fore.WHITE + Style.BRIGHT
+    Colour.RESET = Style.RESET_ALL
   except:
     pass
 
   def cprint (color, s):
     print ("%s%s%s" % (color, s, Colour.RESET))
-
-  ignore_libs = [ "oldnames.lib" ]
 
   def report (map_file, unused):
     num = len(unused)
@@ -2211,12 +2275,8 @@ define check_for_unused_libraries_PY
   def process_map (file, state):
     unused_libs = []
     f = open (file, "rt")
-    try:
-      lines = f.readlines()
-    except IOError:
-      return []
-    finally:
-      f.close()
+    lines = f.readlines()
+    f.close()
 
     for l in lines:
       l = l.strip()
@@ -2231,28 +2291,49 @@ define check_for_unused_libraries_PY
     return unused_libs
 
   map_file = sys.argv[1]
-  report (map_file, process_map (map_file, State.IDLE))
+
+  for i in range(2, len(sys.argv)):
+      ignore_libs.append (sys.argv[i].lower())
+  report (map_file, process_map(map_file, State.IDLE))
 endef
 
 #
 # Use gcc to create a '.depend.Windows'
 #
 DEP_CFLAGS  = -MM --include include/hamlib/config.h $(filter -I% -D%, $(CFLAGS))
-DEP_REPLACE = sed -e 's@\(.*\)\.o: @\n$$(OBJ_DIR)\/\1.$$(O): @' \
-                  -e 's@$(OBJ_DIR)/[a-z]*\.h@@g'                \
-                  -e 's@$(OBJ_DIR)/sys/[a-z]*\.h@@g'            \
-                  -e 's@$(LIBUSRP_ROOT)@$$(LIBUSRP_ROOT)@'
+DEP_REPLACE = sed -e 's@\(.*\)\.o: @\n$$(OBJ_DIR)\/\1.$$(O): @'    \
+                  -e 's@$(OBJ_DIR)/[a-z]*\.h@@g'                   \
+                  -e 's@$(OBJ_DIR)/sys/[a-z]*\.h@@g'               \
+                  -e 's@$(LIBUSRP_ROOT)@$$(LIBUSRP_ROOT)@'         \
+                  -e 's@$(BOOST_ROOT)@$$(BOOST_ROOT)@'             \
+                  -e 's@$(GNURADIO_ROOT)@$$(GNURADIO_ROOT)@'       \
+                  -e 's@$(LIBINDI_ROOT)@$$(LIBINDI_ROOT)@'         \
+                  -e 's@$(LIBICONV_ROOT)@$$(LIBICONV_ROOT)@'       \
+                  -e 's@$(LIBGD_ROOT)@$$(LIBGD_ROOT)@'             \
+                  -e 's@$(LIBUSB_ROOT)@$$(LIBUSB_ROOT)@'           \
+                  -e 's@$(LIBREADLINE_ROOT)@$$(LIBREADLINE_ROOT)@' \
+                  -e 's@$(LIBXML2_ROOT)@$$(LIBXML2_ROOT)@'         \
+                  -e 's@$(LUAJIT_ROOT)@$$(LUAJIT_ROOT)@'           \
+                  -e 's@$(LUA5_ROOT)@$$(LUA5_ROOT)@'
+
 
 ALL_C_SRC  = $(hamlib_C_SRC)  $(hamlib_misc_SRC) $(wildcard tests/*.c)
 ALL_CC_SRC = $(hamlib_CC_SRC) $(hamlib++_SRC) $(hamlib_CPP_SRC)
 
-depend: $(OBJ_DIR) $(OBJ_DIR)/sys $(GENERATED)
+depend_c.args: FORCE
+	$(call green_message, Creating $@)
+	$(call create_resp_file, $@, $(DEP_CFLAGS) $(ALL_C_SRC))
+
+depend_cc.args: FORCE
+	$(call green_message, Creating $@)
+	$(call create_resp_file, $@, $(DEP_CFLAGS) -std=c++11 $(ALL_CC_SRC))
+
+depend: $(OBJ_DIR) $(OBJ_DIR)/sys $(GENERATED) depend_c.args depend_cc.args
 	$(call Generate, .depend.Windows, #)
-	$(call create_resp_file, depend1.args, $(DEP_CFLAGS) $(ALL_C_SRC))
-	$(call create_resp_file, depend2.args, $(DEP_CFLAGS) -std=c++11 $(ALL_CC_SRC))
-	gcc @depend1.args | $(DEP_REPLACE) >> .depend.Windows
-	gcc @depend2.args | $(DEP_REPLACE) >> .depend.Windows
-	rm -f depend1.args depend2.args
+	@echo -e '#\n# Dependencies for $$(ALL_C_SRC):\n#' >> .depend.Windows
+	gcc @depend_c.args | $(DEP_REPLACE) >> .depend.Windows
+	@echo -e '#\n# Dependencies for $$(ALL_CC_SRC):\n#' >> .depend.Windows
+	gcc @depend_cc.args | $(DEP_REPLACE) >> .depend.Windows
 
 -include .depend.Windows
 

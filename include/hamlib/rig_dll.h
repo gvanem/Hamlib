@@ -70,21 +70,27 @@
 #if !defined(HAMLIB_IMPEXP)
 #  define HAMLIB_IMPEXP
 #endif
+
 #if !defined(HAMLIB_CPP_IMPEXP)
 #  define HAMLIB_CPP_IMPEXP
 #endif
+
 #if !defined(HAMLIB_API)
 #  define HAMLIB_API
 #endif
+
 #if !defined(HAMLIB_EXPORT)
 #  define HAMLIB_EXPORT(type) HAMLIB_IMPEXP type HAMLIB_API
 #endif
+
 #if !defined(HAMLIB_EXPORT_VAR)
 #  define HAMLIB_EXPORT_VAR(type) HAMLIB_IMPEXP type
 #endif
+
 #if !defined(BACKEND_EXPORT)
 #  define BACKEND_EXPORT(type) HAMLIB_CPP_IMPEXP type HAMLIB_API
 #endif
+
 #if !defined(BACKEND_EXPORT_VAR)
 #  define BACKEND_EXPORT_VAR(type) HAMLIB_CPP_IMPEXP type
 #endif

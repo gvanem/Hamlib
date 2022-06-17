@@ -924,19 +924,19 @@ static int dummy_rot_get_status(ROT *rot, rot_status_t *status)
 /*
  * Dummy rotator capabilities.
  */
-const struct rot_caps dummy_rot_caps =
+struct rot_caps dummy_rot_caps =
 {
     ROT_MODEL(ROT_MODEL_DUMMY),
     .model_name =     "Dummy",
     .mfg_name =       "Hamlib",
-    .version =        "20220118.0",
+    .version =        "20220531.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_AZEL,
     .port_type =      RIG_PORT_NONE,
 
     .min_az =     -180.,
-    .max_az =     180.,
+    .max_az =     450.,
     .min_el =     0.,
     .max_el =     90.,
 
