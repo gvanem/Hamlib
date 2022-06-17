@@ -347,7 +347,7 @@ ifeq ($(USE_PTHREAD),1)
     CFLAGS     += -I$(PTHREAD_ROOT)/include
     PTHREAD_LIB = $(PTHREAD_ROOT)/lib/pthreadVC3.lib
   else
-    CFLAGS     += -DHAVE_PTHREAD
+    CFLAGS     += -DHAVE_PTHREAD_T
     PTHREAD_LIB = -lwinpthread
   endif
 else
@@ -1977,7 +1977,7 @@ define hamlib_config_h
   #define HAVE_SSLEEP             1
   #define HAVE_SLEEP              1
 
-  #if !defined(HAVE_PTHREAD)
+  #if !defined(HAVE_PTHREAD_T)
     #define pthread_t  int
   #endif
 
