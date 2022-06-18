@@ -347,6 +347,7 @@ ifeq ($(USE_PTHREAD),1)
     CFLAGS     += -I$(PTHREAD_ROOT)/include
     PTHREAD_LIB = $(PTHREAD_ROOT)/lib/pthreadVC3.lib
   else
+    CFLAGS     += -DHAVE_PTHREAD
     PTHREAD_LIB = -lwinpthread
   endif
 else

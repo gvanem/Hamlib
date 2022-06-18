@@ -21,11 +21,10 @@ install:
   - cmd: set PATH=c:\Program Files (x86)\LLVM\bin;%PATH%
 
 build_script:
-  - set OPTIONS=USE_LIBUSB=0 USE_LIBUSRP=0 USE_WSOCK_TRACE=0 USE_LIBXML2=0 USE_LIBGD=0 USE_LIBREADLINE=0 USE_LUAJIT=0 USE_GNURADIO=0 USE_PTHREAD=0
-  - set MAKE=make -f Makefile.Windows CPU=x64 %OPTIONS%
-  - if %BUILDER%. == msvc.  %MAKE% CC=cl
-  - if %BUILDER%. == mingw. %MAKE% CC=gcc
-  - if %BUILDER%. == clang. %MAKE% CC=clang-cl
+  - set MAKE=make -f Makefile.Windows CPU=x64 USE_LIBUSB=0 USE_LIBUSRP=0 USE_WSOCK_TRACE=0 USE_LIBXML2=0 USE_LIBGD=0 USE_LIBREADLINE=0 USE_LUAJIT=0 USE_GNURADIO=0
+  - if %BUILDER%. == mingw. %MAKE% USE_PTHREAD=1 CC=gcc
+  - if %BUILDER%. == msvc.  %MAKE% USE_PTHREAD=0 CC=cl
+  - if %BUILDER%. == clang. %MAKE% USE_PTHREAD=0 CC=clang-cl
 
   #
   # Not yet possible; need to add Lua as a submodule etc.
