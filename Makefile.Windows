@@ -534,7 +534,7 @@ TEST_PROGS += simelecraft.exe \
               simkenwood.exe  \
               simyaesu.exe
 
-ifeq ($(USER),appveyor)
+ifneq ($(APPVEYOR_PROJECT_NAME),)
   #
   # TODO:
   #   build with 'LIBUSB_ROOT = ./CI/libusb', 'LIBXML2_ROOT = ./CI/libxml2' etc.
