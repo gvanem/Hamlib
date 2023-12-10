@@ -62,7 +62,7 @@ USE_ASTYLE ?= 1
 
 #
 # For some packages, one could do:
-#   'vcpkg install libgd:x86-windows --debug'  or
+#   'vcpkg install libgd:x86-windows --debug' or
 #   'vcpkg install libgd:x64-windows --debug'
 #
 VCPKG_ROOT := $(realpath $(VCPKG_ROOT))
