@@ -556,7 +556,7 @@ struct rig_caps id5100_caps =
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .extparms = icom_ext_parms,
-    .parm_gran =  {},
+    .parm_gran =  { 0 },
     .ctcss_list =  common_ctcss_list,
     .dcs_list =  full_dcs_list,
     .preamp =   { RIG_DBLST_END, },

@@ -459,11 +459,11 @@ const struct confparams icom_cfg_params[] =
  */
 const struct confparams icom_ext_funcs[] =
 {
-    { TOK_DIGI_SEL_FUNC, "digi_sel", "DIGI-SEL enable", "", "", RIG_CONF_CHECKBUTTON, {} },
-    { TOK_IPP_FUNC, "IPP", "IP Plus", "", "", RIG_CONF_CHECKBUTTON, {} },
-    { TOK_TX_INHIBIT_FUNC, "TX_INHIBIT", "TX Inhibit", "", "", RIG_CONF_CHECKBUTTON, {} },
-    { TOK_DPP_FUNC, "DPP", "Digital Pre Distortion-SEL enable", "", "", RIG_CONF_CHECKBUTTON, {} },
-    { TOK_ICPW2_FUNC, "ICPW2", "Icom PW2 enable", "", "", RIG_CONF_CHECKBUTTON, {} },
+    { TOK_DIGI_SEL_FUNC, "digi_sel", "DIGI-SEL enable", "", "", RIG_CONF_CHECKBUTTON, { 0 } },
+    { TOK_IPP_FUNC, "IPP", "IP Plus", "", "", RIG_CONF_CHECKBUTTON, { 0 } },
+    { TOK_TX_INHIBIT_FUNC, "TX_INHIBIT", "TX Inhibit", "", "", RIG_CONF_CHECKBUTTON, { 0 } },
+    { TOK_DPP_FUNC, "DPP", "Digital Pre Distortion-SEL enable", "", "", RIG_CONF_CHECKBUTTON, { 0 } },
+    { TOK_ICPW2_FUNC, "ICPW2", "Icom PW2 enable", "", "", RIG_CONF_CHECKBUTTON, { 0 } },
     { RIG_CONF_END, NULL, }
 };
 
@@ -477,7 +477,7 @@ const struct confparams icom_ext_levels[] =
     { TOK_SCOPE_MSS, "SPECTRUM_SELECT", "Spectrum Scope Main/Sub", "", "", RIG_CONF_COMBO, { .c = { .combostr = { "Main", "Sub", NULL } } } },
     { TOK_SCOPE_SDS, "SPECTRUM_DUAL", "Spectrum Scope Single/Dual", "", "", RIG_CONF_COMBO, { .c = { .combostr = { "Single", "Dual", NULL } } } },
     { TOK_SCOPE_EDG, "SPECTRUM_EDGE", "Spectrum Scope Edge", "Edge selection for fixed scope mode", "", RIG_CONF_COMBO, { .c = { .combostr = { "1", "2", "3", "4", NULL } } } },
-    { TOK_SCOPE_STX, "SPECTRUM_TX", "Spectrum Scope TX operation", "", "", RIG_CONF_CHECKBUTTON, {} },
+    { TOK_SCOPE_STX, "SPECTRUM_TX", "Spectrum Scope TX operation", "", "", RIG_CONF_CHECKBUTTON, { 0 } },
     { TOK_SCOPE_CFQ, "SPECTRUM_CENTER", "Spectrum Scope Center Frequency Type", "", "", RIG_CONF_COMBO, { .c = { .combostr = { "Filter center", "Carrier point center", "Carrier point center (Abs. Freq.)", NULL } } } },
     { TOK_SCOPE_VBW, "SPECTRUM_VBW", "Spectrum Scope VBW", "Video Band Width", "", RIG_CONF_COMBO, { .c = { .combostr = { "Narrow", "Wide", NULL } } } },
     { TOK_SCOPE_RBW, "SPECTRUM_RBW", "Spectrum Scope RBW", "Resolution Band Width", "", RIG_CONF_COMBO, { .c = { .combostr = { "Wide", "Mid", "Narrow", NULL } } } },
@@ -489,17 +489,17 @@ const struct confparams icom_ext_levels[] =
  */
 const struct confparams icom_ext_parms[] =
 {
-    { TOK_DSTAR_DSQL, "dsdsql", "D-STAR CSQL Status", "", "", RIG_CONF_CHECKBUTTON, {} },
-    { TOK_DSTAR_CALL_SIGN, "dscals", "D-STAR Call sign", "", "", RIG_CONF_BINARY, {} },
-    { TOK_DSTAR_MESSAGE, "dsrmes", "D-STAR Rx Message", "", "", RIG_CONF_STRING, {} },
-    { TOK_DSTAR_STATUS, "dsstat", "D-STAR Rx Status", "", "", RIG_CONF_BINARY, {} },
-    { TOK_DSTAR_GPS_DATA, "dsgpsd", "D-STAR GPS Data", "", "", RIG_CONF_BINARY, {} },
-    { TOK_DSTAR_GPS_MESS, "dsgpsm", "D-STAR GPS Message", "", "", RIG_CONF_STRING, {} },
-    { TOK_DSTAR_CODE, "dscode", "D-STAR CSQL Code", "", "", RIG_CONF_NUMERIC, {} },
-    { TOK_DSTAR_TX_DATA, "dstdat", "D-STAR Tx Data", "", "", RIG_CONF_BINARY, {} },
-    { TOK_DSTAR_MY_CS, "dsmycs", "D-STAR MY Call Sign", "", "", RIG_CONF_STRING, {} },
-    { TOK_DSTAR_TX_CS, "dstxcs", "D-STAR Tx Call Sign", "", "", RIG_CONF_BINARY, {} },
-    { TOK_DSTAR_TX_MESS, "dstmes", "D-STAR Tx Message", "", "", RIG_CONF_STRING, {} },
+    { TOK_DSTAR_DSQL, "dsdsql", "D-STAR CSQL Status", "", "", RIG_CONF_CHECKBUTTON, { 0 } },
+    { TOK_DSTAR_CALL_SIGN, "dscals", "D-STAR Call sign", "", "", RIG_CONF_BINARY, { 0 } },
+    { TOK_DSTAR_MESSAGE, "dsrmes", "D-STAR Rx Message", "", "", RIG_CONF_STRING, { 0 } },
+    { TOK_DSTAR_STATUS, "dsstat", "D-STAR Rx Status", "", "", RIG_CONF_BINARY, { 0 } },
+    { TOK_DSTAR_GPS_DATA, "dsgpsd", "D-STAR GPS Data", "", "", RIG_CONF_BINARY, { 0 } },
+    { TOK_DSTAR_GPS_MESS, "dsgpsm", "D-STAR GPS Message", "", "", RIG_CONF_STRING, { 0 } },
+    { TOK_DSTAR_CODE, "dscode", "D-STAR CSQL Code", "", "", RIG_CONF_NUMERIC, { 0 } },
+    { TOK_DSTAR_TX_DATA, "dstdat", "D-STAR Tx Data", "", "", RIG_CONF_BINARY, { 0 } },
+    { TOK_DSTAR_MY_CS, "dsmycs", "D-STAR MY Call Sign", "", "", RIG_CONF_STRING, { 0 } },
+    { TOK_DSTAR_TX_CS, "dstxcs", "D-STAR Tx Call Sign", "", "", RIG_CONF_BINARY, { 0 } },
+    { TOK_DSTAR_TX_MESS, "dstmes", "D-STAR Tx Message", "", "", RIG_CONF_STRING, { 0 } },
     { RIG_CONF_END, NULL, }
 };
 
@@ -2785,7 +2785,7 @@ int icom_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
         }
 
         retval = 0;
-        // G90 does have dsp_flt command 
+        // G90 does have dsp_flt command
         if (rig->caps->rig_model != RIG_MODEL_G90)
         {
             retval = icom_get_dsp_flt(rig, *mode);
@@ -7632,7 +7632,7 @@ int icom_set_parm(RIG *rig, setting_t parm, value_t val)
 const char * icom_get_band(RIG *rig, int band)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
-    
+
     const char *s = rig_get_band_str(rig, band, 1);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: %d=%s\n", __func__, band, s);
@@ -8121,8 +8121,9 @@ int icom_set_powerstat(RIG *rig, powerstat_t status)
     int ack_len = sizeof(ackbuf), retval = RIG_OK;
     int pwr_sc;
     // so we'll do up to 150 for 115,200
-    int fe_max = 150;
-    unsigned char fe_buf[fe_max]; // for FE's to power up
+    #define FE_MAX 150
+    int fe_max = FE_MAX;
+    unsigned char fe_buf[FE_MAX]; // for FE's to power up
     int i;
     int retry;
     short timeout_retry_save;
@@ -8163,7 +8164,7 @@ int icom_set_powerstat(RIG *rig, powerstat_t status)
                 break;
             case 115200:
             default:
-                fe_max = 150;
+                fe_max = FE_MAX;
         }
         memset(fe_buf, 0xfe, fe_max);
         // sending more than enough 0xfe's to wake up the rs232
@@ -8191,7 +8192,7 @@ int icom_set_powerstat(RIG *rig, powerstat_t status)
 
             for (i = 0; i < 10 && echo_status < 0; ++i)
             {
-                echo_status = icom_get_usb_echo_off(rig); 
+                echo_status = icom_get_usb_echo_off(rig);
 
                 if (echo_status < 0)
                 {
