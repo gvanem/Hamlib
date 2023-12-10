@@ -22,8 +22,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <string.h>
 
@@ -115,7 +113,7 @@ int k2_pop_fw_lst(RIG *rig, const char *cmd);
  * Part of info comes from http://www.elecraft.com/K2_Manual_Download_Page.htm#K2
  * look for KIO2 Programmer's Reference PDF
  */
-const struct rig_caps k2_caps =
+struct rig_caps k2_caps =
 {
     RIG_MODEL(RIG_MODEL_K2),
     .model_name =       "K2",
@@ -145,7 +143,9 @@ const struct rig_caps k2_caps =
     .has_set_level =    RIG_LEVEL_SET(K2_LEVEL_ALL),
     .has_get_parm =     RIG_PARM_NONE,
     .has_set_parm =     RIG_PARM_NONE,  /* FIXME: parms */
-    .level_gran =       { 0 },     /* FIXME: granularity */
+    .level_gran =       {
+#include "level_gran_elecraft.h"
+    },     /* FIXME: granularity */
     .parm_gran =        { 0 },
     .extlevels =        elecraft_ext_levels,
     .extparms =     kenwood_cfg_params,
@@ -210,9 +210,9 @@ const struct rig_caps k2_caps =
     .priv = (void *)& k2_priv_caps,
 
     .rig_init =     kenwood_init,
-    .rig_cleanup =      kenwood_cleanup,
+    .rig_cleanup =  kenwood_cleanup,
     .rig_open =     k2_open,
-    .rig_close =        kenwood_close,
+    .rig_close =    elecraft_close,
     .set_freq =     kenwood_set_freq,
     .get_freq =     kenwood_get_freq,
     .set_mode =     k2_set_mode,
@@ -291,7 +291,7 @@ int k2_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     int err;
     char f = '*';
     struct k2_filt_lst_s *flt;
-    struct kenwood_priv_data *priv = rig->state.priv;
+    const struct kenwood_priv_data *priv = rig->state.priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -349,6 +349,7 @@ int k2_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
             width = flt->filt_list[0].width;
             f = '1';
         }
+        // cppcheck-suppress knownConditionTrueFalse
         else if ((flt->filt_list[1].width >= width)
                  && (width > flt->filt_list[2].width))
         {

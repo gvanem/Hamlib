@@ -134,6 +134,9 @@ etc. on Linux,
 etc. on MS Windows.  The BSD flavors and Mac OS/X have their own designations.
 See your system's documentation.
 .IP
+.IP
+Can be a network address:port, e.g. 127.0.0.1:12345
+.IP
 The special string \(lquh\-rig\(rq may be given to enable micro-ham device
 support.
 .
@@ -290,8 +293,32 @@ above.
 .
 .TP
 .BR \-C ", " \-\-set\-conf = \fIparm=val\fP [ \fI,parm=val\fP ]
-Set radio configuration parameter(s), e.g.
-.IR stop_bits=2 .
+Set configuration parameter(s). Some common ones are:
+.in +4
+.EX
+.RB   async: "True enables asynchronous data transfer for backends that support it. This allows use of transceive and spectrum data."
+.RB   auto_power_on: "True enables compatible rigs to be powered up on open"
+.RB   auto_power_off: "True enables compatible rigs to be powered down on close"
+.RB   auto_disable_screensaver: "True enables compatible rigs to have their screen saver disabled on open"
+.RB   dcd_type: "Data Carrier Detect (or squelch) interface type override"
+.RB   dcd_pathname: "Path name to the device file of the Data Carrier Detect (or squelch)"
+.RB   disable_yaesu_bandselect: "True disables the automatic band select on band change for Yaesu rigs"
+.RB   dtr_state:  "ON turns on DTR, OFF turns it off, Unset disables it"
+.RB   lo_freq: "Frequency to add to the VFO frequency for use with a transverter"
+.RB   post_write_delay: "Delay in ms between each command sent out"
+.RB   ptt_share: "True enables ptt port to be shared with other apps"
+.RB   ptt_type: "Push-To-Talk interface type override"
+.RB   ptt_pathname: "Path name to the device file of the Push-To-Talk"
+.RB   ptt_bitnum: "Push-To-Talk GPIO bit number"
+.RB   retry: "Max number of retry"
+.RB   rts_state:  "ON turns on DTR, OFF turns it off, Unset disables it"
+.RB   twiddle_timeout: "For satellite ops when VFOB is twiddled will pause VFOB commands until timeout"
+.RB   twiddle_rit: "Suppress get_freq on VFOB for RIT tuning satellites"
+.RB   timeout: "Timeout in ms"
+.RB   write_delay: "Delay in ms between each byte sent out"
+.RB   tuner_control_pathname: "Path name to a script/program to control a tuner with 1 argument of 0/1 for Tuner Off/On"
+.EE
+.in
 .IP
 Use the
 .B -L
@@ -369,6 +396,14 @@ option as it generates no output on its own.
 Sets password on rigctld which requires hamlib to use rig_set_password and rigctl to use \\password to access rigctld.  A 32-char shared secret will be displayed to be used on the client side.
 .
 .TP
+.BR \-R ", " \-\-rigctld\-idle
+Will make rigctld close the rig when no clients are connected.  Normally remains connected to speed up connects.
+.
+.TP
+.BR \-b ", " \-\-bind\-all
+Will make rigctld try to bind to first network device available.
+.
+.TP
 .BR \-h ", " \-\-help
 Show a summary of these options and exit.
 .
@@ -407,12 +442,12 @@ Since most of the
 .B Hamlib
 operations have a
 .BR set " and a " get
-method, an upper case letter will be used for
+method, a single upper case letter will be used for
 .B set
-methods whereas the corresponding lower case letter refers to the
+methods whereas the corresponding single lower case letter refers to the
 .B get
 method.  Each operation also has a long name; prepend a backslash, \(oq\\\(cq,
-to send a long command name.
+to send a long command name all in lower case.
 .
 .PP
 Example (Perl): \(lqprint $socket "\\\\dump_caps\\n";\(rq to see what the
@@ -471,7 +506,7 @@ Mode is a token: \(oqUSB\(cq, \(oqLSB\(cq, \(oqCW\(cq, \(oqCWR\(cq,
 \(oqECSSLSB\(cq, \(oqFA\(cq, \(oqSAM\(cq, \(oqSAL\(cq, \(oqSAH\(cq,
 \(oqDSB\(cq.
 .IP
-Passband is in Hz as an integer, or \(oq0\(cq for the radio backend default.
+Passband is in Hz as an integer, -1 for no change, or \(oq0\(cq for the radio backend default.
 .IP
 .BR Note :
 Passing a \(oq?\(cq (query) as the first argument instead of a Mode token will
@@ -694,7 +729,23 @@ number (\(oq0\(cq, \(oq1\(cq, \(oq2\(cq, ...).
 .BR b ", " send_morse " \(aq" \fIMorse\fP \(aq
 Send
 .RI \(aq Morse \(aq
-symbols.
+symbols.  For Yaesu rigs use memory# (1-5 for most rigs) or up to 50 char message (which will use memory#1)
+.EX
+Example from rigctld socket:  b CQ CQ DE ME
+Yaesu example to send message#1 frm rigctld socket: b 1
+.
+.TP
+.BR 0xbb ", " stop_morse "
+Stop sending the current morse code.
+.
+.TP
+.BR 0xbc ", " wait_morse "
+Wait for morse to finish -- only works on full break-in
+.
+.TP
+.BR 0x94 ", " send_voice_mem " \(aq" \fIMsgnum\fP \(aq
+Have rig transmit internal message
+.RI \(aq Msgnum \(aq
 .
 .TP
 .BR 0x8b ", " get_dcd
@@ -832,17 +883,22 @@ Set
 and
 .RI \(aq "Level Value" \(aq.
 .IP
-Level is a token: \(oqPREAMP\(cq, \(oqATT\(cq, \(oqVOX\(cq, \(oqAF\(cq,
+evel is a token: \(oqPREAMP\(cq, \(oqATT\(cq, \(oqVOXDELAY\(cq, \(oqAF\(cq,
 \(oqRF\(cq, \(oqSQL\(cq, \(oqIF\(cq, \(oqAPF\(cq, \(oqNR\(cq, \(oqPBT_IN\(cq,
-\(oqPBT_OUT\(cq, \(oqCWPITCH\(cq, \(oqRFPOWER\(cq, \(oqRFPOWER_METER\(cq, \(oqRFPOWER_METER_WATTS\(cq, \(oqMICGAIN\(cq,
+\(oqPBT_OUT\(cq, \(oqCWPITCH\(cq, \(oqRFPOWER\(cq, \(oqMICGAIN\(cq,
 \(oqKEYSPD\(cq, \(oqNOTCHF\(cq, \(oqCOMP\(cq, \(oqAGC\(cq, \(oqBKINDL\(cq,
 \(oqBAL\(cq, \(oqMETER\(cq, \(oqVOXGAIN\(cq, \(oqANTIVOX\(cq,
-\(oqSLOPE_LOW\(cq, \(oqSLOPE_HIGH\(cq, \(oqRAWSTR\(cq, \(oqSWR\(cq,
-\(oqALC\(cq, \(oqSTRENGTH\(cq.
+\(oqSLOPE_LOW\(cq, \(oqSLOPE_HIGH\(cq, \(oqBKIN_DLYMS\(cq, \(oqRAWSTR\(cq, \(oqSWR\(cq,
+\(oqALC\(cq, \(oqSTRENGTH\(cq, \(oqRFPOWER_METER\(cq, \(oqCOMPMETER\(cq, \(oqVD_METER\(cq, \(oqID_METER\(cq,
+\(oqNOTCHF_RAW\(cq, \(oqMONITOR_GAIN\(cq, \(oqNQ\(cq, \(oqRFPOWER_METER_WATTS\(cq, \(oqSPECTRUM_MODE\(cq,
+\(oqSPECTRUM_SPAN\(cq, \(oqSPECTRUM_EDGE_LOW\(cq, \(oqSPECTRUM_EDGE_HIGH\(cq, \(oqSPECTRUM_SPEED\(cq,
+\(oqSPECTRUM_REF\(cq, \(oqSPECTRUM_AVG\(cq, \(oqSPECTRUM_ATT\(cq, \(oqTEMP_METER\(cq, \(oqBAND_SELECT\(cq,
+\(oqUSB_AF\(cq.
 .IP
 The Level Value can be a float or an integer value.  For the AGC token the
 value is one of \(oq0\(cq = OFF, \(oq1\(cq = SUPERFAST, \(oq2\(cq = FAST,
 \(oq3\(cq = SLOW, \(oq4\(cq = USER, \(oq5\(cq = MEDIUM, \(oq6\(cq = AUTO.
+Note that not all values work on all rigs.  To list usable values do 'rigctl -m [modelnum] -u | grep "AGC levels"' or for Windows 'rigctl -m [modelnum] -u | find "AGC levels"'.
 .IP
 .BR Note :
 Passing a \(oq?\(cq (query) as the first argument instead of a Level token
@@ -871,7 +927,7 @@ and
 .RI \(aq "Parm Value" \(aq.
 .IP
 Parm is a token: \(oqANN\(cq, \(oqAPO\(cq, \(oqBACKLIGHT\(cq, \(oqBEEP\(cq,
-\(oqTIME\(cq, \(oqBAT\(cq, \(oqKEYLIGHT\(cq.
+\(oqTIME\(cq, \(oqBAT\(cq, \(oqKEYLIGHT\(cq, \(oqBANDSELECT\(cq, \(oqKEYERTYPE\(cq.
 .IP
 .BR Note :
 Passing a \(oq?\(cq (query) as the first argument instead of a Parm token will
@@ -1151,6 +1207,47 @@ CW Skimmer is started and "set_lock_mode 0" when CW Skimmer is stopped.
 .BR get_lock_mode
 Returns current lock mode status 1=On, 2=Off (only useful with rigctld)
 .
+.TP
+.BR send_raw " \(aq" \fITerminator\fP "\(aq \(aq" \fIString\fP \(aq
+.EX
+Can send ASCII string or 0xnn values -- there can be no spaces in the command string.
+Possible terminator values are CR, LF, ;, ICOM, 0-100 (bytes to read), or -1 meaning unknown (will timeout on read)
+Examples:
+  send_raw ; FA;MD;
+  send_raw icom 0xFE;0xFE;0x94;0x03;0xFD
+  send_raw -1 0xFE;0xFE;0x94;0x03;0xFD
+  send_raw 14 0xFE;0xFE;0x94;0x03;0xFD
+.
+.TP
+.BR client_version " \(aq" \fIString\fP "\(aq
+.EX
+  Client can send its version to rigctld and get feedback on compatibility, deprecation, and alternatives
+.TP
+.BR hamlib_version
+.EX
+Returns hamlib version with ISO8601 date/time
+.
+.TP
+.BR hamlib_version
+.EX
+Returns hamlib version with ISO8601 date/time
+.
+.TP
+.BR test
+.EX
+Performs test routines.  Under development.
+.
+.TP
+.BR set_gpio " \(aq" \fIGPIO#\fP "\(aq
+.EX
+Sets GPIO1, GPIO2, GPIO3, GPIO4 on the GPIO ptt port
+Can also use 1,2,3,4
+.
+.TP
+.BR get_gpio " \(aq" \fIGPIO#\fP "\(aq
+.EX
+Reads GPIO1, GPIO2, GPIO3, GPIO4 on the GPIO ptt port
+Can also use 1,2,3,4
 .
 .SH PROTOCOL
 .

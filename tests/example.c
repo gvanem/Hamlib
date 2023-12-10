@@ -131,10 +131,10 @@ int main()
 
     if (range)
     {
-        char vfolist[256];
-        rig_sprintf_vfo(vfolist, sizeof(vfolist), my_rig->state.vfo_list);
+        char vfo_list[256];
+        rig_sprintf_vfo(vfo_list, sizeof(vfo_list), my_rig->state.vfo_list);
         printf("Range start=%"PRIfreq", end=%"PRIfreq", low_power=%d, high_power=%d, vfos=%s\n",
-               range->startf, range->endf, range->low_power, range->high_power, vfolist);
+               range->startf, range->endf, range->low_power, range->high_power, vfo_list);
     }
     else
     {

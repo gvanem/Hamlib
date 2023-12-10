@@ -21,11 +21,8 @@
 
 #include <hamlib/config.h>
 
-#include <stdlib.h>
 #include <stdio.h>
 #include "hamlib/rig.h"
-
-#include "kit.h"
 
 #define BACKEND_VER "20200112"
 
@@ -145,7 +142,7 @@ static const char *dwtdll_get_info(RIG *rig);
  * see Winradio G303 as an example
  */
 
-const struct rig_caps dwt_caps =
+struct rig_caps dwt_caps =
 {
     RIG_MODEL(RIG_MODEL_DWT),
     .model_name =       "Digital World Traveller",
@@ -229,7 +226,7 @@ int dwtdll_init(RIG *rig)
 {
     struct dwtdll_priv_data *priv;
 
-    rig->state.priv = (struct dwtdll_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct dwtdll_priv_data *)calloc(1, sizeof(
                           struct dwtdll_priv_data));
 
     if (!rig->state.priv)
@@ -545,7 +542,7 @@ static const char *dwt_get_info(RIG *rig);
  * see dsbr100.c as an example
  */
 
-const struct rig_caps dwt_caps =
+struct rig_caps dwt_caps =
 {
     RIG_MODEL(RIG_MODEL_DWT),
     .model_name =       "Digital World Traveller",

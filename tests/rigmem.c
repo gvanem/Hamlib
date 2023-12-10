@@ -22,20 +22,15 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <ctype.h>
-#include <errno.h>
 
 #include <getopt.h>
 
 #include <hamlib/rig.h>
-#include "misc.h"
-#include "sprintflst.h"
+#include <hamlib/config.h>
+#include "riglist.h"
 
 #define MAXNAMSIZ 32
 #define MAXNBOPT 100    /* max number of different options */
@@ -88,7 +83,7 @@ static struct option long_options[] =
     {0, 0, 0, 0}
 };
 
-#define MAXCONFLEN 1024
+#define MAXCONFLEN 2048
 
 int all;
 
@@ -215,6 +210,7 @@ int main(int argc, char *argv[])
 #ifdef HAVE_XML2
 
         case 'x':
+        printf("xml\n");
             xml++;
             break;
 #endif
@@ -224,6 +220,7 @@ int main(int argc, char *argv[])
             break;
 
         default:
+            fprintf(stderr, "Unknown option '%c'\n", c);
             usage();    /* unknown option? */
             exit(1);
         }

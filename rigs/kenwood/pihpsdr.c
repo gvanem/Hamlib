@@ -20,8 +20,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <string.h>
 
@@ -96,12 +94,12 @@ static struct kenwood_priv_caps  ts2000_priv_caps  =
 /*
  * PiHPSDR rig capabilities. (Emulates Kenwood TS-2000)
  */
-const struct rig_caps pihpsdr_caps =
+struct rig_caps pihpsdr_caps =
 {
     RIG_MODEL(RIG_MODEL_HPSDR),
     .model_name = "PiHPSDR",
     .mfg_name =  "OpenHPSDR",
-    .version =  BACKEND_VER ".1",
+    .version =  BACKEND_VER ".2",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -248,6 +246,14 @@ const struct rig_caps pihpsdr_caps =
         RIG_FLT_END,
     },
 
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+        [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 30 }, .step = { .i = 1 } },
+        [LVL_KEYSPD] = {.min = {.i = 5}, .max = {.i = 50}, .step = {.i = 1}},
+        [LVL_CWPITCH] = {.min = {.i = 400}, .max = {.i = 1000}, .step = {.i = 50}},
+        [LVL_BKIN_DLYMS] = {.min = {.i = 0}, .max = {.i = 1000}, .step = {.i = 50}},
+    },
     .str_cal = PIHPSDR_STR_CAL,
 
     .priv = (void *)& ts2000_priv_caps,
@@ -821,11 +827,15 @@ int pihpsdr_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         break;
 
     case RIG_LEVEL_AGC:
-        if (kenwood_val == RIG_AGC_OFF) { kenwood_val = 0; }
-        else if (kenwood_val == RIG_AGC_SUPERFAST) { kenwood_val = 5; }
+        if (kenwood_val == RIG_AGC_SUPERFAST) { kenwood_val = 5; }
         else if (kenwood_val == RIG_AGC_FAST) { kenwood_val = 10; }
         else if (kenwood_val == RIG_AGC_MEDIUM) { kenwood_val = 15; }
         else if (kenwood_val == RIG_AGC_SLOW) { kenwood_val = 20; }
+        else if (kenwood_val != RIG_AGC_OFF)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: unknown AGC level, expect OFF,SLOW,MEDIUM,FAST,SUPERFAST, got %d\n", __func__, kenwood_val);
+            return -RIG_EINVAL;
+        }
 
         SNPRINTF(levelbuf, sizeof(levelbuf), "GT%03d", kenwood_val);
         break;

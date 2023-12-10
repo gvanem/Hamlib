@@ -19,18 +19,10 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
-#include <sys/time.h>
-#include <time.h>
 
 #include "hamlib/amplifier.h"
 #include "serial.h"
-#include "misc.h"
 #include "register.h"
 
 #include "amp_dummy.h"
@@ -61,7 +53,7 @@ static int dummy_amp_init(AMP *amp)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     amp->state.priv = (struct dummy_amp_priv_data *)
-                      malloc(sizeof(struct dummy_amp_priv_data));
+                      calloc(1, sizeof(struct dummy_amp_priv_data));
 
     if (!amp->state.priv)
     {
@@ -150,7 +142,7 @@ Also a way to display faults (there are commands)
 
 static int dummy_amp_get_freq(AMP *amp, freq_t *freq)
 {
-    struct dummy_amp_priv_data *priv = (struct dummy_amp_priv_data *)
+    const struct dummy_amp_priv_data *priv = (struct dummy_amp_priv_data *)
                                        amp->state.priv;
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
     *freq = priv->freq;
@@ -274,7 +266,7 @@ static int dummy_amp_set_powerstat(AMP *amp, powerstat_t status)
 
 static int dummy_amp_get_powerstat(AMP *amp, powerstat_t *status)
 {
-    struct dummy_amp_priv_data *priv = (struct dummy_amp_priv_data *)
+    const struct dummy_amp_priv_data *priv = (struct dummy_amp_priv_data *)
                                        amp->state.priv;
 
     *status = priv->powerstat;

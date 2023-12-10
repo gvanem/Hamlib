@@ -79,7 +79,6 @@ int clock_gettime (int clock_id, struct timespec *ts)
   return (0);
 }
 
-#if !defined(__MINGW32__)
 /*
  * Number of micro-seconds between the beginning of the Windows epoch
  * (Jan. 1, 1601) and the Unix epoch (Jan. 1, 1970).
@@ -94,6 +93,13 @@ static uint64_t FILETIME_to_unix_epoch (const FILETIME *ft)
   res /= 10;                   /* from 100 nano-sec periods to usec */
   res -= DELTA_EPOCH_IN_USEC;  /* from Win epoch to Unix epoch */
   return (res);
+}
+
+int nanosleep (const struct timespec *ts, struct timespec *remain)
+{
+  assert (remain == NULL);
+  SleepEx (1000 *ts->tv_sec + ts->tv_nsec/1000000, TRUE);
+  return (0);
 }
 
 int gettimeofday (struct timeval *tv, struct timezone *tz)
@@ -111,10 +117,7 @@ int gettimeofday (struct timeval *tv, struct timezone *tz)
   (void) tz;
   return (0);
 }
-#endif  /* !__MINGW32__ */
 
-
-#if !defined(HAVE_STRTOK_R)
 /*
  * A 'strtok_r()' function taken from libcurl:
  *
@@ -165,4 +168,3 @@ char *strtok_r (char *s, const char *delim, char **ptrptr)
    */
   return (NULL);
 }
-#endif

@@ -87,7 +87,7 @@ static struct opened_amp_l *opened_amp_list = { NULL };
 static int add_opened_amp(AMP *amp)
 {
     struct opened_amp_l *p;
-    p = (struct opened_amp_l *)malloc(sizeof(struct opened_amp_l));
+    p = (struct opened_amp_l *)calloc(1, sizeof(struct opened_amp_l));
 
     if (!p)
     {
@@ -132,7 +132,7 @@ static int remove_opened_amp(const AMP *amp)
 
 #ifdef XXREMOVEDXX
 /**
- * \brief Executess cfunc() on each #AMP handle.
+ * \brief Executes cfunc() on each #AMP handle.
  *
  * \param cfunc The function to be executed on each #AMP handle.
  * \param data Data pointer to be passed to cfunc()
@@ -236,7 +236,7 @@ AMP *HAMLIB_API amp_init(amp_model_t amp_model)
     switch (caps->port_type)
     {
     case RIG_PORT_SERIAL:
-        // Dont' think we need a default port here
+        // Don't think we need a default port here
         //strncpy(rs->ampport.pathname, DEFAULT_SERIAL_PORT, HAMLIB_FILPATHLEN - 1);
         rs->ampport.parm.serial.rate = caps->serial_rate_max;   /* fastest ! */
         rs->ampport.parm.serial.data_bits = caps->serial_data_bits;
@@ -297,7 +297,7 @@ AMP *HAMLIB_API amp_init(amp_model_t amp_model)
  * \return RIG_OK if the operation has been successful, otherwise a **negative
  * value** if an error occurred (in which case, cause is set appropriately).
  *
- * \retval RIG_OK Communication channel succesfully opened.
+ * \retval RIG_OK Communication channel successfully opened.
  * \retval RIG_EINVAL \a amp is NULL or inconsistent.
  *
  * \sa amp_init(), amp_close()
@@ -418,6 +418,23 @@ int HAMLIB_API amp_open(AMP *amp)
         }
     }
 
+    if(rs->ampport.parm.serial.dtr_state == RIG_SIGNAL_ON)
+    {
+        ser_set_dtr(&rs->ampport, 1);
+    }
+    else
+    {
+        ser_set_dtr(&rs->ampport, 0);
+    }
+    if(rs->ampport.parm.serial.rts_state == RIG_SIGNAL_ON)
+    {
+        ser_set_rts(&rs->ampport, 1);
+    }
+    else
+    {
+        ser_set_rts(&rs->ampport, 0);
+    }
+
     memcpy(&amp->state.ampport_deprecated, &amp->state.ampport,
            sizeof(amp->state.ampport_deprecated));
 
@@ -449,10 +466,14 @@ int HAMLIB_API amp_close(AMP *amp)
 
     amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    if (!amp || !amp->caps)
+    if (amp == NULL)
     {
-        amp_debug(RIG_DEBUG_ERR, "%s: NULL ptr? amp=%p, amp->caps=%p\n", __func__, amp,
-                  amp->caps);
+        amp_debug(RIG_DEBUG_ERR, "%s: NULL ptr? amp=%p\n", __func__, amp);
+        return -RIG_EINVAL;
+    }
+    if (amp->caps == NULL)
+    {
+        amp_debug(RIG_DEBUG_ERR, "%s: NULL ptr? amp->caps=%p\n", __func__, amp->caps);
         return -RIG_EINVAL;
     }
 
@@ -707,6 +728,43 @@ const char *HAMLIB_API amp_get_info(AMP *amp)
 
 
 /**
+ * \brief Set the value of a requested level.
+ *
+ * \param amp The #AMP handle.
+ * \param level The requested level.
+ * \param val The variable to store the \a level value.
+ *
+ * Set the \a val corresponding to the \a level.
+ *
+ * \note \a val can be any type defined by #value_t.
+ *
+ * \return RIG_OK if the operation was successful, otherwise a **negative
+ * value** if an error occurred (in which case, cause is set appropriately).
+ *
+ * \retval RIG_OK The query was successful.
+ * \retval RIG_EINVAL \a amp is NULL or inconsistent.
+ * \retval RIG_ENAVAIL amp_caps#get_level() capability is not available.
+ *
+ * \sa amp_set_ext_level()
+ */
+int HAMLIB_API amp_set_level(AMP *amp, setting_t level, value_t val)
+{
+    amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    if (CHECK_AMP_ARG(amp))
+    {
+        return -RIG_EINVAL;
+    }
+
+    if (amp->caps->set_level == NULL)
+    {
+        return -RIG_ENAVAIL;
+    }
+
+    return amp->caps->set_level(amp, level, val);
+}
+
+/**
  * \brief Query the value of a requested level.
  *
  * \param amp The #AMP handle.
@@ -743,6 +801,41 @@ int HAMLIB_API amp_get_level(AMP *amp, setting_t level, value_t *val)
     return amp->caps->get_level(amp, level, val);
 }
 
+
+/**
+ * \brief Set the value of a requested extension levels token.
+ *
+ * \param amp The #AMP handle.
+ * \param level The requested extension levels token.
+ * \param val The variable to set the extension \a level token value.
+ *
+ * Query the \a val corresponding to the extension \a level token.
+ *
+ * \return RIG_OK if the operation was successful, otherwise a **negative
+ * value** if an error occurred (in which case, cause is set appropriately).
+ *
+ * \retval RIG_OK The query was successful.
+ * \retval RIG_EINVAL \a amp is NULL or inconsistent.
+ * \retval RIG_ENAVAIL amp_caps#set_ext_level() capability is not available.
+ *
+ * \sa amp_set_level()
+ */
+int HAMLIB_API amp_set_ext_level(AMP *amp, token_t level, value_t val)
+{
+    amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    if (CHECK_AMP_ARG(amp))
+    {
+        return -RIG_EINVAL;
+    }
+
+    if (amp->caps->set_ext_level == NULL)
+    {
+        return -RIG_ENAVAIL;
+    }
+
+    return amp->caps->set_ext_level(amp, level, val);
+}
 
 /**
  * \brief Query the value of a requested extension levels token.

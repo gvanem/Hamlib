@@ -22,7 +22,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -40,7 +39,7 @@
 
 #define G313_FUNC  RIG_FUNC_NONE
 #define G313_LEVEL (RIG_LEVEL_ATT | RIG_LEVEL_AGC | RIG_LEVEL_RF | RIG_LEVEL_STRENGTH | RIG_LEVEL_RAWSTR)
-#define G313_MODES (RIG_MODE_NONE)
+#define G313_MODES (RIG_MODE_USB)
 
 #define TOK_SHM_AUDIO 0x150901
 #define TOK_SHM_IF 0x150902
@@ -113,7 +112,7 @@ int g313_init(RIG *rig)
 {
     struct g313_priv_data *priv;
 
-    priv = (struct g313_priv_data *)malloc(sizeof(struct g313_priv_data));
+    priv = (struct g313_priv_data *)calloc(1, sizeof(struct g313_priv_data));
 
     if (!priv)
     {
@@ -644,7 +643,7 @@ static void  g313_spectrum_callback(float *buffer, int count, void *arg)
 #pragma GCC diagnostic pop
 }
 
-const struct rig_caps g313_caps =
+struct rig_caps g313_caps =
 {
     RIG_MODEL(RIG_MODEL_G313),
     .model_name =     "WR-G313",

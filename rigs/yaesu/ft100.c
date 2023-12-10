@@ -24,12 +24,9 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>     /* String function definitions */
-#include <unistd.h>     /* UNIX standard function definitions */
 #include <math.h>
 
 #include "hamlib/rig.h"
@@ -312,12 +309,12 @@ static tone_t ft100_dcs_list[] =
             { 200, -54 }  /*  S0 */ \
             } }
 
-const struct rig_caps ft100_caps =
+struct rig_caps ft100_caps =
 {
     RIG_MODEL(RIG_MODEL_FT100),
     .model_name =     "FT-100",
     .mfg_name =       "Yaesu",
-    .version =        "20210929.0",
+    .version =        "20230720.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_TRANSCEIVER,
@@ -340,7 +337,10 @@ const struct rig_caps ft100_caps =
     .has_set_level =  RIG_LEVEL_BAND_SELECT,
     .has_get_parm =   RIG_PARM_NONE,
     .has_set_parm =   RIG_PARM_NONE,  /* FIXME: parms */
-    .level_gran =     { 0 },     /* granularity */
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .parm_gran =      { 0 },
     .ctcss_list =     ft100_ctcss_list,
     .dcs_list =       ft100_dcs_list,
@@ -840,7 +840,7 @@ int ft100_set_vfo(RIG *rig, vfo_t vfo)
 
     int ret;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called vfo=%s\n", __func__, rig_strvfo(vfo));
 
     switch (vfo)
     {
@@ -921,7 +921,8 @@ int ft100_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
     case RIG_PTT_ON:
         cmd_index = FT100_NATIVE_CAT_PTT_ON;
 
-        if (split) { rig_set_vfo(rig, RIG_VFO_B); }
+        // This was causing WSJT-X to assume reverse split
+        //if (split) { rig_set_vfo(rig, RIG_VFO_B); }
 
         break;
 
@@ -931,7 +932,7 @@ int ft100_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
         if (split) { rig_set_vfo(rig, RIG_VFO_A); }
 
         hl_usleep(100 *
-                  1000); // give ptt some time to do it's thing -- fake it was not reseting freq after tx
+                  1000); // give ptt some time to do its thing -- fake it was not resetting freq after tx
         break;
 
     default:

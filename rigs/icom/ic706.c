@@ -19,16 +19,14 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
 #include "icom.h"
 #include "icom_defs.h"
 #include "frame.h"
-#include "idx_builtin.h"
 #include "bandplan.h"
+#include "tones.h"
 
 
 /*
@@ -146,7 +144,7 @@ static const struct icom_priv_caps ic706_priv_caps =
     .r2i_mode = ic706_r2i_mode
 };
 
-const struct rig_caps ic706_caps =
+struct rig_caps ic706_caps =
 {
     RIG_MODEL(RIG_MODEL_IC706),
     .model_name = "IC-706",
@@ -174,7 +172,10 @@ const struct rig_caps ic706_caps =
     .has_set_level =  RIG_LEVEL_NONE,
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE, /* FIXME: parms */
-    .level_gran =  { 0 },      /* granularity */
+    .level_gran =
+    {
+#include "level_gran_icom.h"
+    },
     .parm_gran =  { 0 },
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
@@ -245,6 +246,12 @@ const struct rig_caps ic706_caps =
         RIG_FLT_END,
     },
     .str_cal = IC706IIG_STR_CAL,
+
+    .async_data_supported = 1,
+    .read_frame_direct = icom_read_frame_direct,
+    .is_async_frame = icom_is_async_frame,
+    .process_async_frame = icom_process_async_frame,
+
     .priv = (void *)& ic706_priv_caps,
     .rig_init =   icom_init,
     .rig_cleanup =   icom_cleanup,
@@ -255,7 +262,7 @@ const struct rig_caps ic706_caps =
     .get_freq =  icom_get_freq,
     .set_mode =  icom_set_mode,
     .get_mode =  icom_get_mode,
-    .get_vfo =  icom_get_vfo,
+//    .get_vfo =  icom_get_vfo,
     .set_vfo =  icom_set_vfo,
 
     .decode_event =  icom_decode_event,
@@ -285,7 +292,7 @@ static const struct icom_priv_caps ic706mkii_priv_caps =
     .r2i_mode = ic706_r2i_mode
 };
 
-const struct rig_caps ic706mkii_caps =
+struct rig_caps ic706mkii_caps =
 {
     RIG_MODEL(RIG_MODEL_IC706MKII),
     .model_name = "IC-706MkII",
@@ -313,7 +320,10 @@ const struct rig_caps ic706mkii_caps =
     .has_set_level =  RIG_LEVEL_NONE,
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE, /* FIXME: parms */
-    .level_gran =  { 0 },      /* granularity */
+    .level_gran =
+    {
+#include "level_gran_icom.h"
+    },
     .parm_gran =  { 0 },
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
@@ -388,6 +398,11 @@ const struct rig_caps ic706mkii_caps =
     },
     .str_cal = IC706IIG_STR_CAL,
 
+    .async_data_supported = 1,
+    .read_frame_direct = icom_read_frame_direct,
+    .is_async_frame = icom_is_async_frame,
+    .process_async_frame = icom_process_async_frame,
+
     .priv = (void *)& ic706mkii_priv_caps,
     .rig_init =   icom_init,
     .rig_cleanup =   icom_cleanup,
@@ -398,7 +413,7 @@ const struct rig_caps ic706mkii_caps =
     .get_freq =  icom_get_freq,
     .set_mode =  icom_set_mode,
     .get_mode =  icom_get_mode,
-    .get_vfo =  icom_get_vfo,
+//    .get_vfo =  icom_get_vfo,
     .set_vfo =  icom_set_vfo,
 
     .decode_event =  icom_decode_event,
@@ -448,12 +463,12 @@ static const struct icom_priv_caps ic706mkiig_priv_caps =
     .r2i_mode = ic706_r2i_mode
 };
 
-const struct rig_caps ic706mkiig_caps =
+struct rig_caps ic706mkiig_caps =
 {
     RIG_MODEL(RIG_MODEL_IC706MKIIG),
     .model_name = "IC-706MkIIG",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".1",
+    .version =  BACKEND_VER ".2",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_MOBILE,
@@ -476,9 +491,9 @@ const struct rig_caps ic706mkiig_caps =
     .has_set_level =  RIG_LEVEL_SET(IC706IIG_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE, /* FIXME: parms */
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
+    .level_gran =
+    {
+#include "level_gran_icom.h"
     },
     .parm_gran =  { 0 },
     .ctcss_list =  common_ctcss_list,
@@ -576,6 +591,11 @@ const struct rig_caps ic706mkiig_caps =
     },
     .str_cal = IC706IIG_STR_CAL,
 
+    .async_data_supported = 1,
+    .read_frame_direct = icom_read_frame_direct,
+    .is_async_frame = icom_is_async_frame,
+    .process_async_frame = icom_process_async_frame,
+
     .cfgparams =  icom_cfg_params,
     .set_conf =  icom_set_conf,
     .get_conf =  icom_get_conf,
@@ -590,7 +610,7 @@ const struct rig_caps ic706mkiig_caps =
     .get_freq =  icom_get_freq,
     .set_mode =  icom_set_mode,
     .get_mode =  icom_get_mode,
-    .get_vfo =  icom_get_vfo,
+//    .get_vfo =  icom_get_vfo,
     .set_vfo =  icom_set_vfo,
 
     .decode_event =  icom_decode_event,

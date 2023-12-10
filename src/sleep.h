@@ -28,7 +28,7 @@
 __BEGIN_DECLS
 
 /* Hamlib internal use, see rig.c */
-int hl_usleep(rig_useconds_t usec);
+extern HAMLIB_EXPORT(int) hl_usleep(rig_useconds_t msec);
 
 __END_DECLS
 

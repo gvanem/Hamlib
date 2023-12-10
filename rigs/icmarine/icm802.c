@@ -19,14 +19,11 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
 #include "icmarine.h"
 #include "idx_builtin.h"
-#include "bandplan.h"
 
 #define ICM802_MODES (RIG_MODE_SSB|RIG_MODE_CW|RIG_MODE_RTTY)
 #define ICM802_RX_MODES (ICM802_MODES|RIG_MODE_AM)
@@ -53,7 +50,7 @@ static const struct icmarine_priv_caps icm802_priv_caps =
 };
 
 
-const struct rig_caps icm802_caps =
+struct rig_caps icm802_caps =
 {
     RIG_MODEL(RIG_MODEL_IC_M802),
     .model_name = "IC-M802",
@@ -82,7 +79,6 @@ const struct rig_caps icm802_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 8 } },
     },
     .parm_gran =  { 0 },

@@ -24,15 +24,12 @@
  * Email: james (dot) m (dot) smith (at) earthlink (dot) net
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
 #include "idx_builtin.h"
 #include "icom.h"
 #include "tones.h"
-#include "token.h"
 #include "optoscan.h"
 
 extern struct confparams opto_ext_parms[];
@@ -71,7 +68,7 @@ static struct icom_priv_caps os456_priv_caps =
     .settle_time = 20,
 };
 
-const struct rig_caps os456_caps =
+struct rig_caps os456_caps =
 {
     RIG_MODEL(RIG_MODEL_OS456),
     .model_name = "OptoScan456",
@@ -100,7 +97,6 @@ const struct rig_caps os456_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .parm_gran =  { 0 },

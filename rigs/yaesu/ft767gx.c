@@ -34,11 +34,8 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -257,12 +254,12 @@ tone_t static_767gx_ctcss_list[] =
  * Also this struct is READONLY!
  */
 
-const struct rig_caps ft767gx_caps =
+struct rig_caps ft767gx_caps =
 {
     RIG_MODEL(RIG_MODEL_FT767),
     .model_name =       "FT-767GX",
     .mfg_name =         "Yaesu",
-    .version =           "20210221.0",
+    .version =           "20230523.0",
     .copyright =         "LGPL",
     .status =            RIG_STATUS_STABLE,
     .rig_type =          RIG_TYPE_TRANSCEIVER,
@@ -285,6 +282,10 @@ const struct rig_caps ft767gx_caps =
     .has_set_level =     RIG_LEVEL_BAND_SELECT,
     .has_get_parm =      RIG_PARM_NONE,
     .has_set_parm =      RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .ctcss_list =        static_767gx_ctcss_list,
     .dcs_list =          NULL,
     .preamp =            { RIG_DBLST_END, },
@@ -346,9 +347,9 @@ const struct rig_caps ft767gx_caps =
 
     /* mode/filter list, .remember =  order matters! */
     .filters =  {
-        RIG_FLT_END,
+        {RIG_MODE_ALL, RIG_FLT_ANY},
+        RIG_FLT_END
     },
-
 
     .priv =   NULL, /* private data */
 
@@ -487,7 +488,13 @@ int ft767_open(RIG *rig)
 
 int ft767_close(RIG *rig)
 {
-    rig_flush(&rig->state.rigport);
+    int retval = ft767_leave_CAT(rig);
+
+    if (retval < 0)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: leave_CAT %d\n", __func__, retval);
+        return retval;
+    }
     return RIG_OK;
 }
 
@@ -612,7 +619,7 @@ int ft767_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 
 int ft767_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
-    struct ft767_priv_data *priv = (struct ft767_priv_data *)rig->state.priv;
+    const  struct ft767_priv_data *priv = (struct ft767_priv_data *)rig->state.priv;
     int retval;
 
     retval = ft767_get_update_data(rig);  /* get whole shebang from rig */
@@ -702,7 +709,7 @@ int ft767_set_vfo(RIG *rig, vfo_t vfo)
 
 int ft767_get_vfo(RIG *rig, vfo_t *vfo)
 {
-    struct ft767_priv_data *priv = (struct ft767_priv_data *)rig->state.priv;
+    const struct ft767_priv_data *priv = (struct ft767_priv_data *)rig->state.priv;
     int retval;
 
     retval = ft767_get_update_data(rig);  /* get whole shebang from rig */
@@ -789,7 +796,7 @@ int ft767_set_ctcss_tone(RIG *rig, vfo_t vfo, tone_t tone)
 
 int ft767_get_ctcss_tone(RIG *rig, vfo_t vfo, tone_t *tone)
 {
-    struct ft767_priv_data *priv = (struct ft767_priv_data *)rig->state.priv;
+    const struct ft767_priv_data *priv = (struct ft767_priv_data *)rig->state.priv;
     int retval;
 
     retval = ft767_get_update_data(rig);  /* get whole shebang from rig */
@@ -1302,7 +1309,7 @@ int ft767_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
 
 int ft767_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
 {
-    struct ft767_priv_data *priv = (struct ft767_priv_data *)rig->state.priv;
+    const  struct ft767_priv_data *priv = (struct ft767_priv_data *)rig->state.priv;
     int retval;
     vfo_t curr_vfo;
 

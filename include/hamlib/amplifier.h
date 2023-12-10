@@ -146,7 +146,8 @@ enum amp_level_e
   AMP_LEVEL_PWR_FWD       = (1 << 4), /*!< \c Power reading forward. */
   AMP_LEVEL_PWR_REFLECTED = (1 << 5), /*!< \c Power reading reverse. */
   AMP_LEVEL_PWR_PEAK      = (1 << 6), /*!< \c Power reading peak. */
-  AMP_LEVEL_FAULT         = (1 << 7)  /*!< \c Fault code. */
+  AMP_LEVEL_FAULT         = (1 << 7), /*!< \c Fault code. */
+  AMP_LEVEL_PWR           = (1 << 8), /*!< \c Power setting. */
 };
 //! @endcond
 
@@ -242,7 +243,9 @@ struct amp_caps
 
   int (*reset)(AMP *amp, amp_reset_t reset);                   /*!< Pointer to backend implementation of ::amp_reset(). */
   int (*get_level)(AMP *amp, setting_t level, value_t *val);   /*!< Pointer to backend implementation of ::amp_get_level(). */
+  int (*set_level)(AMP *amp, setting_t level, value_t val);    /*!< Pointer to backend implementation of ::amp_get_level(). */
   int (*get_ext_level)(AMP *amp, token_t level, value_t *val); /*!< Pointer to backend implementation of ::amp_get_ext_level(). */
+  int (*set_ext_level)(AMP *amp, token_t level, value_t val);  /*!< Pointer to backend implementation of ::amp_set_ext_level(). */
   int (*set_powerstat)(AMP *amp, powerstat_t status);          /*!< Pointer to backend implementation of ::amp_set_powerstat(). */
   int (*get_powerstat)(AMP *amp, powerstat_t *status);         /*!< Pointer to backend implementation of ::amp_get_powerstat(). */
 
@@ -288,6 +291,7 @@ struct amp_state
   rig_ptr_t obj;          /*!< Internal use by hamlib++ for event handling. */
 
   setting_t has_get_level; /*!< List of get levels. */
+  setting_t has_set_level; /*!< List of set levels. */
 
   gran_t level_gran[RIG_SETTING_MAX]; /*!< Level granularity. */
   gran_t parm_gran[RIG_SETTING_MAX];  /*!< Parameter granularity. */
@@ -318,28 +322,31 @@ struct amp
 /* --------------- API function prototypes -----------------*/
 
 extern HAMLIB_EXPORT(AMP *)
-amp_init (amp_model_t amp_model);
+amp_init HAMLIB_PARAMS((amp_model_t amp_model));
 
 extern HAMLIB_EXPORT(int)
-amp_open (AMP *amp);
+amp_open HAMLIB_PARAMS((AMP *amp));
 
 extern HAMLIB_EXPORT(int)
-amp_close (AMP *amp);
+amp_close HAMLIB_PARAMS((AMP *amp));
 
 extern HAMLIB_EXPORT(int)
-amp_cleanup (AMP *amp);
+amp_cleanup HAMLIB_PARAMS((AMP *amp));
 
 extern HAMLIB_EXPORT(int)
-amp_set_conf (AMP *amp, token_t token, const char *val);
-
+amp_set_conf HAMLIB_PARAMS((AMP *amp,
+                            token_t token,
+                            const char *val));
 extern HAMLIB_EXPORT(int)
-amp_get_conf (AMP *amp, token_t token, char *val);
-
+amp_get_conf HAMLIB_PARAMS((AMP *amp,
+                            token_t token,
+                            char *val));
 extern HAMLIB_EXPORT(int)
-amp_set_powerstat (AMP *amp, powerstat_t status);
-
+amp_set_powerstat HAMLIB_PARAMS((AMP *amp,
+                                 powerstat_t status));
 extern HAMLIB_EXPORT(int)
-amp_get_powerstat (AMP *amp, powerstat_t *status);
+amp_get_powerstat HAMLIB_PARAMS((AMP *amp,
+                                 powerstat_t *status));
 
 
 /*
@@ -347,66 +354,93 @@ amp_get_powerstat (AMP *amp, powerstat_t *status);
  *  List Set/Get functions pairs
  */
 extern HAMLIB_EXPORT(int)
-amp_get_freq (AMP *amp, freq_t *freq);
+amp_get_freq HAMLIB_PARAMS((AMP *amp,
+                            freq_t *freq));
+extern HAMLIB_EXPORT(int)
+amp_set_freq HAMLIB_PARAMS((AMP *amp,
+                            freq_t freq));
 
 extern HAMLIB_EXPORT(int)
-amp_set_freq (AMP *amp, freq_t freq);
-
-extern HAMLIB_EXPORT(int)
-amp_reset (AMP *amp, amp_reset_t reset);
+amp_reset HAMLIB_PARAMS((AMP *amp,
+                         amp_reset_t reset));
 
 extern HAMLIB_EXPORT(const char *)
-amp_get_info (AMP *amp);
+amp_get_info HAMLIB_PARAMS((AMP *amp));
 
 extern HAMLIB_EXPORT(int)
-amp_get_level (AMP *amp, setting_t level, value_t *val);
+amp_get_level HAMLIB_PARAMS((AMP *amp, setting_t level, value_t *val));
 
 extern HAMLIB_EXPORT(int)
-amp_register (const struct amp_caps *caps);
+amp_set_level HAMLIB_PARAMS((AMP *amp, setting_t level, value_t val));
+
 
 extern HAMLIB_EXPORT(int)
-amp_unregister (amp_model_t amp_model);
+amp_register HAMLIB_PARAMS((const struct amp_caps *caps));
 
 extern HAMLIB_EXPORT(int)
-amp_list_foreach (int (*cfunc)(const struct amp_caps *, rig_ptr_t), rig_ptr_t data);
+amp_unregister HAMLIB_PARAMS((amp_model_t amp_model));
 
 extern HAMLIB_EXPORT(int)
-amp_load_backend (const char *be_name);
+amp_list_foreach HAMLIB_PARAMS((int (*cfunc)(const struct amp_caps *,
+                                rig_ptr_t),
+                                rig_ptr_t data));
 
 extern HAMLIB_EXPORT(int)
-amp_check_backend (amp_model_t amp_model);
+amp_load_backend HAMLIB_PARAMS((const char *be_name));
 
 extern HAMLIB_EXPORT(int)
-amp_load_all_backends (void);
+amp_check_backend HAMLIB_PARAMS((amp_model_t amp_model));
+
+extern HAMLIB_EXPORT(int)
+amp_load_all_backends HAMLIB_PARAMS((void));
 
 extern HAMLIB_EXPORT(amp_model_t)
-amp_probe_all (hamlib_port_t *p);
+amp_probe_all HAMLIB_PARAMS((hamlib_port_t *p));
 
 extern HAMLIB_EXPORT(int)
-amp_token_foreach (AMP *amp, int (*cfunc)(const struct confparams *, rig_ptr_t), rig_ptr_t data);
+amp_token_foreach HAMLIB_PARAMS((AMP *amp,
+                                 int (*cfunc)(const struct confparams *,
+                                     rig_ptr_t),
+                                 rig_ptr_t data));
 
 extern HAMLIB_EXPORT(const struct confparams *)
-amp_confparam_lookup (AMP *amp, const char *name);
+amp_confparam_lookup HAMLIB_PARAMS((AMP *amp,
+                                    const char *name));
 
 extern HAMLIB_EXPORT(token_t)
-amp_token_lookup (AMP *amp, const char *name);
+amp_token_lookup HAMLIB_PARAMS((AMP *amp,
+                                const char *name));
 
 extern HAMLIB_EXPORT(const struct amp_caps *)
-amp_get_caps (amp_model_t amp_model);
+amp_get_caps HAMLIB_PARAMS((amp_model_t amp_model));
 
 extern HAMLIB_EXPORT(setting_t)
-amp_has_get_level (AMP *amp, setting_t level);
+amp_has_get_level HAMLIB_PARAMS((AMP *amp,
+                                 setting_t level));
+
+extern HAMLIB_EXPORT(setting_t)
+amp_has_set_level HAMLIB_PARAMS((AMP *amp,
+                                 setting_t level));
 
 extern HAMLIB_EXPORT(const struct confparams *)
-amp_ext_lookup (AMP *amp, const char *name);
+amp_ext_lookup HAMLIB_PARAMS((AMP *amp,
+                              const char *name));
 
 extern HAMLIB_EXPORT(int)
-amp_get_ext_level (AMP *amp, token_t token, value_t *val);
+amp_get_ext_level HAMLIB_PARAMS((AMP *amp,
+                                 token_t token,
+                                 value_t *val));
+
+extern HAMLIB_EXPORT(int)
+amp_set_ext_level HAMLIB_PARAMS((AMP *amp,
+                                 token_t token,
+                                 value_t val));
 
 extern HAMLIB_EXPORT(const char *) amp_strlevel(setting_t);
 
 extern HAMLIB_EXPORT(const struct confparams *)
-rig_ext_lookup (RIG *rig, const char *name);
+rig_ext_lookup HAMLIB_PARAMS((RIG *rig,
+                              const char *name));
 
 extern HAMLIB_EXPORT(setting_t) amp_parse_level(const char *s);
 extern HAMLIB_EXPORT(const char *) amp_strlevel(setting_t);

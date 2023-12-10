@@ -19,14 +19,10 @@
  *
  */
 
-#include <hamlib/config.h>
 
 #include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <math.h>
 #include <sys/time.h>
-#include <time.h>
 
 #include <hamlib/rotator.h>
 #include "serial.h"
@@ -54,7 +50,7 @@ static int ts7400_rot_init(ROT *rot)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     rot->state.priv = (struct ts7400_rot_priv_data *)
-                      malloc(sizeof(struct ts7400_rot_priv_data));
+                      calloc(1, sizeof(struct ts7400_rot_priv_data));
 
     if (!rot->state.priv)
     {
@@ -227,7 +223,7 @@ static int ts7400_rot_reset(ROT *rot, rot_reset_t reset)
 
 static int ts7400_rot_move(ROT *rot, int direction, int speed)
 {
-    struct ts7400_rot_priv_data *priv = (struct ts7400_rot_priv_data *)
+    struct ts7400_rot_priv_data const *priv = (struct ts7400_rot_priv_data *)
                                         rot->state.priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);

@@ -19,10 +19,7 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
-#include <string.h>
 
 #include <hamlib/rig.h>
 #include "tones.h"
@@ -109,7 +106,7 @@ static int thf7e_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op);
  * - set/get_ctcss_tone/sql through set/get_channel() and VR/VW
  * - emulate RIG_FUNC_TONE|RIG_FUNC_TSQL by setting ctcss_tone/sql to 0/non zero?
  */
-const struct rig_caps thf7e_caps =
+struct rig_caps thf7e_caps =
 {
     RIG_MODEL(RIG_MODEL_THF7E),
     .model_name = "TH-F7E",
@@ -138,10 +135,9 @@ const struct rig_caps thf7e_caps =
     .has_set_level =  RIG_LEVEL_SET(THF7_LEVEL_ALL),
     .has_get_parm =  THF7_PARMS,
     .has_set_parm =  THF7_PARMS,
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_SQL] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_RFPOWER] = { .min = { .i = 2 }, .max = { .i = 0 } },
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
     },
     .parm_gran =  { 0 },
     .ctcss_list =  thf7_ctcss_list,

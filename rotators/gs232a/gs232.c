@@ -19,20 +19,13 @@
  *
  */
 
-#include <hamlib/config.h>
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <math.h>
 
 #include "hamlib/rotator.h"
 #include "serial.h"
-#include "misc.h"
-#include "register.h"
-
-#include "gs232a.h"
 
 #define EOM "\r"
 #define REPLY_EOM "\r"

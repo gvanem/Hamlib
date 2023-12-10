@@ -45,7 +45,8 @@ struct usrp_priv_data {
 
 int usrp_init(RIG *rig)
 {
-	rig->state.priv = (struct usrp_priv_data*)malloc(sizeof(struct usrp_priv_data));
+    // cppcheck-suppress leakReturnValNotUsed
+	rig->state.priv = (struct usrp_priv_data*) malloc(sizeof(struct usrp_priv_data));
 	if (!rig->state.priv) {
 		/* whoops! memory shortage! */
 		return -RIG_ENOMEM;
@@ -84,6 +85,12 @@ int usrp_close(RIG *rig)
 {
 	struct usrp_priv_data *priv = (struct usrp_priv_data*)rig->state.priv;
 
+    if (!priv)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: priv == NULL?\n", __func__);
+        return -RIG_EARG;
+    }
+
 	delete priv->urx;
 
 	return RIG_OK;
@@ -95,6 +102,12 @@ int usrp_close(RIG *rig)
 int usrp_set_conf(RIG *rig, token_t token, const char *val)
 {
 	struct usrp_priv_data *priv = (struct usrp_priv_data*)rig->state.priv;
+
+    if (!priv)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: priv == NULL?\n", __func__);
+        return -RIG_EARG;
+    }
 
 	switch(token) {
 		case TOK_IFMIXFREQ:
@@ -113,7 +126,13 @@ int usrp_set_conf(RIG *rig, token_t token, const char *val)
  */
 int usrp_get_conf(RIG *rig, token_t token, char *val)
 {
-	struct usrp_priv_data *priv = (struct usrp_priv_data*)rig->state.priv;
+	const struct usrp_priv_data *priv = (const struct usrp_priv_data*)rig->state.priv;
+
+    if (!priv)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: priv == NULL?\n", __func__);
+        return -RIG_EARG;
+    }
 
 	switch(token) {
 		case TOK_IFMIXFREQ:
@@ -129,8 +148,14 @@ int usrp_get_conf(RIG *rig, token_t token, char *val)
 
 int usrp_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
-	struct usrp_priv_data *priv = (struct usrp_priv_data*)rig->state.priv;
+	const struct usrp_priv_data *priv = (const struct usrp_priv_data*)rig->state.priv;
 	int chan = 0;
+
+    if (!priv)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: priv == NULL?\n", __func__);
+        return -RIG_EARG;
+    }
 
 	if (!priv->urx->set_rx_freq (chan, freq))
 		return -RIG_EPROTO;
@@ -141,8 +166,14 @@ int usrp_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
 int usrp_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
-	struct usrp_priv_data *priv = (struct usrp_priv_data*)rig->state.priv;
+	const struct usrp_priv_data *priv = (const struct usrp_priv_data*)rig->state.priv;
 	int chan = 0;
+
+    if (!priv)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: priv == NULL?\n", __func__);
+        return -RIG_EARG;
+    }
 
 	*freq = priv->urx->rx_freq (chan);
 

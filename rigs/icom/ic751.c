@@ -19,12 +19,9 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
-#include "bandplan.h"
 #include "icom.h"
 #include "idx_builtin.h"
 
@@ -82,7 +79,7 @@ static const struct icom_priv_caps ic751_priv_caps =
     ic737_ts_sc_list
 };
 
-const struct rig_caps ic751_caps =
+struct rig_caps ic751_caps =
 {
     RIG_MODEL(RIG_MODEL_IC751),
     .model_name = "IC-751",
@@ -111,8 +108,9 @@ const struct rig_caps ic751_caps =
     .has_set_level =  RIG_LEVEL_NONE,
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
-    .level_gran =  {
-        // cppcheck-suppress *
+    .level_gran =
+    {
+#include "level_gran_icom.h"
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .parm_gran =  { 0 },

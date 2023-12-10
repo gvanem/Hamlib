@@ -25,15 +25,13 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include "hamlib/rig.h"
 #include "misc.h"
 #include "newcat.h"
 #include "bandplan.h"
 #include "newcat.h"
+#include "yaesu.h"
 #include "ft5000.h"
-#include "idx_builtin.h"
 #include "tones.h"
 
 const struct newcat_priv_caps ftdx3000_priv_caps =
@@ -169,7 +167,7 @@ int ft3000_set_ant(RIG *rig, vfo_t vfo, ant_t ant, value_t option)
         break;
 
     default:
-        rig_debug(RIG_DEBUG_ERR, "%s: expected 1,2,3 got %d\n", __func__, ant);
+        rig_debug(RIG_DEBUG_ERR, "%s: expected 1,2,3 got %u\n", __func__, ant);
         RETURNFUNC(-RIG_EINVAL);
     }
 
@@ -239,12 +237,12 @@ int ft3000_get_ant(RIG *rig, vfo_t vfo, ant_t dummy, value_t *option,
  * so this is just a copy of the FTDX 5000 caps.
  * It really needs to be reviewed for accuracy, but it works for WSJT-X.
  */
-const struct rig_caps ftdx3000_caps =
+struct rig_caps ftdx3000_caps =
 {
     RIG_MODEL(RIG_MODEL_FTDX3000),
     .model_name =         "FTDX-3000",
     .mfg_name =           "Yaesu",
-    .version =            NEWCAT_VER ".6",
+    .version =            NEWCAT_VER ".12",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -259,7 +257,7 @@ const struct rig_caps ftdx3000_caps =
     .serial_handshake =   RIG_HANDSHAKE_HARDWARE,
     // write_delay 5ms or less was causing VS1;VS; to answer with VS0 instead of VS1 even though change did occur
     // see https://github.com/Hamlib/Hamlib/issues/906
-    .write_delay =        0,
+    .write_delay =        0, // delay of 1 broke rigctl -- all ? responses
     .post_write_delay =   FTDX5000_POST_WRITE_DELAY,
     .timeout =            2000,
     .retry =              3,
@@ -267,14 +265,19 @@ const struct rig_caps ftdx3000_caps =
     .has_set_func =       FTDX5000_FUNCS,
     .has_get_level =      FTDX5000_LEVELS,
     .has_set_level =      RIG_LEVEL_SET(FTDX5000_LEVELS),
-    .has_get_parm =       RIG_PARM_NONE,
-    .has_set_parm =       RIG_PARM_NONE,
+    .has_get_parm =       RIG_PARM_BANDSELECT,
+    .has_set_parm =       RIG_PARM_BANDSELECT,
     .level_gran = {
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
-        [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 1050 }, .step = { .i = 10 } },
-        [LVL_KEYSPD] = { .min = { .i = 4 }, .max = { .i = 60 }, .step = { .i = 1 } },
+#include "level_gran_yaesu.h"
         [LVL_NOTCHF] = { .min = { .i = 1 }, .max = { .i = 4000 }, .step = { .i = 10 } },
+        [LVL_MICGAIN] = { .min = { .f = 0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f/100.0f } },
+        [LVL_MONITOR_GAIN] = { .min = { .f = 0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f/100.0f } },
+        [LVL_RFPOWER] = { .min = { .f = .05 }, .max = { .f = 1.0 }, .step = { .f = 1.0f/100.0f } },
     },
+    .parm_gran =  {
+        [PARM_BANDSELECT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.s = "BAND160M,BAND80M,BANDUNUSED,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BANDGEN"}}
+        },
+
     .ctcss_list =         common_ctcss_list,
     .dcs_list =           NULL,
     .preamp =             { 10, 17, RIG_DBLST_END, },
@@ -285,6 +288,7 @@ const struct rig_caps ftdx3000_caps =
     .agc_level_count =    5,
     .agc_levels =         { RIG_AGC_OFF, RIG_AGC_FAST, RIG_AGC_MEDIUM, RIG_AGC_SLOW, RIG_AGC_AUTO },
     .vfo_ops =            FTDX5000_VFO_OPS,
+    .scan_ops =           RIG_SCAN_VFO,
     .targetable_vfo =     RIG_TARGETABLE_FREQ, /* one of the few diffs from the 5000 */
     .transceive =         RIG_TRN_OFF,        /* May enable later as the 5000 has an Auto Info command */
     .bank_qty =           0,
@@ -414,6 +418,8 @@ const struct rig_caps ftdx3000_caps =
     .get_ext_level =      newcat_get_ext_level,
     .send_morse =         newcat_send_morse,
     .wait_morse =         rig_wait_morse,
+    .scan =               newcat_scan,
+    .morse_qsize =        50,
     .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 

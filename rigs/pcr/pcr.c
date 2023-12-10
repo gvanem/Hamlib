@@ -28,15 +28,12 @@
  * (403) PCR1500 fw 2.0, proto 2.0 (usb) by KM3T
  *
  */
-#include <hamlib/config.h>
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>     /* String function definitions */
-#include <unistd.h>     /* UNIX standard function definitions */
-#include <math.h>
 #include <errno.h>
-#include <ctype.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -167,7 +164,7 @@ pcr_read_block(RIG *rig, char *rxbuffer, size_t count)
     int read = 0, tries = 4;
 
     struct rig_state *rs = &rig->state;
-    struct pcr_priv_caps *caps = pcr_caps(rig);
+    const struct pcr_priv_caps *caps = pcr_caps(rig);
     struct pcr_priv_data *priv = (struct pcr_priv_data *) rs->priv;
 
     rig_debug(RIG_DEBUG_TRACE, "%s\n", __func__);
@@ -483,7 +480,8 @@ pcr_init(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    rig->state.priv = (struct pcr_priv_data *) malloc(sizeof(struct pcr_priv_data));
+    rig->state.priv = (struct pcr_priv_data *) calloc(1,
+                      sizeof(struct pcr_priv_data));
 
     if (!rig->state.priv)
     {
@@ -715,7 +713,7 @@ pcr_set_vfo(RIG *rig, vfo_t vfo)
 int
 pcr_get_vfo(RIG *rig, vfo_t *vfo)
 {
-    struct pcr_priv_data *priv = (struct pcr_priv_data *) rig->state.priv;
+    const struct pcr_priv_data *priv = (struct pcr_priv_data *) rig->state.priv;
 
     *vfo = priv->current_vfo;
     return RIG_OK;
@@ -758,7 +756,6 @@ pcr_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     priv = (struct pcr_priv_data *) rig->state.priv;
     rcvr = is_sub_rcvr(rig, vfo) ? &priv->sub_rcvr : &priv->main_rcvr;
 
-    // cppcheck-suppress *
     SNPRINTF((char *) buf, sizeof(buf), "K%c%010" PRIll "0%c0%c00",
              is_sub_rcvr(rig, vfo) ? '1' : '0',
              (int64_t) freq,
@@ -785,7 +782,7 @@ int
 pcr_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
     struct pcr_priv_data *priv = (struct pcr_priv_data *) rig->state.priv;
-    struct pcr_rcvr *rcvr = is_sub_rcvr(rig,
+    const struct pcr_rcvr *rcvr = is_sub_rcvr(rig,
                                         vfo) ? &priv->sub_rcvr : &priv->main_rcvr;
 
     *freq = rcvr->last_freq;
@@ -1104,7 +1101,7 @@ pcr_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
     }
     else
     {
-        rig_debug(RIG_DEBUG_VERBOSE, "%s: level = %s, val = %ul\n",
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: level = %s, val = %d\n",
                   __func__, rig_strlevel(level), val.i);
     }
 
@@ -1171,7 +1168,7 @@ pcr_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
     int err;
     struct pcr_priv_data *priv = (struct pcr_priv_data *) rig->state.priv;
-    struct pcr_rcvr *rcvr = is_sub_rcvr(rig,
+    const struct pcr_rcvr *rcvr = is_sub_rcvr(rig,
                                         vfo) ? &priv->sub_rcvr : &priv->main_rcvr;
 
 //  rig_debug(RIG_DEBUG_TRACE, "%s: level = %d\n", __func__, level);
@@ -1245,7 +1242,7 @@ int
 pcr_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
 {
     struct pcr_priv_data *priv = (struct pcr_priv_data *) rig->state.priv;
-    struct pcr_rcvr *rcvr = is_sub_rcvr(rig,
+    const struct pcr_rcvr *rcvr = is_sub_rcvr(rig,
                                         vfo) ? &priv->sub_rcvr : &priv->main_rcvr;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: status = %d, func = %s\n", __func__,
@@ -1402,7 +1399,7 @@ pcr_check_ok(RIG *rig)
 static int
 is_sub_rcvr(RIG *rig, vfo_t vfo)
 {
-    struct pcr_priv_data *priv = (struct pcr_priv_data *) rig->state.priv;
+    const struct pcr_priv_data *priv = (struct pcr_priv_data *) rig->state.priv;
 
     return vfo == RIG_VFO_SUB ||
            (vfo == RIG_VFO_CURR && priv->current_vfo == RIG_VFO_SUB);
@@ -1474,7 +1471,7 @@ pcr_set_volume(RIG *rig, vfo_t vfo, float level)
  *  80-ff   Noise squelch + S meter squelch ...
  *       Comparative S level = (squelch setting - 128) X 2
  *
- *  Could do with some constatnts to add together to allow better (and more accurate)
+ *  Could do with some constants to add together to allow better (and more accurate)
  *  use of Hamlib API. Otherwise may get unexpected squelch settings if have to do by hand.
  */
 
@@ -1779,7 +1776,7 @@ pcr_set_vsc(RIG *rig, vfo_t vfo, int status)  // J50xx
 int pcr_get_ctcss_sql(RIG *rig, vfo_t vfo, tone_t *tone)
 {
     struct pcr_priv_data *priv = (struct pcr_priv_data *) rig->state.priv;
-    struct pcr_rcvr *rcvr = is_sub_rcvr(rig,
+    const struct pcr_rcvr *rcvr = is_sub_rcvr(rig,
                                         vfo) ? &priv->sub_rcvr : &priv->main_rcvr;
 
     *tone = rcvr->last_ctcss_sql;
@@ -1793,7 +1790,7 @@ int pcr_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
     struct pcr_rcvr *rcvr = is_sub_rcvr(rig,
                                         vfo) ? &priv->sub_rcvr : &priv->main_rcvr;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s: tone = %d\n", __func__, tone);
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: tone = %u\n", __func__, tone);
 
     if (tone == 0)
     {
@@ -1808,7 +1805,7 @@ int pcr_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
         }
     }
 
-    rig_debug(RIG_DEBUG_TRACE, "%s: index = %d, tone = %d\n",
+    rig_debug(RIG_DEBUG_TRACE, "%s: index = %d, tone = %u\n",
               __func__, i, rig->caps->ctcss_list[i]);
 
     if (rig->caps->ctcss_list[i] != tone)
@@ -1829,7 +1826,7 @@ int pcr_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
 int pcr_get_dcs_sql(RIG *rig, vfo_t vfo, tone_t *tone)
 {
     struct pcr_priv_data *priv = (struct pcr_priv_data *) rig->state.priv;
-    struct pcr_rcvr *rcvr = is_sub_rcvr(rig,
+    const struct pcr_rcvr *rcvr = is_sub_rcvr(rig,
                                         vfo) ? &priv->sub_rcvr : &priv->main_rcvr;
 
     *tone = rcvr->last_dcs_sql;
@@ -1843,7 +1840,7 @@ int pcr_set_dcs_sql(RIG *rig, vfo_t vfo, tone_t tone)
     struct pcr_rcvr *rcvr = is_sub_rcvr(rig,
                                         vfo) ? &priv->sub_rcvr : &priv->main_rcvr;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s: tone = %d\n", __func__, tone);
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: tone = %u\n", __func__, tone);
 
     if (tone == 0)
     {
@@ -1858,7 +1855,7 @@ int pcr_set_dcs_sql(RIG *rig, vfo_t vfo, tone_t tone)
         }
     }
 
-    rig_debug(RIG_DEBUG_TRACE, "%s: index = %d, tone = %d\n",
+    rig_debug(RIG_DEBUG_TRACE, "%s: index = %d, tone = %u\n",
               __func__, i, rig->caps->dcs_list[i]);
 
     if (rig->caps->dcs_list[i] != tone)
@@ -1916,7 +1913,7 @@ int pcr_decode_event(RIG *rig)
 
 int pcr_set_powerstat(RIG *rig, powerstat_t status)
 {
-    struct pcr_priv_data *priv = (struct pcr_priv_data *) rig->state.priv;
+    const struct pcr_priv_data *priv = (struct pcr_priv_data *) rig->state.priv;
 
     if (status == priv->power)
     {
@@ -1958,7 +1955,7 @@ int pcr_get_powerstat(RIG *rig, powerstat_t *status)
 int pcr_get_dcd(RIG *rig, vfo_t vfo, dcd_t *dcd)
 {
     struct pcr_priv_data *priv = (struct pcr_priv_data *) rig->state.priv;
-    struct pcr_rcvr *rcvr = is_sub_rcvr(rig,
+    const struct pcr_rcvr *rcvr = is_sub_rcvr(rig,
                                         vfo) ? &priv->sub_rcvr : &priv->main_rcvr;
 
     if (priv->auto_update == 0)

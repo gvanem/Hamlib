@@ -19,12 +19,9 @@
  *
  */
 
-#include <hamlib/config.h>
-
-#include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include <hamlib/rig.h>
 #include "kenwood.h"
@@ -92,7 +89,7 @@ static int tmv7_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan);
 /*
  * tm-v7 rig capabilities.
  */
-const struct rig_caps tmv7_caps =
+struct rig_caps tmv7_caps =
 {
     RIG_MODEL(RIG_MODEL_TMV7),
     .model_name = "TM-V7",
@@ -118,11 +115,9 @@ const struct rig_caps tmv7_caps =
     .has_set_func =  TMV7_FUNC_ALL,
     .has_get_level =  TMV7_LEVEL_ALL,
     .has_set_level =  RIG_LEVEL_SET(TMV7_LEVEL_ALL),
-    .level_gran = {
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 7 } },
-        [LVL_SQL] = { .min = { .i = 0 }, .max = { .i = 32 } },
-        [LVL_AF] = { .min = { .i = 0 }, .max = { .i = 32 } },
-        [LVL_RFPOWER] = { .min = { .i = 0 }, .max = { .i = 2 } },
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
     },
     .parm_gran =  { 0 },
     .ctcss_list =  kenwood38_ctcss_list,
@@ -184,7 +179,8 @@ const struct rig_caps tmv7_caps =
     },
     /* mode/filter list, remember: order matters! */
     .filters =  {
-        RIG_FLT_END,
+        {RIG_MODE_ALL, RIG_FLT_ANY},
+        RIG_FLT_END
     },
 
     .str_cal = { 4, { {0, -60 }, {1, -30,}, {5, 0}, {7, 20}}}, /* rought guess */
@@ -802,7 +798,6 @@ int tmv7_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
     if (chan->tx_freq != RIG_FREQ_NONE)
     {
         req[5] = '1';
-        // cppcheck-suppress *
         SNPRINTF(membuf, sizeof(membuf), "%s,%011"PRIll",%01d", req,
                  (int64_t)chan->tx_freq, step);
         retval = kenwood_transaction(rig, membuf, NULL, 0);

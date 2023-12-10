@@ -39,6 +39,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>   /* Error number definitions */
+#include <unistd.h>
 
 #include <hamlib/rig.h>
 #include "cal.h"
@@ -93,6 +94,11 @@ int HAMLIB_API rig_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             || vfo == RIG_VFO_CURR
             || vfo == rig->state.current_vfo)
     {
+        if (level == RIG_LEVEL_KEYSPD)
+        {
+            extern int morse_data_handler_set_keyspd(RIG *rig, int keyspd);
+            morse_data_handler_set_keyspd(rig, val.i);
+        }
         return caps->set_level(rig, vfo, level, val);
     }
 
@@ -488,9 +494,32 @@ int HAMLIB_API rig_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
 
     caps = rig->caps;
 
-    if (caps->set_func == NULL || !rig_has_set_func(rig, func))
+    if ((caps->set_func == NULL || !rig_has_set_func(rig, func))
+            && access(rig->state.tuner_control_pathname, X_OK) == -1)
     {
         return -RIG_ENAVAIL;
+    }
+
+    if (access(rig->state.tuner_control_pathname, X_OK) != -1)
+    {
+        char cmd[1024];
+        snprintf(cmd, sizeof(cmd), "%s %d", rig->state.tuner_control_pathname, status);
+        rig_debug(RIG_DEBUG_TRACE, "%s: Calling external script '%s'\n", __func__,
+                  rig->state.tuner_control_pathname);
+        retcode = system(cmd);
+
+        if (retcode != 0) { rig_debug(RIG_DEBUG_ERR, "%s: executing %s failed\n", __func__, rig->state.tuner_control_pathname); }
+
+        return (retcode == 0 ? RIG_OK : -RIG_ERJCTED);
+    }
+    else
+    {
+        if (strcmp(rig->state.tuner_control_pathname, "hamlib_tuner_control"))
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: unable to find '%s'\n", __func__,
+                      rig->state.tuner_control_pathname);
+            return -RIG_EINVAL;
+        }
     }
 
     if ((caps->targetable_vfo & RIG_TARGETABLE_FUNC)
@@ -973,8 +1002,63 @@ int HAMLIB_API rig_setting2idx(setting_t s)
 #endif
 
 
-#define SETTINGS_FILE ".hamlib_settings"
-char *settings_file = SETTINGS_FILE;
+#define SETTINGS_FILE "hamlib_settings"
+char settings_file[4096];
+
+HAMLIB_EXPORT(int) rig_settings_get_path(char *path, int pathlen)
+{
+    char cwd[4096];
+
+    if (getcwd(cwd, 4096) == NULL)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: getcwd: %s\n", __func__, strerror(errno));
+        return -RIG_EINTERNAL;
+    }
+
+#ifdef APPLE
+//#include "TargetConditionals.h"
+#ifdef TARGET_OS_IPHONE
+// iOS
+#elif TARGET_IPHONE_SIMULATOR
+// iOS Simulator
+#elif TARGET_OS_MAC
+// Other kinds of Mac OS
+#else
+// Unsupported platform
+#endif
+#endif
+
+    const char *xdgpath = getenv("XDG_CONFIG_HOME");
+    char *home = getenv("HOME");
+    if (home == NULL) {
+        home = getenv("HOMEPATH");
+    }
+    if (home == NULL) {
+        home = "?HOME";
+    }
+    snprintf(path, pathlen, "%s/.config", home);
+
+    if (xdgpath)
+    {
+        snprintf(path, pathlen - 1, "%s/%s", xdgpath, HAMLIB_SETTINGS_FILE);
+    }
+    else if (home && access(path, F_OK) != -1)
+    {
+        snprintf(path, pathlen - 1, "%s/.config/%s", home, HAMLIB_SETTINGS_FILE);
+    }
+    else if (home)
+    {
+        // we add a leading period to hide the file
+        snprintf(path, pathlen - 1, "%s/.%s", home, HAMLIB_SETTINGS_FILE);
+    }
+    else
+    {
+        snprintf(path, pathlen - 1, ".%s", HAMLIB_SETTINGS_FILE);
+    }
+
+    rig_debug(RIG_DEBUG_TRACE, "%s: path=%s\n", __func__, path);
+    return RIG_OK;
+}
 
 /**
  * \brief Save setting parameter
@@ -984,19 +1068,30 @@ char *settings_file = SETTINGS_FILE;
  *
  * \sa rig_setting_load()
  */
-HAMLIB_EXPORT(int) rig_settings_save(char *setting, void *value,
-                                 settings_value_t valuetype)
+HAMLIB_EXPORT(int) rig_settings_save(const char *setting, void *value,
+                                     settings_value_t valuetype)
 {
-    FILE *fp = fopen(settings_file, "r");
+    FILE *fp;
     FILE *fptmp;
+    char path[4096];
     char buf[4096];
     char *cvalue = (char *)value;
     int *ivalue = (int *)value;
+    int n = 0;
     long *lvalue = (long *) value;
     float *fvalue = (float *) value;
     double *dvalue = (double *) value;
-    char *vformat;
+    char *vformat = "Unknown format??";
     char template[64];
+
+    rig_settings_get_path(path, sizeof(path));
+    fp = fopen(path, "r");
+
+    if (fp == NULL)
+    {
+        rig_debug(RIG_DEBUG_WARN, "%s: %s not found\n", __func__,  path);
+        return -RIG_EIO;
+    }
 
     strcpy(template, "hamlib_settings_XXXXXX");
 
@@ -1013,7 +1108,7 @@ HAMLIB_EXPORT(int) rig_settings_save(char *setting, void *value,
     case e_DOUBLE: dvalue = (double *)value; vformat = "%s=%f\n"; break;
 
     default:
-        rig_debug(RIG_DEBUG_ERR, "%s: Uknown valuetype=%d\n", __func__, valuetype);
+        rig_debug(RIG_DEBUG_ERR, "%s: Unknown valuetype=%d\n", __func__, valuetype);
     }
 
     if (fp == NULL)
@@ -1034,7 +1129,7 @@ HAMLIB_EXPORT(int) rig_settings_save(char *setting, void *value,
         case e_DOUBLE: fprintf(fp, vformat, setting, *dvalue); break;
 
         default:
-            rig_debug(RIG_DEBUG_ERR, "%s: Uknown valuetype=%d\n", __func__, valuetype);
+            rig_debug(RIG_DEBUG_ERR, "%s: Unknown valuetype=%d\n", __func__, valuetype);
         }
 
         fclose(fp);
@@ -1062,6 +1157,12 @@ HAMLIB_EXPORT(int) rig_settings_save(char *setting, void *value,
         char *tmp = strdup(buf);
         char *s = strtok(tmp, "=");
 
+        if (buf[0] == '#')
+        {
+            fprintf(fptmp, "%s\n", buf);
+            continue;
+        }
+
         if (s == NULL)
         {
             rig_debug(RIG_DEBUG_ERR, "%s: unable to parse setting from '%s'\n", __func__,
@@ -1070,6 +1171,8 @@ HAMLIB_EXPORT(int) rig_settings_save(char *setting, void *value,
             fclose(fptmp);
             return -RIG_EINTERNAL;
         }
+
+        ++n;
 
         char *v = strtok(NULL, "\r\n");
 
@@ -1082,6 +1185,7 @@ HAMLIB_EXPORT(int) rig_settings_save(char *setting, void *value,
             return -RIG_EINTERNAL;
         }
 
+        rig_debug(RIG_DEBUG_TRACE, "%s: parsing setting %s=%s\n", __func__, s, v);
         fprintf(fptmp, vformat, s, value);
     }
 
@@ -1089,31 +1193,43 @@ HAMLIB_EXPORT(int) rig_settings_save(char *setting, void *value,
     fclose(fptmp);
     remove(settings_file);
     rename(template, settings_file);
+    rig_debug(RIG_DEBUG_TRACE, "%s: %d settings read\n", __func__, n);
     return -RIG_ENIMPL;
 }
 
 HAMLIB_EXPORT(int) rig_settings_load(char *setting, void *value,
-                                 settings_value_t valuetype)
+                                     settings_value_t valuetype)
 {
     return -RIG_ENIMPL;
 }
 
 HAMLIB_EXPORT(int) rig_settings_load_all(char *settings_file)
 {
-    FILE *fp = fopen(settings_file, "r");
+    FILE *fp;
     char buf[4096];
+    char settingstmp[4096];
+
+    if (settings_file == NULL)
+    {
+        rig_settings_get_path(settingstmp, sizeof(settingstmp));
+        settings_file = settingstmp;
+    }
+
+    fp = fopen(settings_file, "r");
 
     if (fp == NULL)
     {
-        rig_debug(RIG_DEBUG_ERR, "%s: settings_file error(%s): %s\n", __func__,
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: settings_file (%s): %s\n", __func__,
                   settings_file, strerror(errno));
         return -RIG_EINVAL;
     }
 
+    rig_debug(RIG_DEBUG_TRACE, "%s: opened %s\n", __func__, settings_file);
+
     while (fgets(buf, sizeof(buf), fp))
     {
-        char *s = strtok(buf, "=");
-        char *v = strtok(NULL, "\r\n");
+        const char *s = strtok(buf, "=");
+        const char *v = strtok(NULL, "\r\n");
 
         if (strcmp(s, "sharedkey") == 0)
         {

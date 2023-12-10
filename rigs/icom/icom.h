@@ -22,15 +22,25 @@
 #ifndef _ICOM_H
 #define _ICOM_H 1
 
+#include <stddef.h>
+
+#include <hamlib/config.h>
+
 #include "hamlib/rig.h"
 #include "cal.h"
 #include "tones.h"
+#include "idx_builtin.h"
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
 
-#define BACKEND_VER "20220601"
+#define BACKEND_VER "20231209"
+
+#define ICOM_IS_ID31 rig_is_model(rig, RIG_MODEL_ID31)
+#define ICOM_IS_ID51 rig_is_model(rig, RIG_MODEL_ID51)
+#define ICOM_IS_ID4100 rig_is_model(rig, RIG_MODEL_ID4100)
+#define ICOM_IS_ID5100 rig_is_model(rig, RIG_MODEL_ID5100)
 
 #define ICOM_IS_SECONDARY_VFO(vfo) ((vfo) & (RIG_VFO_B | RIG_VFO_SUB | RIG_VFO_SUB_B | RIG_VFO_MAIN_B))
 #define ICOM_GET_VFO_NUMBER(vfo) (ICOM_IS_SECONDARY_VFO(vfo) ? 0x01 : 0x00)
@@ -229,10 +239,12 @@ struct icom_priv_caps
     int offs_len;               /*!< Number of bytes in offset frequency field. 0 defaults to 3 */
     int serial_USB_echo_check;  /*!< Flag to test USB echo state */
     int agc_levels_present;     /*!< Flag to indicate that agc_levels array is populated */
-    struct icom_agc_level agc_levels[RIG_AGC_LAST + 1]; /*!< Icom rig-specific AGC levels, the last entry should have level -1 */
+    struct icom_agc_level agc_levels[HAMLIB_MAX_AGC_LEVELS + 1]; /*!< Icom rig-specific AGC levels, the last entry should have level -1 */
     struct icom_spectrum_scope_caps spectrum_scope_caps; /*!< Icom spectrum scope capabilities, if supported by the rig. Main/Sub scopes in Icom rigs have the same caps. */
     struct icom_spectrum_edge_frequency_range spectrum_edge_frequency_ranges[ICOM_MAX_SPECTRUM_FREQ_RANGES]; /*!< Icom spectrum scope edge frequencies, if supported by the rig. Last entry should have zeros in all fields. */
     struct cmdparams *extcmds;  /*!< Pointer to extended operations array */
+    int dualwatch_split;        /*!< Rig supports dual watch for split ops -- e.g. ID-5100 */
+    int x25_always;             /*!< Means the rig should use 0x25 and 0x26 commands always */
 };
 
 struct icom_priv_data
@@ -267,6 +279,7 @@ struct icom_priv_data
     struct icom_spectrum_scope_cache spectrum_scope_cache[HAMLIB_MAX_SPECTRUM_SCOPES]; /*!< Cached Icom spectrum scope data used during reception of the data. The array index must match the scope ID. */
     freq_t other_freq; /*!< Our other freq depending on which vfo is selected */
     int vfo_flag; // used to skip vfo check when frequencies are equal
+    int dual_watch_main_sub; // 0=main, 1=sub
 };
 
 extern const struct ts_sc_list r8500_ts_sc_list[];
@@ -308,7 +321,7 @@ int icom_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width);
 int icom_get_mode_with_data(RIG *rig, vfo_t vfo, rmode_t *mode,
                             pbwidth_t *width);
 int icom_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width);
-#if 0 // see icom_get_vfo in icom.c
+#if 1 // see icom_get_vfo in icom.c
 int icom_get_vfo(RIG *rig, vfo_t *vfo);
 #else
 #define icom_get_vfo NULL
@@ -377,6 +390,7 @@ int icom_mW2power(RIG *rig, float *power, unsigned int mwpower, freq_t freq,
 int icom_send_morse(RIG *rig, vfo_t vfo, const char *msg);
 int icom_stop_morse(RIG *rig, vfo_t vfo);
 int icom_send_voice_mem(RIG *rig, vfo_t vfo, int bank);
+int icom_stop_voice_mem(RIG *rig, vfo_t vfo);
 /* Exposed routines */
 int icom_get_split_vfos(RIG *rig, vfo_t *rx_vfo, vfo_t *tx_vfo);
 int icom_set_raw(RIG *rig, int cmd, int subcmd, int subcmdbuflen,
@@ -408,90 +422,177 @@ extern const struct confparams icom_ext_funcs[];
 extern const struct confparams icom_ext_parms[];
 extern const struct cmdparams icom_ext_cmds[];
 
-extern const struct rig_caps ic703_caps;
-extern const struct rig_caps ic705_caps;
-extern const struct rig_caps ic706_caps;
-extern const struct rig_caps ic706mkii_caps;
-extern const struct rig_caps ic706mkiig_caps;
-extern const struct rig_caps ic707_caps;
-extern const struct rig_caps ic718_caps;
-extern const struct rig_caps ic725_caps;
-extern const struct rig_caps ic726_caps;
-extern const struct rig_caps ic728_caps;
-extern const struct rig_caps ic729_caps;
-extern const struct rig_caps ic735_caps;
-extern const struct rig_caps ic736_caps;
-extern const struct rig_caps ic737_caps;
-extern const struct rig_caps ic738_caps;
-extern const struct rig_caps ic746_caps;
-extern const struct rig_caps ic7410_caps;
-extern const struct rig_caps ic746pro_caps;
-extern const struct rig_caps ic756_caps;
-extern const struct rig_caps ic756pro_caps;
-extern const struct rig_caps ic756pro2_caps;
-extern const struct rig_caps ic756pro3_caps;
-extern const struct rig_caps ic751_caps;
-extern const struct rig_caps ic7600_caps;
-extern const struct rig_caps ic7610_caps;
-extern const struct rig_caps ic761_caps;
-extern const struct rig_caps ic765_caps;
-extern const struct rig_caps ic7700_caps;
-extern const struct rig_caps ic775_caps;
-extern const struct rig_caps ic78_caps;
-extern const struct rig_caps ic7800_caps;
-extern const struct rig_caps ic785x_caps;
-extern const struct rig_caps ic7000_caps;
-extern const struct rig_caps ic7100_caps;
-extern const struct rig_caps ic7200_caps;
-extern const struct rig_caps ic7300_caps;
-extern const struct rig_caps ic781_caps;
-extern const struct rig_caps ic820h_caps;
-extern const struct rig_caps ic821h_caps;
-extern const struct rig_caps ic910_caps;
-extern const struct rig_caps ic9100_caps;
-extern const struct rig_caps ic970_caps;
-extern const struct rig_caps ic9700_caps;
-extern const struct rig_caps icrx7_caps;
-extern const struct rig_caps icr10_caps;
-extern const struct rig_caps icr20_caps;
-extern const struct rig_caps icr6_caps;
-extern const struct rig_caps icr71_caps;
-extern const struct rig_caps icr72_caps;
-extern const struct rig_caps icr75_caps;
-extern const struct rig_caps icr7000_caps;
-extern const struct rig_caps icr7100_caps;
-extern const struct rig_caps icr8500_caps;
-extern const struct rig_caps icr9000_caps;
-extern const struct rig_caps icr9500_caps;
-extern const struct rig_caps ic271_caps;
-extern const struct rig_caps ic275_caps;
-extern const struct rig_caps ic471_caps;
-extern const struct rig_caps ic475_caps;
-extern const struct rig_caps ic575_caps;
-extern const struct rig_caps ic1275_caps;
-extern const struct rig_caps icf8101_caps;
+extern struct rig_caps ic703_caps;
+extern struct rig_caps ic705_caps;
+extern struct rig_caps ic706_caps;
+extern struct rig_caps ic706mkii_caps;
+extern struct rig_caps ic706mkiig_caps;
+extern struct rig_caps ic707_caps;
+extern struct rig_caps ic718_caps;
+extern struct rig_caps ic725_caps;
+extern struct rig_caps ic726_caps;
+extern struct rig_caps ic728_caps;
+extern struct rig_caps ic729_caps;
+extern struct rig_caps ic735_caps;
+extern struct rig_caps ic736_caps;
+extern struct rig_caps ic737_caps;
+extern struct rig_caps ic738_caps;
+extern struct rig_caps ic746_caps;
+extern struct rig_caps ic7410_caps;
+extern struct rig_caps ic746pro_caps;
+extern struct rig_caps ic756_caps;
+extern struct rig_caps ic756pro_caps;
+extern struct rig_caps ic756pro2_caps;
+extern struct rig_caps ic756pro3_caps;
+extern struct rig_caps ic751_caps;
+extern struct rig_caps ic7600_caps; // need to modify targetable_vfo depending on response to 0x25 cmd
+extern struct rig_caps ic7610_caps;
+extern struct rig_caps ic761_caps;
+extern struct rig_caps ic765_caps;
+extern struct rig_caps ic7700_caps;
+extern struct rig_caps ic775_caps;
+extern struct rig_caps ic78_caps;
+extern struct rig_caps ic7800_caps;
+extern struct rig_caps ic785x_caps;
+extern struct rig_caps ic7000_caps;
+extern struct rig_caps ic7100_caps;
+extern struct rig_caps ic7200_caps;
+extern struct rig_caps ic7300_caps;
+extern struct rig_caps ic781_caps;
+extern struct rig_caps ic820h_caps;
+extern struct rig_caps ic821h_caps;
+extern struct rig_caps ic905_caps;
+extern struct rig_caps ic910_caps;
+extern struct rig_caps ic9100_caps;
+extern struct rig_caps ic970_caps;
+extern struct rig_caps ic9700_caps;
+extern struct rig_caps icrx7_caps;
+extern struct rig_caps icr10_caps;
+extern struct rig_caps icr20_caps;
+extern struct rig_caps icr6_caps;
+extern struct rig_caps icr71_caps;
+extern struct rig_caps icr72_caps;
+extern struct rig_caps icr75_caps;
+extern struct rig_caps icr7000_caps;
+extern struct rig_caps icr7100_caps;
+extern struct rig_caps icr8500_caps;
+extern struct rig_caps icr9000_caps;
+extern struct rig_caps icr9500_caps;
+extern struct rig_caps ic271_caps;
+extern struct rig_caps ic275_caps;
+extern struct rig_caps ic375_caps;
+extern struct rig_caps ic471_caps;
+extern struct rig_caps ic475_caps;
+extern struct rig_caps ic575_caps;
+extern struct rig_caps ic1275_caps;
+extern struct rig_caps icf8101_caps;
 
-extern const struct rig_caps omnivip_caps;
-extern const struct rig_caps delta2_caps;
+extern struct rig_caps omnivip_caps;
+extern struct rig_caps delta2_caps;
 
-extern const struct rig_caps os456_caps;
-extern const struct rig_caps os535_caps;
+extern struct rig_caps os456_caps;
+extern struct rig_caps os535_caps;
 
-extern const struct rig_caps ic92d_caps;
-extern const struct rig_caps id1_caps;
-extern const struct rig_caps id31_caps;
-extern const struct rig_caps id51_caps;
-extern const struct rig_caps id4100_caps;
-extern const struct rig_caps id5100_caps;
-extern const struct rig_caps ic2730_caps;
+extern struct rig_caps ic92d_caps;
+extern struct rig_caps id1_caps;
+extern struct rig_caps id31_caps;
+extern struct rig_caps id51_caps;
+extern struct rig_caps id4100_caps;
+extern struct rig_caps id5100_caps;
+extern struct rig_caps ic2730_caps;
 
-extern const struct rig_caps perseus_caps;
+extern struct rig_caps perseus_caps;
 
-extern const struct rig_caps x108g_caps;
-extern const struct rig_caps x6100_caps;
-extern const struct rig_caps g90_caps;
+extern struct rig_caps x108g_caps;
+extern struct rig_caps x6100_caps;
+extern struct rig_caps g90_caps;
+extern struct rig_caps x5105_caps;
 
-extern const struct rig_caps icr8600_caps;
-extern const struct rig_caps icr30_caps;
+extern struct rig_caps icr8600_caps;
+extern struct rig_caps icr30_caps;
+
+#define RIG_IS_IC1271 (rig->state.rig_model == RIG_MODEL_IC1271)
+#define RIG_IS_IC1275 (rig->state.rig_model == RIG_MODEL_IC1275)
+#define RIG_IS_IC271 (rig->state.rig_model == RIG_MODEL_IC271)
+#define RIG_IS_IC2730 (rig->state.rig_model == RIG_MODEL_IC2730)
+#define RIG_IS_IC275 (rig->state.rig_model == RIG_MODEL_IC275)
+#define RIG_IS_IC375 (rig->state.rig_model == RIG_MODEL_IC375)
+#define RIG_IS_IC471 (rig->state.rig_model == RIG_MODEL_IC471)
+#define RIG_IS_IC475 (rig->state.rig_model == RIG_MODEL_IC475)
+#define RIG_IS_IC575 (rig->state.rig_model == RIG_MODEL_IC575)
+#define RIG_IS_IC7000 (rig->state.rig_model == RIG_MODEL_IC7000)
+#define RIG_IS_IC703 (rig->state.rig_model == RIG_MODEL_IC703)
+#define RIG_IS_IC705 (rig->state.rig_model == RIG_MODEL_IC705)
+#define RIG_IS_IC706 (rig->state.rig_model == RIG_MODEL_IC706)
+#define RIG_IS_IC706MKII (rig->state.rig_model == RIG_MODEL_IC706MKII)
+#define RIG_IS_IC706MKIIG (rig->state.rig_model == RIG_MODEL_IC706MKIIG)
+#define RIG_IS_IC707 (rig->state.rig_model == RIG_MODEL_IC707)
+#define RIG_IS_IC7100 (rig->state.rig_model == RIG_MODEL_IC7100)
+#define RIG_IS_IC718 (rig->state.rig_model == RIG_MODEL_IC718)
+#define RIG_IS_IC7200 (rig->state.rig_model == RIG_MODEL_IC7200)
+#define RIG_IS_IC725 (rig->state.rig_model == RIG_MODEL_IC725)
+#define RIG_IS_IC726 (rig->state.rig_model == RIG_MODEL_IC726)
+#define RIG_IS_IC728 (rig->state.rig_model == RIG_MODEL_IC728)
+#define RIG_IS_IC729 (rig->state.rig_model == RIG_MODEL_IC729)
+#define RIG_IS_IC7300 (rig->state.rig_model == RIG_MODEL_IC7300)
+#define RIG_IS_IC731 (rig->state.rig_model == RIG_MODEL_IC731)
+#define RIG_IS_IC735 (rig->state.rig_model == RIG_MODEL_IC735)
+#define RIG_IS_IC736 (rig->state.rig_model == RIG_MODEL_IC736)
+#define RIG_IS_IC737 (rig->state.rig_model == RIG_MODEL_IC737)
+#define RIG_IS_IC738 (rig->state.rig_model == RIG_MODEL_IC738)
+#define RIG_IS_IC7410 (rig->state.rig_model == RIG_MODEL_IC7410)
+#define RIG_IS_IC746 (rig->state.rig_model == RIG_MODEL_IC746)
+#define RIG_IS_IC746PRO (rig->state.rig_model == RIG_MODEL_IC746PRO)
+#define RIG_IS_IC751 (rig->state.rig_model == RIG_MODEL_IC751)
+#define RIG_IS_IC751A (rig->state.rig_model == RIG_MODEL_IC751A)
+#define RIG_IS_IC756 (rig->state.rig_model == RIG_MODEL_IC756)
+#define RIG_IS_IC756PRO (rig->state.rig_model == RIG_MODEL_IC756PRO)
+#define RIG_IS_IC756PROII (rig->state.rig_model == RIG_MODEL_IC756PROII)
+#define RIG_IS_IC756PROIII (rig->state.rig_model == RIG_MODEL_IC756PROIII)
+#define RIG_IS_IC7600 (rig->state.rig_model == RIG_MODEL_IC7600)
+#define RIG_IS_IC761 (rig->state.rig_model == RIG_MODEL_IC761)
+#define RIG_IS_IC7610 (rig->state.rig_model == RIG_MODEL_IC7610)
+#define RIG_IS_IC765 (rig->state.rig_model == RIG_MODEL_IC765)
+#define RIG_IS_IC7700 (rig->state.rig_model == RIG_MODEL_IC7700)
+#define RIG_IS_IC775 (rig->state.rig_model == RIG_MODEL_IC775)
+#define RIG_IS_IC78 (rig->state.rig_model == RIG_MODEL_IC78)
+#define RIG_IS_IC7800 (rig->state.rig_model == RIG_MODEL_IC7800)
+#define RIG_IS_IC781 (rig->state.rig_model == RIG_MODEL_IC781)
+#define RIG_IS_IC785X (rig->state.rig_model == RIG_MODEL_IC785x)
+#define RIG_IS_IC820 (rig->state.rig_model == RIG_MODEL_IC820)
+#define RIG_IS_IC821 (rig->state.rig_model == RIG_MODEL_IC821)
+#define RIG_IS_IC821H (rig->state.rig_model == RIG_MODEL_IC821H)
+#define RIG_IS_IC905 (rig->state.rig_model == RIG_MODEL_IC905)
+#define RIG_IS_IC910 (rig->state.rig_model == RIG_MODEL_IC910)
+#define RIG_IS_IC9100 (rig->state.rig_model == RIG_MODEL_IC9100)
+#define RIG_IS_IC92D (rig->state.rig_model == RIG_MODEL_IC92D)
+#define RIG_IS_IC970 (rig->state.rig_model == RIG_MODEL_IC970)
+#define RIG_IS_IC9700 (rig->state.rig_model == RIG_MODEL_IC9700)
+#define RIG_IS_IC8101 (rig->state.rig_model == RIG_MODEL_ICF8101)
+#define RIG_IS_ICID1 (rig->state.rig_model == RIG_MODEL_ICID1)
+#define RIG_IS_ICM700PRO (rig->state.rig_model == RIG_MODEL_IC_M700PRO)
+#define RIG_IS_ICM710 (rig->state.rig_model == RIG_MODEL_IC_M710)
+#define RIG_IS_ICM802 (rig->state.rig_model == RIG_MODEL_IC_M802)
+#define RIG_IS_ICM803 (rig->state.rig_model == RIG_MODEL_IC_M803)
+#define RIG_IS_ICR10 (rig->state.rig_model == RIG_MODEL_ICR10)
+#define RIG_IS_ICR20 (rig->state.rig_model == RIG_MODEL_ICR20)
+#define RIG_IS_ICR30 (rig->state.rig_model == RIG_MODEL_ICR30)
+#define RIG_IS_ICR6 (rig->state.rig_model == RIG_MODEL_ICR6)
+#define RIG_IS_ICR7000 (rig->state.rig_model == RIG_MODEL_ICR7000)
+#define RIG_IS_ICR71 (rig->state.rig_model == RIG_MODEL_ICR71)
+#define RIG_IS_ICR7100 (rig->state.rig_model == RIG_MODEL_ICR7100)
+#define RIG_IS_ICR72 (rig->state.rig_model == RIG_MODEL_ICR72)
+#define RIG_IS_ICR75 (rig->state.rig_model == RIG_MODEL_ICR75)
+#define RIG_IS_ICR8500 (rig->state.rig_model == RIG_MODEL_ICR8500)
+#define RIG_IS_ICR8600 (rig->state.rig_model == RIG_MODEL_ICR8600)
+#define RIG_IS_ICR9000 (rig->state.rig_model == RIG_MODEL_ICR9000)
+#define RIG_IS_ICR9500 (rig->state.rig_model == RIG_MODEL_ICR9500)
+#define RIG_IS_ICRX7 (rig->state.rig_model == RIG_MODEL_ICRX7)
+#define RIG_IS_ID5100 (rig->state.rig_model == RIG_MODEL_ID5100)
+#define RIG_IS_OMNIVIP (rig->state.rig_model == RIG_MODEL_OMNIVIP)
+#define RIG_IS_OS456 (rig->state.rig_model == RIG_MODEL_OS456)
+#define RIG_IS_X5105 (rig->state.rig_model == RIG_MODEL_X5105)
+#define RIG_IS_X6100 (rig->state.rig_model == RIG_MODEL_X6100)
+
 
 #endif /* _ICOM_H */

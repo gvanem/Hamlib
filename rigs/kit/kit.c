@@ -21,15 +21,10 @@
 
 #include <hamlib/config.h>
 
-#include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-
 #include "hamlib/rig.h"
 #include "register.h"
 
 #include "kit.h"
-#include "usrp_impl.h"
 
 /*
  * initrigs_kit is called by rig_backend_load

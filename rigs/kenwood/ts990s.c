@@ -20,14 +20,14 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include <hamlib/rig.h>
 #include "kenwood.h"
 #include "ts990s.h"
+#include "cal.h"
 
 #define TS990S_AM_MODES RIG_MODE_AM
 #define TS990S_FM_MODES (RIG_MODE_FM|RIG_MODE_FMN)
@@ -39,7 +39,7 @@
 
 #define TS2000_FUNC_ALL (RIG_FUNC_TONE|RIG_FUNC_TSQL|RIG_FUNC_BC|RIG_FUNC_NB|RIG_FUNC_NR|RIG_FUNC_ANF|RIG_FUNC_COMP)
 
-#define TS2000_LEVEL_ALL (RIG_LEVEL_PREAMP|RIG_LEVEL_ATT|RIG_LEVEL_VOXDELAY|RIG_LEVEL_AF|RIG_LEVEL_RF|RIG_LEVEL_SQL|RIG_LEVEL_CWPITCH|RIG_LEVEL_RFPOWER|RIG_LEVEL_MICGAIN|RIG_LEVEL_KEYSPD|RIG_LEVEL_COMP|RIG_LEVEL_AGC|RIG_LEVEL_BKINDL|RIG_LEVEL_METER|RIG_LEVEL_VOXGAIN|RIG_LEVEL_ANTIVOX|RIG_LEVEL_RAWSTR|RIG_LEVEL_STRENGTH)
+#define TS2000_LEVEL_ALL (RIG_LEVEL_PREAMP|RIG_LEVEL_ATT|RIG_LEVEL_VOXDELAY|RIG_LEVEL_AF|RIG_LEVEL_RF|RIG_LEVEL_SQL|RIG_LEVEL_CWPITCH|RIG_LEVEL_RFPOWER|RIG_LEVEL_MICGAIN|RIG_LEVEL_KEYSPD|RIG_LEVEL_COMP|RIG_LEVEL_AGC|RIG_LEVEL_BKINDL|RIG_LEVEL_METER|RIG_LEVEL_VOXGAIN|RIG_LEVEL_ANTIVOX|RIG_LEVEL_RAWSTR|RIG_LEVEL_STRENGTH|RIG_LEVEL_SWR)
 
 #define TS990S_VFO_OP (RIG_OP_BAND_UP|RIG_OP_BAND_DOWN)
 #define TS990S_SCAN_OP (RIG_SCAN_VFO)
@@ -55,6 +55,16 @@
                {0x23,  0},\
                {0x46,  60}}\
                }
+
+#define TS990S_SWR_CAL { 5, \
+    { \
+        {   0, 1.0f }, \
+        {   7, 1.5f }, \
+        {   36, 3.0f }, \
+        {   43, 6.0f }, \
+        {   70, 10.0f } \
+    } }
+
 
 /* memory capabilities */
 #define TS990S_MEM_CAP {    \
@@ -118,12 +128,12 @@ static struct kenwood_priv_caps  ts990s_priv_caps  =
  *
  * part of infos comes from http://www.kenwood.net/
  */
-const struct rig_caps ts990s_caps =
+struct rig_caps ts990s_caps =
 {
     RIG_MODEL(RIG_MODEL_TS990S),
-    .model_name = "TS-990s",
+    .model_name = "TS-990S",
     .mfg_name =  "Kenwood",
-    .version =  BACKEND_VER ".1",
+    .version =  BACKEND_VER ".6",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -138,7 +148,7 @@ const struct rig_caps ts990s_caps =
     .serial_handshake =  RIG_HANDSHAKE_HARDWARE,
     .write_delay =  0,
     .post_write_delay =  0, /* ms */
-    .timeout =  200,
+    .timeout =  500,
     .retry =  10,
 
     .has_get_func =  TS2000_FUNC_ALL,
@@ -147,7 +157,13 @@ const struct rig_caps ts990s_caps =
     .has_set_level =  RIG_LEVEL_SET(TS2000_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,    /* FIXME: parms */
-    .level_gran =  { 0 },                 /* FIXME: granularity */
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+        [LVL_ATT]     = { .min = { .i = 0 }, .max = { .i = 18 }, .step = { .i = 6 } },
+        [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 1100 }, .step = { .i = 10 } },
+        [LVL_COMP]    = { .min = { .f = 0.0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f/255.0f } },
+    },
     .parm_gran =  { 0 },
     .vfo_ops =  TS990S_VFO_OP,
     .scan_ops =  TS990S_SCAN_OP,
@@ -158,6 +174,8 @@ const struct rig_caps ts990s_caps =
     .max_xit =  Hz(9990),
     .targetable_vfo =  RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE,
     .transceive =  RIG_TRN_RIG,
+    .agc_level_count = 5,
+    .agc_levels = { RIG_AGC_OFF, RIG_AGC_SLOW, RIG_AGC_MEDIUM, RIG_AGC_FAST, RIG_AGC_ON },
     .bank_qty =   0,
     .chan_desc_sz =  7,
 
@@ -305,6 +323,7 @@ const struct rig_caps ts990s_caps =
     },
 
     .str_cal = TS990S_STR_CAL,
+    .swr_cal = TS990S_SWR_CAL,
 
     .priv = (void *)& ts990s_priv_caps,
 
@@ -337,7 +356,10 @@ const struct rig_caps ts990s_caps =
     .set_ant =  kenwood_set_ant,
     .get_ant =  kenwood_get_ant,
     .send_morse =  kenwood_send_morse,
+    .stop_morse =  kenwood_stop_morse,
     .wait_morse =  rig_wait_morse,
+    .send_voice_mem = kenwood_send_voice_mem,
+    .stop_voice_mem = kenwood_stop_voice_mem,
     .vfo_op =  kenwood_vfo_op,
     .scan =  kenwood_scan,
     .set_mem =  kenwood_set_mem,
@@ -534,18 +556,6 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     }
     break;
 
-    case RIG_LEVEL_CWPITCH:
-        retval = kenwood_safe_transaction(rig, "PT", lvlbuf, sizeof(lvlbuf), 5);
-
-        if (retval != RIG_OK)
-        {
-            return retval;
-        }
-
-        sscanf(lvlbuf + 2, "%d", &lvl);
-        val->i = 300 + lvl * 10;
-        break;
-
     case RIG_LEVEL_RFPOWER:
         retval = kenwood_safe_transaction(rig, "PC", lvlbuf, sizeof(lvlbuf), 5);
 
@@ -636,6 +646,17 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         val->i = lvl / 100;
         break;
 
+    case RIG_LEVEL_SWR:
+        retval = get_kenwood_meter_reading(rig, '2', &lvl);
+        if (retval != RIG_OK)
+        {
+            return retval;
+        }
+
+        val->f = rig_raw2val_float(lvl, &rig->caps->swr_cal);
+        val->f = round(val->f*10)/10.0;  // 1 decimal place precision 
+        break;
+
     case RIG_LEVEL_METER:
         retval = kenwood_safe_transaction(rig, "RM", lvlbuf, sizeof(lvlbuf), 7);
 
@@ -718,7 +739,7 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         }
     }
     break;
-
+    
     default:
         rig_debug(RIG_DEBUG_ERR, "%s: unsupported get_level %s", __func__,
                   rig_strlevel(level));

@@ -19,18 +19,14 @@
  *
  */
 
-#include <hamlib/config.h>
-
-#include <stdlib.h>
-#include <unistd.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 #include <math.h>
 
 #include "hamlib/rig.h"
 #include "kenwood.h"
 #include "th.h"
-#include "num_stdio.h"
-#include "iofunc.h"
-#include "serial.h"
 #include "misc.h"
 
 
@@ -196,7 +192,7 @@ static int thd72_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
 {
     int retval;
     char vfobuf[16];
-    struct kenwood_priv_data *priv = rig->state.priv;
+    const struct kenwood_priv_data *priv = rig->state.priv;
     char vfonum = '0';
 
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
@@ -454,7 +450,6 @@ static int thd72_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     rig_debug(RIG_DEBUG_VERBOSE, "%s: tsindex=%d, stepsize=%d\n", __func__, tsindex,
               (int)ts);
     freq = roundl(freq / ts) * ts;
-    // cppcheck-suppress *
     SNPRINTF(fbuf, sizeof(fbuf), "%010"PRIll, (int64_t)freq);
     memcpy(buf + 5, fbuf, 10);
     retval = kenwood_simple_transaction(rig, buf, 52);
@@ -1279,13 +1274,19 @@ static int thd72_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 static int thd72_parse_channel(int kind, const char *buf, channel_t *chan)
 {
     int tmp;
+    int n;
     char c;
     const char *data;
 
     if (kind == 0) { data = buf + 5; }
     else { data = buf + 7; }
 
-    sscanf(data, "%"SCNfreq, &chan->freq);
+    n = sscanf(data, "%"SCNfreq, &chan->freq);
+    if (n != 1)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: error scanning %s\n", __func__, data);
+        return -RIG_EPROTO;
+    }
     c = data[46]; // mode
 
     if (c >= '0' && c <= '2')
@@ -1308,12 +1309,22 @@ static int thd72_parse_channel(int kind, const char *buf, channel_t *chan)
         chan->rptr_shift = thd72_rshf_table[c - '0'];
     }
 
-    sscanf(data + 37, "%ld", &chan->rptr_offs);
+    n = sscanf(data + 37, "%ld", &chan->rptr_offs);
+    if (n != 1)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: error scanning data[37]%s\n", __func__, data);
+        return -RIG_EPROTO;
+    }
     c = data[17]; // Tone status
 
     if (c != '0')
     {
-        sscanf(data + 25, "%d", &tmp);
+        n = sscanf(data + 25, "%d", &tmp);
+        if (n != 1)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: error scanning data[25]%s\n", __func__, data);
+            return -RIG_EPROTO;
+        }
 
         if (tmp > 0 && tmp < 42)
         {
@@ -1329,7 +1340,12 @@ static int thd72_parse_channel(int kind, const char *buf, channel_t *chan)
 
     if (c != '0')
     {
-        sscanf(data + 28, "%d", &tmp);
+        n = sscanf(data + 28, "%d", &tmp);
+        if (n != 1)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: error scanning data[28]%s\n", __func__, data);
+            return -RIG_EPROTO;
+        }
 
         if (tmp > 0 && tmp < 42)
         {
@@ -1345,7 +1361,12 @@ static int thd72_parse_channel(int kind, const char *buf, channel_t *chan)
 
     if (c != '0')
     {
-        sscanf(data + 31, "%d", &tmp);
+        n = sscanf(data + 31, "%d", &tmp);
+        if (n != 1)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: error scanning data[31]%s\n", __func__, data);
+            return -RIG_EPROTO;
+        }
         chan->dcs_code = tmp;
     }
     else
@@ -1554,7 +1575,7 @@ int thd72_get_chan_all_cb(RIG *rig, chan_cb_t chan_cb, rig_ptr_t arg)
          */
         for (j = 0; j < CHAN_PER_BLOCK; j++)
         {
-            char *block_chan = block + j * (BLOCK_SZ / CHAN_PER_BLOCK);
+            const char *block_chan = block + j * (BLOCK_SZ / CHAN_PER_BLOCK);
             memset(chan, 0, sizeof(channel_t));
             chan->vfo = RIG_VFO_MEM;
             chan->channel_num = i * CHAN_PER_BLOCK + j;
@@ -1623,12 +1644,12 @@ int thd72_get_chan_all_cb(RIG *rig, chan_cb_t chan_cb, rig_ptr_t arg)
 /*
  * th-d72a rig capabilities.
  */
-const struct rig_caps thd72a_caps =
+struct rig_caps thd72a_caps =
 {
     RIG_MODEL(RIG_MODEL_THD72A),
     .model_name = "TH-D72A",
     .mfg_name =  "Kenwood",
-    .version =  TH_VER ".0",
+    .version =  TH_VER ".1",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_HANDHELD | RIG_FLAG_APRS | RIG_FLAG_TNC | RIG_FLAG_DXCLUSTER,
@@ -1643,7 +1664,7 @@ const struct rig_caps thd72a_caps =
     .serial_handshake =  RIG_HANDSHAKE_HARDWARE,
     .write_delay =  0,
     .post_write_delay =  0,
-    .timeout =  300,
+    .timeout =  500,
     .retry =  3,
     .has_get_func =  THD72_FUNC_ALL,
     .has_set_func =  THD72_FUNC_ALL,
@@ -1651,12 +1672,14 @@ const struct rig_caps thd72a_caps =
     .has_set_level =  RIG_LEVEL_SET(THD72_LEVEL_ALL),
     .has_get_parm =  THD72_PARMS,
     .has_set_parm =  THD72_PARMS,    /* FIXME: parms */
-    .level_gran = {
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_SQL] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_RFPOWER] = { .min = { .i = 2 }, .max = { .i = 0 } },
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
     },
-    .parm_gran =  { 0 },
+    .parm_gran =  {
+        [PARM_TIME] = {.min = {.i = 0}, .max = {.i = 86399}, .step = {.i = 1}},
+        [PARM_APO] = { .min = { .i = 1 }, .max = { .i = 1439} },
+    },
     .ctcss_list =  kenwood42_ctcss_list,
     .dcs_list =  thd72dcs_list,
     .preamp =   { RIG_DBLST_END, },

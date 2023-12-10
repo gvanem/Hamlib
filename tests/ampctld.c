@@ -28,7 +28,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <ctype.h>
 
 #include <getopt.h>
 #include <errno.h>
@@ -60,9 +59,10 @@
 #endif
 
 #include <hamlib/amplifier.h>
-#include "misc.h"
 
 #include "ampctl_parse.h"
+#include "amplist.h"
+#include "rig.h"
 
 struct handle_data
 {
@@ -109,13 +109,13 @@ const char *src_addr = NULL;    /* INADDR_ANY */
 
 char send_cmd_term = '\r';      /* send_cmd termination char */
 
-#define MAXCONFLEN 1024
+#define MAXCONFLEN 2048
 
 
 static void handle_error(enum rig_debug_level_e lvl, const char *msg)
 {
     int e;
-#ifdef _WIN32
+#ifdef __MINGW32__
     LPVOID lpMsgBuf;
 
     lpMsgBuf = (LPVOID)"Unknown error";
@@ -323,16 +323,29 @@ int main(int argc, char *argv[])
         exit(2);
     }
 
-#if 0
-    retcode = set_conf(my_amp, conf_parms);
+    char *token=strtok(conf_parms,",");
 
-    if (retcode != RIG_OK)
+    while(token)
     {
-        fprintf(stderr, "Config parameter error: %s\n", rigerror(retcode));
-        exit(2);
+        char mytoken[100], myvalue[100];
+        token_t lookup;
+        sscanf(token,"%99[^=]=%99s", mytoken, myvalue);
+        //printf("mytoken=%s,myvalue=%s\n",mytoken, myvalue);
+        lookup = amp_token_lookup(my_amp,mytoken);
+        if (lookup == 0)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: no such token as '%s'\n", __func__, mytoken);
+            token = strtok(NULL, ",");
+            continue;
+        }
+        retcode = amp_set_conf(my_amp, amp_token_lookup(my_amp,mytoken), myvalue);
+        if (retcode != RIG_OK)
+        {
+            fprintf(stderr, "Config parameter error: %s\n", rigerror(retcode));
+            exit(2);
+        }
+        token = strtok(NULL, ",");
     }
-
-#endif
 
     if (amp_file)
     {
@@ -345,8 +358,6 @@ int main(int argc, char *argv[])
         my_amp->state.ampport.parm.serial.rate = serial_rate;
     }
 
-#if 0
-
     /*
      * print out conf parameters
      */
@@ -354,8 +365,6 @@ int main(int argc, char *argv[])
     {
         amp_token_foreach(my_amp, print_conf_list, (rig_ptr_t)my_amp);
     }
-
-#endif
 
     /*
      * Print out conf parameters, and exits immediately as we may be
@@ -388,7 +397,7 @@ int main(int argc, char *argv[])
               my_amp->caps->version,
               rig_strstatus(my_amp->caps->status));
 
-#ifdef _WIN32
+#ifdef __MINGW32__
 #  ifndef SO_OPENTYPE
 #    define SO_OPENTYPE     0x7008
 #  endif
@@ -489,7 +498,7 @@ int main(int argc, char *argv[])
         }
 
         handle_error(RIG_DEBUG_WARN, "binding failed (trying next interface)");
-#ifdef _WIN32
+#ifdef __MINGW32__
         closesocket(sock_listen);
 #else
         close(sock_listen);
@@ -540,11 +549,11 @@ int main(int argc, char *argv[])
      */
     do
     {
-        arg = malloc(sizeof(struct handle_data));
+        arg = calloc(1, sizeof(struct handle_data));
 
         if (!arg)
         {
-            rig_debug(RIG_DEBUG_ERR, "malloc: %s\n", strerror(errno));
+            rig_debug(RIG_DEBUG_ERR, "calloc: %s\n", strerror(errno));
             exit(1);
         }
 
@@ -602,7 +611,7 @@ int main(int argc, char *argv[])
     amp_close(my_amp); /* close port */
     amp_cleanup(my_amp); /* if you care about memory */
 
-#ifdef _WIN32
+#ifdef __MINGW32__
     WSACleanup();
 #endif
 
@@ -622,7 +631,7 @@ void *handle_socket(void *arg)
     char host[NI_MAXHOST];
     char serv[NI_MAXSERV];
 
-#ifdef _WIN32
+#ifdef __MINGW32__
     int sock_osfhandle = _open_osfhandle(handle_data_arg->sock, _O_RDONLY);
 
     if (sock_osfhandle == -1)
@@ -642,7 +651,7 @@ void *handle_socket(void *arg)
         goto handle_exit;
     }
 
-#ifdef _WIN32
+#ifdef __MINGW32__
     fsockout = _fdopen(sock_osfhandle, "wb");
 #else
     fsockout = fdopen(handle_data_arg->sock, "wb");
@@ -687,12 +696,12 @@ void *handle_socket(void *arg)
               serv);
 
     fclose(fsockin);
-#ifndef _WIN32
+#ifndef __MINGW32__
     fclose(fsockout);
 #endif
 
 handle_exit:
-#ifdef _WIN32
+#ifdef __MINGW32__
     closesocket(handle_data_arg->sock);
 #else
     close(handle_data_arg->sock);

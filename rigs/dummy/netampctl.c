@@ -19,19 +19,11 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
-#include <errno.h>
 
 #include "hamlib/amplifier.h"
 #include "iofunc.h"
-#include "misc.h"
-
-#include "amp_dummy.h"
 
 #define CMD_MAX 32
 #define BUF_MAX 64

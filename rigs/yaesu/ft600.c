@@ -2,7 +2,7 @@
  * hamlib - (C) Frank Singleton 2000-2003
  *          (C) Stephane Fillod 2000-2010
  *
- * ft600.c -(C) Karlis Millers YL3ALK 2019
+ * ft600.c -(C) Kārlis Millers YL3ALK 2019
  *
  * This shared library provides an API for communicating
  * via serial interface to an FT-600 using the "CAT" interface.
@@ -24,13 +24,9 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -91,32 +87,23 @@ enum ft600_native_cmd_e
  */
 typedef struct
 {
-    unsigned char band_no;
+//    unsigned char band_no;
     unsigned char freq[16];
-    unsigned char mode;
-    unsigned char ctcss;
-    unsigned char dcs;
-    unsigned char flag1;
-    unsigned char flag2;
-    unsigned char clarifier[2];
-    unsigned char not_used;
-    unsigned char step1;
-    unsigned char step2;
-    unsigned char filter;
+//    unsigned char mode;
+//    unsigned char ctcss;
+//    unsigned char dcs;
+//    unsigned char flag1;
+//    unsigned char flag2;
+//    unsigned char clarifier[2];
+//    unsigned char not_used;
+//    unsigned char step1;
+//    unsigned char step2;
+//    unsigned char filter;
 
 // cppcheck-suppress *
     unsigned char stuffing[16];
 }
 FT600_STATUS_INFO;
-
-
-typedef struct
-{
-    unsigned char byte[8];
-}
-// cppcheck-suppress *
-FT600_FLAG_INFO;
-
 
 static int ft600_init(RIG *rig);
 static int ft600_open(RIG *rig);
@@ -137,7 +124,6 @@ static int ft600_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
 struct ft600_priv_data
 {
     FT600_STATUS_INFO status;
-    FT600_FLAG_INFO flags;
     unsigned char s_meter;
 
 };
@@ -233,12 +219,12 @@ static const yaesu_cmd_set_t ncmd[] =
             { 246,  60 } /* S9+60dB */  \
 }}
 
-const struct rig_caps ft600_caps =
+struct rig_caps ft600_caps =
 {
     RIG_MODEL(RIG_MODEL_FT600),
     .model_name =     "FT-600",
     .mfg_name =       "Yaesu",
-    .version =        "20201009.0",
+    .version =        "20231001.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_TRANSCEIVER,
@@ -261,7 +247,10 @@ const struct rig_caps ft600_caps =
     .has_set_level =  RIG_LEVEL_BAND_SELECT,
     .has_get_parm =   RIG_PARM_NONE,
     .has_set_parm =   RIG_PARM_NONE,  /* FIXME: parms */
-    .level_gran =     { 0 },     /* granularity */
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .parm_gran =      { 0 },
     .ctcss_list =     RIG_FUNC_NONE,
     .dcs_list =       RIG_FUNC_NONE,
@@ -289,7 +278,11 @@ const struct rig_caps ft600_caps =
         {FT600_ALL_RX_MODES, 1000},
         RIG_TS_END,
     },
-    .filters =  { 0 },
+    .filters =  {
+        {RIG_MODE_ALL, RIG_FLT_ANY},
+        RIG_FLT_END
+    },
+
     .str_cal = FT600_STR_CAL,
     .priv =       NULL,
     .rig_init =       ft600_init,

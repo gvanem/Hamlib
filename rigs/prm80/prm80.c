@@ -19,18 +19,14 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <ctype.h>
-#include <math.h>
 
 #include "hamlib/rig.h"
+#include "misc.h"
 #include "serial.h"
-#include "cal.h"
 #include "register.h"
 #include "idx_builtin.h"
 
@@ -81,7 +77,7 @@ MessageAide:  DB   "H",0Dh,0Ah
               DB   " [I] = Erase and init RAM and EEPROM.",0Dh,0Ah
               DB   " [K] = Set lock byte.",0Dh,0Ah
               DB   " [L] = Print latch state.",0Dh,0Ah
-              DB   " [M] = Edit external RAM manualy.",0Dh,0Ah
+              DB   " [M] = Edit external RAM manually.",0Dh,0Ah
               DB   " [N] = Set current channel.",0Dh,0Ah
               DB   " [O] = Set volume.",0Dh,0Ah
               DB   " [P] = Edit/Add channel.",0Dh,0Ah
@@ -123,7 +119,7 @@ MessageAide:  DB   "H",0Dh,0Ah
     b4: PLL locked (Read only)
     b5: Long key push (Internal)
     b6: Key bounce (Internal)
-    b7: Force LCD refresh when set. Automaticaly cleared.
+    b7: Force LCD refresh when set. Automatically cleared.
 
    Channel state byte:
     b0: Shift enable when true
@@ -157,7 +153,6 @@ static int read_prompt_and_send(hamlib_port_t *rigport,
                                 int space_after_delim)
 {
     char buf[BUFSZ];
-    char spacebuf[4];
     int buflen, retval;
 
     /* no data wanted? flush it anyway by reading it */
@@ -187,6 +182,7 @@ static int read_prompt_and_send(hamlib_port_t *rigport,
     // Read one (dummy) space character after the colon
     if (space_after_delim)
     {
+        char spacebuf[4];
         retval = read_block(rigport, (unsigned char *) spacebuf, 1);
 
         if (retval < 0 && retval != -RIG_ETIMEOUT)
@@ -514,7 +510,7 @@ int prm80_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
  */
 int prm80_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
 {
-    struct prm80_priv_data *priv = (struct prm80_priv_data *)rig->state.priv;
+    const struct prm80_priv_data *priv = (struct prm80_priv_data *)rig->state.priv;
 
     *split = priv->split;
     *tx_vfo = RIG_VFO_CURR;
@@ -656,10 +652,7 @@ static int prm80_do_read_system_state(hamlib_port_t *rigport, char *statebuf)
         return ret;
     }
 
-    if (ret >= 0)
-    {
-        statebuf[ret] = '\0';
-    }
+    statebuf[ret] = '\0';
 
     if (ret < CMD_E_RSP_LEN)
     {
@@ -730,7 +723,7 @@ static int prm80_read_system_state(RIG *rig, char *statebuf)
  */
 int prm80_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
-    struct prm80_priv_data *priv = (struct prm80_priv_data *)rig->state.priv;
+    const struct prm80_priv_data *priv = (struct prm80_priv_data *)rig->state.priv;
     char statebuf[BUFSZ];
     int ret, chanstate, mode_byte, lock_byte;
 
@@ -1110,6 +1103,7 @@ int prm80_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 /*
  * get_level RIG_LEVEL_RAWSTR
  */
+// cppcheck-suppress unusedFunction
 static int prm80_get_rawstr_RAM(RIG *rig, value_t *val)
 {
     char buf[BUFSZ];

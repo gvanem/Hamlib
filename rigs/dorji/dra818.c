@@ -19,22 +19,16 @@
  *
  */
 
-#include <hamlib/config.h>
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <stdbool.h>
 
 #include "hamlib/rig.h"
 #include "bandplan.h"
 #include "serial.h"
-#include "register.h"
 #include "tones.h"
 
 #include "dra818.h"
-#include "dorji.h"
 
 static const char *dra818_handshake_cmd = "AT+DMOCONNECT\r\n";
 static const char *dra818_handshake_res = "+DMOCONNECT:0\r\n";
@@ -106,7 +100,7 @@ static void dra818_subaudio(RIG *rig, char *subaudio, int subaudio_len,
 
 static int dra818_setgroup(RIG *rig)
 {
-    struct dra818_priv *priv = rig->state.priv;
+    const struct dra818_priv *priv = rig->state.priv;
     char cmd[80];
     char subtx[8] = { 0 };
     char subrx[8] = { 0 };
@@ -127,7 +121,7 @@ static int dra818_setgroup(RIG *rig)
 
 static int dra818_setvolume(RIG *rig)
 {
-    struct dra818_priv *priv = rig->state.priv;
+    const struct dra818_priv *priv = rig->state.priv;
     char cmd[80];
 
     SNPRINTF(cmd, sizeof(cmd), "AT+DMOSETVOLUME=%1d\r\n", priv->vol);
@@ -276,7 +270,7 @@ int dra818_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 
 int dra818_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
-    struct dra818_priv *priv = rig->state.priv;
+    const struct dra818_priv *priv = rig->state.priv;
 
     *mode = RIG_MODE_FM;
     *width = priv->bw;
@@ -286,7 +280,7 @@ int dra818_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 
 int dra818_get_dcd(RIG *rig, vfo_t vfo, dcd_t *dcd)
 {
-    struct dra818_priv *priv = rig->state.priv;
+    const struct dra818_priv *priv = rig->state.priv;
     char cmd[80];
     char response[8];
     int r;
@@ -318,7 +312,7 @@ int dra818_get_dcd(RIG *rig, vfo_t vfo, dcd_t *dcd)
 
 int dra818_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
-    struct dra818_priv *priv = rig->state.priv;
+    const struct dra818_priv *priv = rig->state.priv;
 
     switch (vfo)
     {
@@ -353,7 +347,7 @@ int dra818_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
 
 int dra818_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
 {
-    struct dra818_priv *priv = rig->state.priv;
+    const struct dra818_priv *priv = rig->state.priv;
 
     *split = priv->split;
 
@@ -371,7 +365,7 @@ int dra818_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
 
 int dra818_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
-    struct dra818_priv *priv = rig->state.priv;
+    const struct dra818_priv *priv = rig->state.priv;
 
     switch (level)
     {
@@ -495,7 +489,7 @@ int dra818_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
 
 int dra818_get_ctcss_sql(RIG *rig, vfo_t vfo, tone_t *tone)
 {
-    struct dra818_priv *priv = rig->state.priv;
+    const struct dra818_priv *priv = rig->state.priv;
 
     *tone = priv->ctcss_sql;
     return RIG_OK;
@@ -503,7 +497,7 @@ int dra818_get_ctcss_sql(RIG *rig, vfo_t vfo, tone_t *tone)
 
 int dra818_get_dcs_sql(RIG *rig, vfo_t vfo, tone_t *code)
 {
-    struct dra818_priv *priv = rig->state.priv;
+    const struct dra818_priv *priv = rig->state.priv;
 
     *code = priv->dcs_sql;
     return RIG_OK;
@@ -511,7 +505,7 @@ int dra818_get_dcs_sql(RIG *rig, vfo_t vfo, tone_t *code)
 
 int dra818_get_dcs_code(RIG *rig, vfo_t vfo, tone_t *code)
 {
-    struct dra818_priv *priv = rig->state.priv;
+    const struct dra818_priv *priv = rig->state.priv;
 
     *code = priv->dcs_code;
     return RIG_OK;
@@ -519,13 +513,13 @@ int dra818_get_dcs_code(RIG *rig, vfo_t vfo, tone_t *code)
 
 int dra818_get_ctcss_tone(RIG *rig, vfo_t vfo, tone_t *tone)
 {
-    struct dra818_priv *priv = rig->state.priv;
+    const struct dra818_priv *priv = rig->state.priv;
 
     *tone = priv->ctcss_tone;
     return RIG_OK;
 }
 
-const struct rig_caps dra818u_caps =
+struct rig_caps dra818u_caps =
 {
     RIG_MODEL(RIG_MODEL_DORJI_DRA818U),
     .model_name =       "DRA818U",
@@ -629,7 +623,7 @@ const struct rig_caps dra818u_caps =
     .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
-const struct rig_caps dra818v_caps =
+struct rig_caps dra818v_caps =
 {
     RIG_MODEL(RIG_MODEL_DORJI_DRA818V),
     .model_name =       "DRA818V",

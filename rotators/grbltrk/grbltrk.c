@@ -23,7 +23,8 @@
 #include "config.h"
 #endif
 
-#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
 #include <unistd.h>  /* UNIX standard function definitions */
@@ -35,10 +36,8 @@
 #include "hamlib/rotator.h"
 #include "hamlib/rig.h"
 
-#include "misc.h"
 #include "serial.h"
 #include "token.h"
-#include "network.h"
 
 #include "register.h"
 
@@ -116,7 +115,6 @@ static int
 grbl_request(ROT *rot, char *request, uint32_t req_size, char *response,
              uint32_t *resp_size)
 {
-    int retval;
     static int fail_count = 0;
 
     rot_debug(RIG_DEBUG_ERR, "req: [%s][%d]\n", request, fail_count);
@@ -124,6 +122,7 @@ grbl_request(ROT *rot, char *request, uint32_t req_size, char *response,
     if (rot->caps->rot_model == ROT_MODEL_GRBLTRK_SER
             || rot->caps->rot_model == ROT_MODEL_GRBLTRK_NET)
     {
+        int retval;
         //fprintf(stderr, "ctrl by serial/network\n");
 
         if ((retval = write_block(&rot->state.rotport, (unsigned char *)request,
@@ -159,7 +158,7 @@ grbl_request(ROT *rot, char *request, uint32_t req_size, char *response,
         if (fail_count >= 10)
         {
             rot_debug(RIG_DEBUG_ERR, "%s too much xfer fail! exit\n", __func__);
-            exit(-1);
+            return -RIG_EPROTO;
         }
 
         rig_flush(&rot->state.rotport);
@@ -177,7 +176,7 @@ grbl_request(ROT *rot, char *request, uint32_t req_size, char *response,
 static int
 grbl_init(ROT *rot)
 {
-    int i, retval;
+    int i;
     uint32_t init_count;
     char rsp[RSIZE];
     uint32_t resp_size;
@@ -195,6 +194,7 @@ grbl_init(ROT *rot)
 
     for (i = 0; i < init_count; i++)
     {
+        int retval;
         rot_debug(RIG_DEBUG_ERR, "grbl_request [%s] ", grbl_init_list[i]);
         retval = grbl_request(rot, grbl_init_list[i], strlen(grbl_init_list[i]), rsp,
                               &resp_size);
@@ -346,7 +346,6 @@ grbltrk_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
     char dummy0[256];
     char dummy1[256];
 
-    int retval;
     int i;
 
     rot_debug(RIG_DEBUG_ERR, "%s called\n", __func__);
@@ -355,6 +354,7 @@ grbltrk_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
 
     for (i = 0; i < 5; i++)
     {
+        int retval;
         retval = grbl_request(rot, grbl_get_pos, strlen(grbl_get_pos), rsp, &rsp_size);
 
         /*FIXME: X Y safe check */
@@ -376,7 +376,7 @@ grbltrk_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
 
         /* grbl 1.3a esp32 */
         //<Idle|MPos:0.000,0.000,0.000|FS:0,0|Pn:P|WCO:5.000,0.000,0.000>
-        sscanf(rsp, "%[^'|']|MPos:%f,%f,%s", dummy0, &mpos[0], &mpos[1], dummy1);
+        sscanf(rsp, "%[^'|']|MPos:%f,%f,%256s", dummy0, &mpos[0], &mpos[1], dummy1);
 
         //rot_debug(RIG_DEBUG_ERR, "%s: (%.3f, %.3f) (%.3f, %.3f)\n", __func__, mpos[0], mpos[1], wpos[0], wpos[1]);
 
@@ -406,9 +406,6 @@ grbltrk_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
 static int
 grbltrk_rot_set_conf(ROT *rot, token_t token, const char *val)
 {
-    int i, retval;
-    char req[RSIZE] = {0};
-    char rsp[RSIZE];
     uint32_t resp_size, len;
 
     rot_debug(RIG_DEBUG_ERR, "token: %ld; value: [%s]\n", token, val);
@@ -417,6 +414,9 @@ grbltrk_rot_set_conf(ROT *rot, token_t token, const char *val)
 
     if ((len != 0) && (val[0] == 'G'))
     {
+        int i, retval;
+        char req[RSIZE] = {0};
+        char rsp[RSIZE];
 
         for (i = 0; i < len; i++)
         {

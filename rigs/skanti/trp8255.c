@@ -19,14 +19,11 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <string.h>
 
 #include <hamlib/rig.h>
 #include "idx_builtin.h"
-#include "skanti.h"
 #include "iofunc.h"
 
 
@@ -82,7 +79,7 @@ static int cu_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op);
  * because the TRP8255 has the "CU" (Control Unit).
  *
  */
-const struct rig_caps trp8255_caps =
+struct rig_caps trp8255_caps =
 {
     RIG_MODEL(RIG_MODEL_TRP8255),
     .model_name = "TRP 8255 S R",
@@ -212,12 +209,12 @@ static int cu_transaction(RIG *rig, const char *cmd, int cmd_len)
 
 static int cu_open(RIG *rig)
 {
-    char cmd[] = { 0x01, 0x02 }; /* SOH, STX */
+    const char cmd[] = { 0x01, 0x02 }; /* SOH, STX */
     struct cu_priv_data *priv;
 
     rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
 
-    rig->state.priv = malloc(sizeof(struct cu_priv_data));
+    rig->state.priv = calloc(1, sizeof(struct cu_priv_data));
 
     if (!rig->state.priv)
     {
@@ -235,7 +232,7 @@ static int cu_open(RIG *rig)
 
 static int cu_close(RIG *rig)
 {
-    char cmd[] = { 0x16 }; /* DLE */
+    const char cmd[] = { 0x16 }; /* DLE */
     struct cu_priv_data *priv = (struct cu_priv_data *)rig->state.priv;
 
     free(priv);
@@ -245,7 +242,7 @@ static int cu_close(RIG *rig)
 
 int cu_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
-    struct cu_priv_data *priv = (struct cu_priv_data *)rig->state.priv;
+    const struct cu_priv_data *priv = (struct cu_priv_data *)rig->state.priv;
     char cmdbuf[16];
     int ret;
 
@@ -491,7 +488,7 @@ static int cu_set_mem(RIG *rig, vfo_t vfo, int ch)
 
 int cu_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
 {
-    struct cu_priv_data *priv = (struct cu_priv_data *)rig->state.priv;
+    const struct cu_priv_data *priv = (struct cu_priv_data *)rig->state.priv;
     char cmdbuf[16];
 
     switch (op)

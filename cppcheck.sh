@@ -1,5 +1,5 @@
 #!/bin/sh
-
+set -x
 # Author Michael Black W9MDB
 # This SUPPRESS setting results in no warnings as of 2020-01-14
 # There are things that could still be done...especially in the C++ area
@@ -14,6 +14,7 @@ SUPPRESS="\
 -i bindings \
 -i lib/getopt.c \
 -i lib/getopt_long.c \
+-i lib/cJSON.c \
 --suppress=*:extra/gnuradio/demod.h \
 --suppress=*:extra/gnuradio/HrAGC.h \
 --suppress=*:extra/gnuradio/nfm.h \
@@ -22,12 +23,9 @@ SUPPRESS="\
 --suppress=*:extra/gnuradio/wfm.h \
 --suppress=*:extra/gnuradio/wfm.h \
 --suppress=*:extra/gnuradio/HrAGC.h \
---suppress=knownConditionTrueFalse:tests/rotctl.c \
---suppress=knownConditionTrueFalse:tests/rigctl.c \
---suppress=knownConditionTrueFalse:tests/ampctl.c \
---suppress=knownConditionTrueFalse:tests/rotctl_parse.c \
---suppress=knownConditionTrueFalse:tests/rigctl_parse.c \
---suppress=knownConditionTrueFalse:tests/ampctl_parse.c"
+--suppress=*:extra/gnuradio/gnuradio.cc \
+--suppress=missingIncludeSystem \
+--suppress=*:style/rigs/adat/adat.c
 
 #CHECK="\
 #-D RIG_LEVEL_LINEOUT=1 \
@@ -73,6 +71,7 @@ CHECK="\
 -D SIGINT \
 -D WIN32 \
 -D CLOCK_REALTIME \
+-D HAVE_PTHREAD \
 -D HAVE_SIGNAL"
 
 # If no directory or file name provided, scan the entire project.
@@ -80,30 +79,35 @@ if test $# -eq 0 ; then
         echo "See cppcheck.log when done"
         echo "This takes a while to run"
         cppcheck --inline-suppr \
+                 --check-level=exhaustive \
                  -I src \
                  -I include \
-                 --include=include/config.h \
-                 --include=include/hamlib/rig.h \
+                 -I include/hamlib/ \
+                 -I lib \
+                 -I security \
                  -q \
                  --force \
                  --enable=all \
                  --std=c99 \
                  $SUPPRESS \
                  $CHECK \
+                 --template='{file}:{line},{severity},{id},{message}' \
                  . \
                  >cppcheck.log 2>&1
 else
-        cppcheck --check-config \
-                 --inline-suppr \
+        cppcheck --inline-suppr \
+                 --check-level=exhaustive \
                  -I src \
                  -I include \
-                 --include=include/config.h \
-                 --include=include/hamlib/rig.h \
+                 -I include/hamlib/ \
+                 -I lib \
+                 -I security \
                  -q \
                  --force \
                  --enable=all \
                  --std=c99 \
                  $SUPPRESS \
                  $CHECK \
-                 $1
+                 --template='{file}:{line},{severity},{id},{message}'\
+                 "$@"
 fi

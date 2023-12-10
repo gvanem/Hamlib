@@ -54,14 +54,8 @@
  */
 
 
-#include <hamlib/config.h>
-
 // cppcheck-suppress *
 #include <stdlib.h>
-// cppcheck-suppress *
-#include <string.h>  /* String function definitions */
-// cppcheck-suppress *
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -128,7 +122,7 @@ static int  check_tuning_step(RIG *rig, vfo_t vfo, rmode_t mode,
  * vr5000 rigs capabilities.
  */
 
-const struct rig_caps vr5000_caps =
+struct rig_caps vr5000_caps =
 {
     RIG_MODEL(RIG_MODEL_VR5000),
     .model_name =         "VR-5000",
@@ -156,6 +150,10 @@ const struct rig_caps vr5000_caps =
     .has_set_level =      RIG_LEVEL_BAND_SELECT,
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .vfo_ops =            RIG_OP_NONE,
     .preamp =             { RIG_DBLST_END, },
     .attenuator =         { RIG_DBLST_END, },
@@ -281,8 +279,8 @@ int vr5000_cleanup(RIG *rig)
 int vr5000_open(RIG *rig)
 {
     struct vr5000_priv_data *priv = rig->state.priv;
-    unsigned char cmd[YAESU_CMD_LENGTH]   = { 0x00, 0x00, 0x00, 0x00, 0x00};
-    unsigned char b_off[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x31};
+    const unsigned char cmd[YAESU_CMD_LENGTH]   = { 0x00, 0x00, 0x00, 0x00, 0x00};
+    const unsigned char b_off[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x31};
 
     int retval;
 
@@ -324,7 +322,7 @@ int vr5000_open(RIG *rig)
 
 int vr5000_close(RIG *rig)
 {
-    unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x80};
+    const unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x80};
 
     return write_block(&rig->state.rigport, cmd, YAESU_CMD_LENGTH);
 }
@@ -342,7 +340,7 @@ int vr5000_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 int vr5000_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
 
-    struct vr5000_priv_data *priv = rig->state.priv;
+    const struct vr5000_priv_data *priv = rig->state.priv;
     *freq = priv->curr_freq;
 
     return RIG_OK;
@@ -365,7 +363,7 @@ int vr5000_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 
 int vr5000_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
-    struct vr5000_priv_data *priv = rig->state.priv;
+    const struct vr5000_priv_data *priv = rig->state.priv;
     *mode = priv->curr_mode;
     *width = priv->curr_width;
 
@@ -393,7 +391,7 @@ int vr5000_set_ts(RIG *rig, vfo_t vfo, shortfreq_t ts)
 
 int vr5000_get_ts(RIG *rig, vfo_t vfo, shortfreq_t *ts)
 {
-    struct vr5000_priv_data *priv = rig->state.priv;
+    const struct vr5000_priv_data *priv = rig->state.priv;
     *ts = priv->curr_ts;
 
     return RIG_OK;
@@ -523,7 +521,7 @@ int mode2rig(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 void correct_frequency(RIG *rig, vfo_t vfo, freq_t curr_freq, freq_t *freq)
 {
 
-    struct vr5000_priv_data *priv = rig->state.priv;
+    const struct vr5000_priv_data *priv = rig->state.priv;
     shortfreq_t ts = priv->curr_ts;
     unsigned long long correct_freq = (unsigned long long)curr_freq;
 

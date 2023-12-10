@@ -19,8 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
@@ -56,7 +54,7 @@ static const struct icom_priv_caps ic728_priv_caps =
     ic737_ts_sc_list
 };
 
-const struct rig_caps ic728_caps =
+struct rig_caps ic728_caps =
 {
     RIG_MODEL(RIG_MODEL_IC728),
     .model_name = "IC-728",
@@ -175,7 +173,7 @@ static const struct icom_priv_caps ic729_priv_caps =
     ic737_ts_sc_list
 };
 
-const struct rig_caps ic729_caps =
+struct rig_caps ic729_caps =
 {
     RIG_MODEL(RIG_MODEL_IC729),
     .model_name = "IC-729",

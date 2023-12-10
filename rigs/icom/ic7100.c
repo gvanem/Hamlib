@@ -19,8 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -30,6 +28,7 @@
 #include "idx_builtin.h"
 #include "bandplan.h"
 #include "token.h"
+#include "tones.h"
 #include "misc.h"
 
 
@@ -96,8 +95,11 @@
                             RIG_LEVEL_VD_METER| \
                             RIG_LEVEL_ID_METER| \
                             RIG_LEVEL_MONITOR_GAIN| \
-                            RIG_LEVEL_NB)
+                            RIG_LEVEL_NB | \
+                            RIG_LEVEL_AGC_TIME)
 
+//#define IC7100_PARM_ALL (RIG_PARM_ANN|RIG_PARM_BACKLIGHT|RIG_PARM_KEYLIGHT|RIG_PARM_BEEP|RIG_PARM_TIME|RIG_PARM_BANDSELECT)
+// BANDSELECT disabled unti we figure out Icom's ability
 #define IC7100_PARM_ALL (RIG_PARM_ANN|RIG_PARM_BACKLIGHT|RIG_PARM_KEYLIGHT|RIG_PARM_BEEP|RIG_PARM_TIME)
 
 int ic7100_tokens[] = { TOK_DSTAR_CODE, TOK_DSTAR_DSQL, TOK_DSTAR_CALL_SIGN, TOK_DSTAR_MESSAGE,
@@ -194,7 +196,7 @@ static const struct icom_priv_caps ic7100_priv_caps =
         { .level = RIG_AGC_FAST, .icom_level = 1 },
         { .level = RIG_AGC_MEDIUM, .icom_level = 2 },
         { .level = RIG_AGC_SLOW, .icom_level = 3 },
-        { .level = -1, .icom_level = 0 },
+        { .level = RIG_AGC_LAST, .icom_level = -1 },
     },
     .extcmds = ic7100_extcmds,
     .antack_len = 2,
@@ -279,6 +281,10 @@ int ic7100_get_clock(RIG *rig, int *year, int *month, int *day, int *hour,
         prmbuf[0] = 0x01;
         prmbuf[1] = 0x21;
         retval = icom_transaction(rig, cmd, subcmd, prmbuf, 2, respbuf, &resplen);
+        if (retval != RIG_OK)
+        {
+            return retval;
+        }
         *hour = from_bcd(&respbuf[4], 2);
         *min = from_bcd(&respbuf[5], 2);
         *sec = 0;
@@ -287,6 +293,10 @@ int ic7100_get_clock(RIG *rig, int *year, int *month, int *day, int *hour,
         prmbuf[0] = 0x01;
         prmbuf[1] = 0x23;
         retval = icom_transaction(rig, cmd, subcmd, prmbuf, 2, respbuf, &resplen);
+        if (retval != RIG_OK)
+        {
+            return retval;
+        }
         *utc_offset = from_bcd(&respbuf[4], 2) * 100;
         *utc_offset += from_bcd(&respbuf[5], 2);
 
@@ -301,12 +311,12 @@ int ic7100_get_clock(RIG *rig, int *year, int *month, int *day, int *hour,
     return retval;
 }
 
-const struct rig_caps ic7100_caps =
+struct rig_caps ic7100_caps =
 {
     RIG_MODEL(RIG_MODEL_IC7100),
     .model_name = "IC-7100",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".2",
+    .version =  BACKEND_VER ".6",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -329,8 +339,9 @@ const struct rig_caps ic7100_caps =
     .has_set_level =  RIG_LEVEL_SET(IC7100_LEVEL_ALL),
     .has_get_parm =  IC7100_PARM_ALL,
     .has_set_parm =  IC7100_PARM_ALL,
-    .level_gran = {
-        // cppcheck-suppress *
+    .level_gran =
+    {
+#include "level_gran_icom.h"
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
@@ -340,7 +351,17 @@ const struct rig_caps ic7100_caps =
     .extlevels = icom_ext_levels,
     .extfuncs = icom_ext_funcs,
     .extparms = icom_ext_parms,
-    .parm_gran =  { 0 },
+    .parm_gran =  {
+        [PARM_BACKLIGHT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.f = 1.0f / 255.0f}},
+        [PARM_KEYLIGHT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.f = 1.0f / 255.0f}},
+        [PARM_BANDSELECT] = {.step = {.s = "BANDUNUSED,BAND160M,BAND80M,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BANDGEN"}},
+        [PARM_BEEP] = {.min = {.i = 0}, .max = {.i = 1}, .step = {.i = 1}},
+        [PARM_SCREENSAVER] = {.min = {.i = 0}, .max = {.i = 3}, .step = {.i = 1}},
+        [PARM_TIME] = {.min = {.i = 0}, .max = {.i = 86399}, .step = {.i = 1}},
+        [PARM_ANN] = {.min = {.i = 0}, .max = {.i = 2}, .step = {.i = 1}},
+        [PARM_APO] = { .min = { .i = 1 }, .max = { .i = 1439} },
+    },
+
     .ctcss_list =  common_ctcss_list,
     .dcs_list =  common_dcs_list,
     .preamp =   { 1, 2, RIG_DBLST_END, },
@@ -459,7 +480,7 @@ const struct rig_caps ic7100_caps =
     .get_mode =  icom_get_mode_with_data,
     .set_mode =  icom_set_mode_with_data,
 
-    .get_vfo =  icom_get_vfo,
+//    .get_vfo =  icom_get_vfo,
     .set_vfo =  icom_set_vfo,
     .set_ant =  icom_set_ant,
     .get_ant =  icom_get_ant,

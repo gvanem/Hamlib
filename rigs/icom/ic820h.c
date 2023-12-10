@@ -20,8 +20,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -52,7 +50,7 @@ static const struct icom_priv_caps ic820h_priv_caps =
     ic737_ts_sc_list
 };
 
-const struct rig_caps ic820h_caps =
+struct rig_caps ic820h_caps =
 {
     RIG_MODEL(RIG_MODEL_IC820),
     .model_name = "IC-820H",

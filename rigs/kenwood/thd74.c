@@ -19,18 +19,14 @@
  *
  */
 
-#include <hamlib/config.h>
-
-#include <stdlib.h>
-#include <unistd.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 #include <math.h>
 
 #include "hamlib/rig.h"
 #include "kenwood.h"
 #include "th.h"
-#include "num_stdio.h"
-#include "iofunc.h"
-#include "serial.h"
 #include "misc.h"
 
 
@@ -1648,7 +1644,7 @@ int thd74_get_chan_all_cb(RIG *rig, chan_cb_t chan_cb, rig_ptr_t arg)
 /*
  * th-d74 rig capabilities.
  */
-const struct rig_caps thd74_caps =
+struct rig_caps thd74_caps =
 {
     RIG_MODEL(RIG_MODEL_THD74),
     .model_name = "TH-D74",
@@ -1677,12 +1673,16 @@ const struct rig_caps thd74_caps =
     .has_set_level =  RIG_LEVEL_SET(THD74_LEVEL_ALL),
     .has_get_parm =  THD74_PARMS,
     .has_set_parm =  THD74_PARMS,
-    .level_gran = {
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_SQL] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_RFPOWER] = { .min = { .i = 2 }, .max = { .i = 0 } },
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
     },
-    .parm_gran =  { 0 },
+    .parm_gran =  {
+        [PARM_TIME] = {.min = {.i = 0}, .max = {.i = 86399}, .step = {.i = 1}},
+    },
+
+
+
     .ctcss_list =  kenwood38_ctcss_list,
     .dcs_list =  NULL,
     .preamp =   { RIG_DBLST_END, },

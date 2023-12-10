@@ -22,12 +22,6 @@
  */
 
 
-#include <hamlib/config.h>
-
-#include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-
 #include "hamlib/rig.h"
 #include "serial.h"
 #include "misc.h"
@@ -55,7 +49,7 @@ static int frg8800_set_powerstat(RIG *rig, powerstat_t status);
  *
  */
 
-const struct rig_caps frg8800_caps =
+struct rig_caps frg8800_caps =
 {
     RIG_MODEL(RIG_MODEL_FRG8800),
     .model_name =         "FRG-8800",
@@ -83,6 +77,10 @@ const struct rig_caps frg8800_caps =
     .has_set_level =      RIG_LEVEL_BAND_SELECT,
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .vfo_ops =        RIG_OP_NONE,
     .preamp =             { RIG_DBLST_END, },
     .attenuator =         { RIG_DBLST_END, },
@@ -157,7 +155,7 @@ const struct rig_caps frg8800_caps =
  */
 int frg8800_open(RIG *rig)
 {
-    unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x00};
+    const unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x00};
 
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
 
@@ -168,7 +166,7 @@ int frg8800_open(RIG *rig)
 
 int frg8800_close(RIG *rig)
 {
-    unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x80, 0x00};
+    const unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x80, 0x00};
 
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
 

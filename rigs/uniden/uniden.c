@@ -19,17 +19,13 @@
  *
  */
 
-#include <hamlib/config.h>
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
 #include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
-#include "misc.h"
 #include "register.h"
 #include "idx_builtin.h"
 
@@ -633,7 +629,6 @@ int uniden_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
     /* TODO: Trunk, Delay, Recording */
 
     chan->flags = (membuf[22] == 'N') ? RIG_CHFLAG_SKIP : 0;
-    // cppcheck-suppress *
     chan->levels[LVL_ATT].i = (membuf[25] == 'N') ? rig->state.attenuator[0] : 0;
     sscanf(membuf + 41, "%d", &tone);
 
@@ -697,8 +692,7 @@ int uniden_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
     }
 
     /* PM089T08511625 */
-    SNPRINTF(cmdbuf, sizeof(cmdbuf), "PM%03d%c%08u" EOM, chan->channel_num,
-             ' ', (unsigned)(chan->freq / 100));
+    SNPRINTF(cmdbuf, sizeof(cmdbuf), "PM%03d%c%08u" EOM, chan->channel_num, ' ', (unsigned)(chan->freq / 100));
 
     ret = uniden_transaction(rig, cmdbuf, strlen(cmdbuf), NULL, membuf, &mem_len);
 
@@ -796,6 +790,7 @@ DECLARE_PROBERIG_BACKEND(uniden)
     int rates[] = { 9600, 19200, 0 };   /* possible baud rates */
     int rates_idx;
 
+    memset(idbuf,0,IDBUFSZ);
     if (!port)
     {
         return RIG_MODEL_NONE;

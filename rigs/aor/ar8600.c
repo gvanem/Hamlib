@@ -19,8 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -88,7 +86,7 @@ static const struct aor_priv_caps ar8600_priv_caps =
  *
  * part of info from http://www.aoruk.com/8600.htm
  */
-const struct rig_caps ar8600_caps =
+struct rig_caps ar8600_caps =
 {
     RIG_MODEL(RIG_MODEL_AR8600),
     .model_name = "AR8600",
@@ -127,7 +125,7 @@ const struct rig_caps ar8600_caps =
     .max_ifshift =  Hz(0),
     .targetable_vfo =  0,
     .transceive =  RIG_TRN_RIG,
-    .bank_qty =   20,   /* A through J, and a trough j */
+    .bank_qty =   20,   /* A through J, and a through j */
     .chan_desc_sz =  12,
     .vfo_ops =  AR8600_VFO_OPS,
     .scan_ops =  AR8600_SCAN_OPS,

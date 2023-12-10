@@ -30,17 +30,13 @@
  *
  */
 
-#include <config.h>
-
 #include <stdio.h>
 #include <stdlib.h>          /* Standard library definitions */
 #include <string.h>          /* String function definitions */
-#include <unistd.h>          /* UNIX standard function definitions */
 #include <ctype.h>            /* for isdigit function */
 
 #include "hamlib/rotator.h"
 #include "serial.h"
-#include "misc.h"
 #include "register.h"
 #include "iofunc.h"
 
@@ -59,6 +55,7 @@ static int rotorez_rot_set_position(ROT *rot, azimuth_t azimuth,
                                     elevation_t elevation);
 static int rotorez_rot_get_position(ROT *rot, azimuth_t *azimuth,
                                     elevation_t *elevation);
+static int rotorez_park(ROT *rot);
 static int erc_rot_get_position(ROT *rot, azimuth_t *azimuth,
                                 elevation_t *elevation);
 static int rt21_rot_get_position(ROT *rot, azimuth_t *azimuth,
@@ -133,7 +130,7 @@ const struct rot_caps rotorez_rot_caps =
     ROT_MODEL(ROT_MODEL_ROTOREZ),
     .model_name =       "Rotor-EZ",
     .mfg_name =         "Idiom Press",
-    .version =          "20220109.0",
+    .version =          "20230328.0",
     .copyright =        "LGPL",
     .status =           RIG_STATUS_STABLE,
     .rot_type =         ROT_TYPE_OTHER,
@@ -161,6 +158,7 @@ const struct rot_caps rotorez_rot_caps =
     .rot_cleanup =      rotorez_rot_cleanup,
     .set_position =     rotorez_rot_set_position,
     .get_position =     rotorez_rot_get_position,
+    .park =             rotorez_park,
     .stop =             rotorez_rot_stop,
     .set_conf =         rotorez_rot_set_conf,
     .get_info =         rotorez_rot_get_info,
@@ -178,7 +176,7 @@ const struct rot_caps rotorcard_rot_caps =
     ROT_MODEL(ROT_MODEL_ROTORCARD),
     .model_name =       "RotorCard",
     .mfg_name =         "Idiom Press",
-    .version =          "20100214.0",
+    .version =          "20230328.0",
     .copyright =        "LGPL",
     .status =           RIG_STATUS_BETA,
     .rot_type =         ROT_TYPE_OTHER,
@@ -206,6 +204,7 @@ const struct rot_caps rotorcard_rot_caps =
     .rot_cleanup =      rotorez_rot_cleanup,
     .set_position =     rotorez_rot_set_position,
     .get_position =     rotorez_rot_get_position,
+    .park =             rotorez_park,
     .stop =             rotorez_rot_stop,
     .set_conf =         rotorez_rot_set_conf,
     .get_info =         rotorez_rot_get_info,
@@ -222,7 +221,7 @@ const struct rot_caps dcu_rot_caps =
     ROT_MODEL(ROT_MODEL_DCU),
     .model_name =       "DCU-1/DCU-1X",
     .mfg_name =         "Hy-Gain",
-    .version =          "20100823.0",
+    .version =          "20230328.0",
     .copyright =        "LGPL",
     .status =           RIG_STATUS_STABLE,
     .rot_type =         ROT_TYPE_OTHER,
@@ -266,7 +265,7 @@ const struct rot_caps erc_rot_caps =
     ROT_MODEL(ROT_MODEL_ERC),
     .model_name =       "ERC",
     .mfg_name =         "DF9GR",
-    .version =          "20100823.2",      /* second revision on 23 Aug 2010 */
+    .version =          "20230328.2",      /* second revision on 23 Aug 2010 */
     .copyright =        "LGPL",
     .status =           RIG_STATUS_STABLE,
     .rot_type =         ROT_TYPE_OTHER,
@@ -294,6 +293,55 @@ const struct rot_caps erc_rot_caps =
     .rot_cleanup =      rotorez_rot_cleanup,
     .set_position =     rotorez_rot_set_position,
     .get_position =     erc_rot_get_position,
+    .park =             rotorez_park,
+    .stop =             dcu1_rot_stop,
+    .reset =            rotorez_rot_reset,
+//  .stop =             rotorez_rot_stop,
+//  .set_conf =         rotorez_rot_set_conf,
+    .get_info =         rotorez_rot_get_info,
+
+};
+
+/*
+ * Rotor capabilities for Hy-Gain YRC-1 compatible with DF9GR ERC
+ *
+ * TODO: Learn of additional capabilities of the ERC
+ */
+
+const struct rot_caps yrc1_rot_caps =
+{
+    ROT_MODEL(ROT_MODEL_YRC1),
+    .model_name =       "DCU2/DCU3/YRC-1",
+    .mfg_name =         "Hy-Gain",
+    .version =          "20230328.2",
+    .copyright =        "LGPL",
+    .status =           RIG_STATUS_STABLE,
+    .rot_type =         ROT_TYPE_OTHER,
+    .port_type =        RIG_PORT_SERIAL,
+    .serial_rate_min =  4800,
+    .serial_rate_max =  4800,
+    .serial_data_bits = 8,
+    .serial_stop_bits = 1,
+    .serial_parity =    RIG_PARITY_NONE,
+    .serial_handshake = RIG_HANDSHAKE_NONE,
+    .write_delay =      0,
+    .post_write_delay = 500,
+    .timeout =          1500,
+    .retry =            2,
+
+    .min_az =           0,
+    .max_az =           360,
+    .min_el =           0,
+    .max_el =           0,
+
+    .priv =             NULL,   /* priv */
+//  .cfgparams =        rotorez_cfg_params,
+
+    .rot_init =         rotorez_rot_init,
+    .rot_cleanup =      rotorez_rot_cleanup,
+    .set_position =     rotorez_rot_set_position,
+    .get_position =     erc_rot_get_position,
+    .park =             rotorez_park,
     .stop =             dcu1_rot_stop,
     .reset =            rotorez_rot_reset,
 //  .stop =             rotorez_rot_stop,
@@ -308,7 +356,7 @@ const struct rot_caps rt21_rot_caps =
     ROT_MODEL(ROT_MODEL_RT21),
     .model_name =       "RT-21",
     .mfg_name =     "Green Heron",
-    .version =      "20220104.0",
+    .version =      "20230507.0",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rot_type =     ROT_TYPE_OTHER,
@@ -336,6 +384,7 @@ const struct rot_caps rt21_rot_caps =
     .rot_cleanup =      rotorez_rot_cleanup,
     .set_position =     rt21_rot_set_position,
     .get_position =     rt21_rot_get_position,
+    .park =             rotorez_park,
     .stop =             rotorez_rot_stop,
 //  .set_conf =         rotorez_rot_set_conf,
 //  .get_info =         rotorez_rot_get_info,
@@ -365,7 +414,7 @@ static int rotorez_rot_init(ROT *rot)
     }
 
     rot->state.priv = (struct rotorez_rot_priv_data *)
-                      malloc(sizeof(struct rotorez_rot_priv_data));
+                      calloc(1, sizeof(struct rotorez_rot_priv_data));
 
     if (!rot->state.priv)
     {
@@ -414,7 +463,7 @@ static int rotorez_rot_set_position(ROT *rot, azimuth_t azimuth,
                                     elevation_t elevation)
 {
     char cmdstr[8];
-    char execstr[5] = "AM1;";
+    const char execstr[5] = "AM1;";
     int err;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -517,7 +566,7 @@ static int rotorez_rot_get_position(ROT *rot, azimuth_t *azimuth,
                                     elevation_t *elevation)
 {
     struct rot_state *rs;
-    char cmdstr[5] = "AI1;";
+    const char cmdstr[5] = "AI1;";
     char az[5];         /* read azimuth string */
     char *p;
     azimuth_t tmp = 0;
@@ -603,7 +652,68 @@ static int rotorez_rot_get_position(ROT *rot, azimuth_t *azimuth,
     }
 
     *azimuth = tmp;
-    *elevation = 0;             /* RotorEZ does not support elevation */
+
+    if (strlen(rot->state.rotport2.pathname) > 0)
+    {
+        do
+        {
+            err = rotorez_send_priv_cmd2(rot, cmdstr);
+
+            if (err != RIG_OK)
+            {
+                return err;
+            }
+
+            rs = &rot->state;
+
+            err = read_block(&rs->rotport, (unsigned char *) az, AZ_READ_LEN);
+
+            if (err != AZ_READ_LEN)
+            {
+                return -RIG_ETRUNC;
+            }
+
+            /* The elevation string should be ';xxx' beginning at offset 0.  If the
+             * ';' is not there, it's likely the RotorEZ has received an invalid
+             * command and the buffer needs to be flushed.  See
+             * rotorez_flush_buffer() definition below for a complete description.
+             */
+            if (az[0] != ';')
+            {
+                err = rotorez_flush_buffer(rot);
+
+                if (err == -RIG_EIO)
+                {
+                    return err;
+                }
+                else
+                {
+                    err = -RIG_EINVAL;
+                }
+            }
+            else if (err == AZ_READ_LEN)
+            {
+                /* Check if remaining chars are digits if az[0] == ';' */
+                for (p = az + 1; p < az + 4; p++)
+                    if (isdigit((int)*p))
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        err = -RIG_EINVAL;
+                    }
+            }
+        }
+        while (err == -RIG_EINVAL);
+
+        sscanf(az, ";%f", elevation);
+    }
+    else
+    {
+        *elevation = 0;             /* RotorEZ does not support elevation */
+    }
+
     rig_debug(RIG_DEBUG_TRACE,
               "%s: azimuth = %.1f deg; elevation = %.1f deg\n",
               __func__, *azimuth, *elevation);
@@ -623,7 +733,7 @@ static int erc_rot_get_position(ROT *rot, azimuth_t *azimuth,
                                 elevation_t *elevation)
 {
     struct rot_state *rs;
-    char cmdstr[5] = "AI1;";
+    const char cmdstr[5] = "AI1;";
     char az[5];         /* read azimuth string */
     char *p;
     azimuth_t tmp = 0;
@@ -795,7 +905,34 @@ static int rt21_rot_get_position(ROT *rot, azimuth_t *azimuth,
         }
 
         *azimuth = tmp;
-        *elevation = 0.0;   /* RT-21 backend does not support el at this time. */
+
+        if (strlen(rot->state.rotport2.pathname) > 0)
+        {
+            err = rotorez_send_priv_cmd2(rot, "BI1;");
+
+            if (err != RIG_OK)
+            {
+                return err;
+            }
+
+            rs = &rot->state;
+
+            err = read_string(&rs->rotport2, (unsigned char *) az, RT21_AZ_LEN + 1, ";",
+                              strlen(";"), 0, 1);
+
+            if (err < 0)    /* read_string returns negative on error. */
+            {
+                return err;
+            }
+
+            sscanf(az, "%f", elevation);
+
+        }
+        else
+        {
+            *elevation = 0.0;   /* RT-21 backend does not support el at this time. */
+        }
+
         rig_debug(RIG_DEBUG_TRACE,
                   "%s: azimuth = %.1f deg; elevation = %.1f deg\n",
                   __func__, *azimuth, *elevation);
@@ -817,7 +954,7 @@ static int rt21_rot_get_position(ROT *rot, azimuth_t *azimuth,
 
 static int rotorez_rot_stop(ROT *rot)
 {
-    char cmdstr[2] = ";";
+    const char cmdstr[2] = ";";
     int err;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -850,7 +987,7 @@ static int rotorez_rot_reset(ROT *rot, rot_reset_t reset)
 
 static int dcu1_rot_stop(ROT *rot)
 {
-    char cmdstr[5] = "AS1;";
+    const char cmdstr[5] = "AS1;";
     int err;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -1085,6 +1222,20 @@ static int rotorez_flush_buffer(ROT *rot)
     return RIG_OK;
 }
 
+/*
+ * Moves to Home Position
+ */
+static int rotorez_park(ROT *rot)
+{
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    /* Assume home is 0,0 */
+    rotorez_rot_set_position(rot, 0, 0);
+
+    return RIG_OK;
+}
+
+
 
 /*
  * Initialize backend
@@ -1099,6 +1250,7 @@ DECLARE_INITROT_BACKEND(rotorez)
     rot_register(&dcu_rot_caps);
     rot_register(&erc_rot_caps);
     rot_register(&rt21_rot_caps);
+    rot_register(&yrc1_rot_caps);
 
     return RIG_OK;
 }

@@ -19,20 +19,14 @@
  *
  */
 
-#include <hamlib/config.h>
-
+#include <stdint.h>
 #include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <math.h>
 
 #include "hamlib/rig.h"
 #include "parallel.h"
 #include "misc.h"
 #include "bandplan.h"
-#include "register.h"
-
-#include "flexradio.h"
 
 static int sdr1k_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
 static int sdr1k_get_freq(RIG *rig, vfo_t vfo, freq_t *freq);
@@ -84,7 +78,7 @@ struct sdr1k_priv_data
 #define SDR1K_LEVEL RIG_LEVEL_PREAMP
 #define SDR1K_PARM  RIG_PARM_NONE
 
-#define SDR1K_MODES (RIG_MODE_NONE)
+#define SDR1K_MODES (RIG_MODE_USB|RIG_MODE_CW)
 
 #define SDR1K_VFO RIG_VFO_A
 
@@ -116,7 +110,7 @@ struct sdr1k_priv_data
  *    What about IOUD_Clock?
  */
 
-const struct rig_caps sdr1k_rig_caps =
+struct rig_caps sdr1k_rig_caps =
 {
     RIG_MODEL(RIG_MODEL_SDR1000),
     .model_name =     "SDR-1000",
@@ -174,6 +168,10 @@ const struct rig_caps sdr1k_rig_caps =
     .tuning_steps =  { {SDR1K_MODES, 1},
         RIG_TS_END,
     },
+    .filters =  {
+        {RIG_MODE_ALL, RIG_FLT_ANY},
+        RIG_FLT_END
+    },
     .priv =  NULL,    /* priv */
 
     .rig_init =     sdr1k_init,
@@ -197,7 +195,7 @@ int sdr1k_init(RIG *rig)
 {
     struct sdr1k_priv_data *priv;
 
-    rig->state.priv = (struct sdr1k_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct sdr1k_priv_data *)calloc(1, sizeof(
                           struct sdr1k_priv_data));
 
     if (!rig->state.priv)

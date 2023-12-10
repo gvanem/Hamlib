@@ -19,17 +19,12 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
 #include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
-#include "misc.h"
 #include "register.h"
 
 #include "lowe.h"
@@ -119,7 +114,7 @@ int lowe_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
     char freqbuf[16];
     int freq_len, retval;
-    float f_freq;
+    double f_freq;
 
     retval = lowe_transaction(rig, "FRQ?" EOM, 5, freqbuf, &freq_len);
 
@@ -130,7 +125,7 @@ int lowe_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 
     freqbuf[freq_len < 16 ? freq_len : 15] = '\0';
 
-    sscanf(freqbuf + 1, "%f", &f_freq);
+    sscanf(freqbuf + 1, "%lf", &f_freq);
     *freq = f_freq * 1000;
 
     return retval;

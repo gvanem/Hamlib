@@ -21,17 +21,12 @@
  *
  */
 
-#include <hamlib/config.h>
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rotator.h"
 #include "serial.h"
-#include "misc.h"
 #include "register.h"
 #include "idx_builtin.h"
 
@@ -312,7 +307,7 @@ static int easycomm_rot_move_velocity(ROT *rot, int direction, int speed)
 
 static int easycomm_rot_get_level(ROT *rot, setting_t level, value_t *val)
 {
-    struct rot_state *rs = &rot->state;
+    const struct rot_state *rs = &rot->state;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s\n", __func__, rot_strlevel(level));
 
@@ -366,6 +361,7 @@ static int easycomm_rot_set_level(ROT *rot, setting_t level, value_t val)
  * Get Info
  * returns the model name string
  */
+// cppcheck-suppress constParameterCallback
 static const char *easycomm_rot_get_info(ROT *rot)
 {
     const struct rot_caps *rc;

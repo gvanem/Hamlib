@@ -19,16 +19,13 @@
  *
  */
 
-#include <hamlib/config.h>
-
-#include <stdlib.h>
-
 #include "hamlib/rig.h"
 #include "token.h"
 #include "icom.h"
 #include "idx_builtin.h"
 #include "icom_defs.h"
 #include "frame.h"
+#include "tones.h"
 
 #define ICR30_MODES (RIG_MODE_LSB|RIG_MODE_USB|RIG_MODE_AM|RIG_MODE_AMN|\
     RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_RTTY|RIG_MODE_FM|RIG_MODE_FMN|RIG_MODE_WFM|\
@@ -127,7 +124,7 @@ static struct icom_priv_caps icr30_priv_caps =
     .extcmds = icr30_extcmds      /* Custom ext_parm parameters */
 };
 
-const struct rig_caps icr30_caps =
+struct rig_caps icr30_caps =
 {
     RIG_MODEL(RIG_MODEL_ICR30),
     .model_name = "IC-R30",
@@ -156,7 +153,6 @@ const struct rig_caps icr30_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .parm_gran =  { 0 },

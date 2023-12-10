@@ -12,7 +12,7 @@
 #include <string.h>
 #include <hamlib/rig.h>
 #include <hamlib/riglist.h>
-#include "misc.h"
+//#include "misc.h"
 
 
 int main(int argc, char *argv[])
@@ -72,6 +72,12 @@ int main(int argc, char *argv[])
 
     vfo_t vfo;
     retcode = rig_get_vfo(my_rig, &vfo);
+    if (retcode != RIG_OK)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: rig_get_vfo: %s\n", __func__, rigerror(retcode));
+        return retcode;
+    }
+
 
     if (vfo != RIG_VFO_A)
     {

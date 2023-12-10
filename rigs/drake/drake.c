@@ -19,17 +19,13 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
 #include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
-#include "misc.h"
 #include "cal.h"
 #include "register.h"
 
@@ -103,7 +99,7 @@ int drake_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 int drake_init(RIG *rig)
 {
     struct drake_priv_data *priv;
-    rig->state.priv = malloc(sizeof(struct drake_priv_data));
+    rig->state.priv = calloc(1, sizeof(struct drake_priv_data));
 
     if (!rig->state.priv)
     {
@@ -618,7 +614,7 @@ int drake_get_mem(RIG *rig, vfo_t vfo, int *ch)
  */
 int drake_set_chan(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
-    struct drake_priv_data *priv = rig->state.priv;
+    const struct drake_priv_data *priv = rig->state.priv;
     vfo_t   old_vfo;
     int     old_chan;
     char    mdbuf[16], ackbuf[16];
@@ -674,7 +670,7 @@ int drake_set_chan(RIG *rig, vfo_t vfo, const channel_t *chan)
  */
 int drake_get_chan(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
-    struct drake_priv_data *priv = rig->state.priv;
+    const struct drake_priv_data *priv = rig->state.priv;
     vfo_t   old_vfo;
     int     old_chan;
     char    mdbuf[BUFSZ], freqstr[BUFSZ];
@@ -886,7 +882,7 @@ int drake_get_chan(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
  */
 int drake_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
 {
-    struct drake_priv_data *priv = rig->state.priv;
+    const struct drake_priv_data *priv = rig->state.priv;
     char buf[16], ackbuf[16];
     int len, ack_len, retval;
 

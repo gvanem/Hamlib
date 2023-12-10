@@ -25,20 +25,18 @@
 #ifndef _WIN32TERMIOS_H
 #define _WIN32TERMIOS_H
 
-#ifndef _WIN32S_H_
-#define _WIN32S_H_
 #include <windows.h>
 #include <sys/types.h>
 #include <io.h>
 #include <stdint.h>
 
 #ifdef TRACE
-#define ENTER(x) report("entering "x" \n");
-#define LEAVE(x) report("leaving "x" \n");
+  #define ENTER(x) report("entering "x" \n");
+  #define LEAVE(x) report("leaving "x" \n");
 #else
-#define ENTER(x)
-#define LEAVE(x)
-#endif /* TRACE */
+  #define ENTER(x)
+  #define LEAVE(x)
+#endif
 
 #define YACK() do {                                               \
         char        _buf1 [800], _buf2 [1024];                    \
@@ -54,13 +52,13 @@
         report_error (_buf2);                                     \
       } while (0)
 
-typedef unsigned char  cc_t;
-typedef int32_t        speed_t;
-typedef int32_t        tcflag_t;
+typedef unsigned char cc_t;
+typedef int32_t       speed_t;
+typedef int32_t       tcflag_t;
 
 /* structs are from linux includes or linux man pages to match
-   interfaces.
-*/
+ * interfaces.
+ */
 
 #ifndef _TIMESPEC_DEFINED
 struct timespec
@@ -77,10 +75,10 @@ struct termios
     tcflag_t c_oflag;           /* output mode flags */
     tcflag_t c_cflag;           /* control mode flags */
     tcflag_t c_lflag;           /* local mode flags */
-    cc_t c_cc[NCCS];            /* control characters */
-    cc_t c_line;                /* line discipline (== c_cc[33]) */
-    speed_t c_ispeed;           /* input speed */
-    speed_t c_ospeed;           /* output speed */
+    cc_t     c_cc [NCCS];       /* control characters */
+    cc_t     c_line;            /* line discipline (== c_cc[33]) */
+    speed_t  c_ispeed;          /* input speed */
+    speed_t  c_ospeed;          /* output speed */
   };
 
 /*  for TIOCGSERIAL and TIOCSSERIAL of interest are baud_base and
@@ -90,18 +88,19 @@ struct termios
  */
 struct serial_struct {
 /*
-    Mainly we are after baud_base/custom_diviser to match
-    the ioctl() in SerialImp.c
+  Mainly we are after baud_base/custom_diviser to match
+  the ioctl() in SerialImp.c
 */
-    int custom_divisor;   /* use to set unsupported speeds */
-    int baud_base;        /* use to set unsupported speeds */
+    int             custom_divisor;   /* use to set unsupported speeds */
+    int             baud_base;        /* use to set unsupported speeds */
 
     unsigned short  close_delay, closing_wait, iomem_reg_shift;
-    int type, line, irq, flags, xmit_fifo_size, hub6;
+    int             type, line, irq, flags, xmit_fifo_size, hub6;
     unsigned int    port, port_high;
-    char        io_type;
-    unsigned char   *iomem_base;
+    char            io_type;
+    unsigned char  *iomem_base;
 };
+
 struct serial_icounter_struct {
     int cts;            /* clear to send count */
     int dsr;            /* data set ready count */
@@ -117,22 +116,42 @@ struct serial_icounter_struct {
     int reserved[9];    /* unused */
 };
 
-int win32_serial_test( char * );
-int win32_serial_open(const char *File, int flags, ... );
-int win32_serial_close(int fd);
-int win32_serial_read(int fd, void *b, int size);
-int win32_serial_write(int fd, const char *Str, int length);
-int win32_serial_ioctl(int fd, int request, ... );
-int win32_serial_fcntl(int fd, int command, ...);
+struct termios_list
+{
+    char            filename [512];
+    int             my_errno;
+    int             interrupt;
+    int             event_flag;
+    int             tx_happened;
+    unsigned long  *hComm;
+    struct termios *ttyset;
+    struct serial_struct *sstruct;
 
-/*
- * lcc winsock.h conflicts
- */
-#if !defined(__LCC__)
-  int win32_serial_select(int, struct fd_set *, struct fd_set *, struct fd_set *, struct timeval *);
-  #define SELECT win32_serial_select
-#endif
+    /* for DTR DSR */
+    unsigned char        MSR;
+    struct async_struct           *astruct;
+    struct serial_icounter_struct *sis;
+    int         open_flags;
+    OVERLAPPED  rol;
+    OVERLAPPED  wol;
+    OVERLAPPED  sol;
+    int         fd;
+    struct termios_list *next;
+    struct termios_list *prev;
+};
 
+int win32_serial_test (const char *file);
+int win32_serial_open (const char *file, int flags, ... );
+int win32_serial_close (int fd);
+int win32_serial_read (int fd, void *b, int size);
+int win32_serial_write (int fd, const char *Str, int length);
+int win32_serial_ioctl (int fd, int request, ... );
+int win32_serial_fcntl (int fd, int command, ...);
+
+int win32_serial_select(int, struct fd_set *, struct fd_set *, struct fd_set *, struct timeval *);
+struct termios_list *win32_serial_find_port(int);
+
+#define SELECT win32_serial_select
 #define OPEN   win32_serial_open
 #define CLOSE  win32_serial_close
 #define READ   win32_serial_read
@@ -140,42 +159,20 @@ int win32_serial_fcntl(int fd, int command, ...);
 #define IOCTL  win32_serial_ioctl
 #define FCNTL  win32_serial_fcntl
 
-#if 0
-  /* local functions
-   */
-  void termios_interrupt_event_loop( int , int );
-  void termios_setflags( int , int[] );
-  struct termios_list *find_port( int );
-  int usleep(unsigned int usec);
-  const char *get_dos_port(const char *);
-  void set_errno(int);
-  char *sterror(int);
-  int B_to_CBR(int);
-  int CBR_to_B(int);
-  int termios_to_bytesize(int);
-  int bytesize_to_termios(int);
-#endif
-
-int tcgetattr(int Fd, struct termios *s_termios);
-int tcsetattr(int Fd, int when, struct termios *);
-speed_t cfgetospeed(struct termios *s_termios);
-speed_t cfgetispeed(struct termios *s_termios);
-int cfsetspeed(struct termios *, speed_t speed);
-int cfsetospeed(struct termios *, speed_t speed);
-int cfsetispeed ( struct termios *, speed_t speed);
-int tcflush ( int , int );
-int tcgetpgrp ( int );
-int tcsetpgrp ( int , int );
-int tcdrain ( int );
-int tcflow ( int , int );
-int tcsendbreak ( int , int );
-
-void cfmakeraw(struct termios *s_termios);
-
-#if 0
-  int termiosGetParityErrorChar (int);
-  void termiosSetParityError (int, char);
-#endif
+int     tcgetattr (int Fd, struct termios *s_termios);
+int     tcsetattr (int Fd, int when, struct termios *);
+speed_t cfgetospeed (struct termios *s_termios);
+speed_t cfgetispeed (struct termios *s_termios);
+int     cfsetspeed (struct termios *, speed_t speed);
+int     cfsetospeed (struct termios *, speed_t speed);
+int     cfsetispeed (struct termios *, speed_t speed);
+int     tcflush (int , int);
+int     tcgetpgrp (int);
+int     tcsetpgrp (int, int);
+int     tcdrain (int);
+int     tcflow (int, int);
+int     tcsendbreak (int, int);
+void    cfmakeraw (struct termios *s_termios);
 
 /* A lot of these could be already defined in some MinGW.
  * That is the problem with MinGW; one never know which MinGW this really is.
@@ -226,7 +223,7 @@ void cfmakeraw(struct termios *s_termios);
 #undef  F_UNLCK
 #define F_UNLCK     8
 
-/* for old implementation of bsd flock () */
+/* for old implementation of bsd flock() */
 #define F_EXLCK     16  /* or 3 */
 #define F_SHLCK     32  /* or 4 */
 
@@ -243,8 +240,7 @@ void cfmakeraw(struct termios *s_termios);
 #undef  LOCK_UN
 #define LOCK_UN     8   /* remove lock */
 
-/* c_cc characters
- */
+/* c_cc characters */
 #define VINTR     0
 #define VQUIT     1
 #define VERASE    2
@@ -263,8 +259,7 @@ void cfmakeraw(struct termios *s_termios);
 #define VLNEXT   15
 #define VEOL2    16
 
-/* c_iflag bits
- */
+/* c_iflag bits */
 #define IGNBRK                 0000001
 #define BRKINT                 0000002
 #define IGNPAR                 0000004
@@ -285,8 +280,7 @@ void cfmakeraw(struct termios *s_termios);
 #define HARDWARE_FLOW_CONTROL  CRTSCTS
 #define CRTSXOFF               010000000000
 
-/* c_oflag bits
- */
+/* c_oflag bits */
 #define OPOST   0000001
 #define ONLCR   0000002
 #define OLCUC   0000004
@@ -323,8 +317,7 @@ void cfmakeraw(struct termios *s_termios);
 #define   VT1   00200000
 #define XTABS   01000000 /* Hmm.. Linux/i386 considers this part of TABDLY.. */
 
-/* c_cflag bit meaning
- */
+/* c_cflag bit meaning */
 #define  CBAUD    0010017
 #define  B0       0000000     /* hang up */
 #define  B50      0000001
@@ -358,8 +351,8 @@ void cfmakeraw(struct termios *s_termios);
 #define  B3500000 0010016
 #define  B4000000 0010017
 
-/* glue for unsupported linux speeds.
- */
+/* glue for unsupported linux speeds see also SerialImp.h.h */
+
 #define B14400      1010001
 #define B28800      1010002
 #define B128000     1010003
@@ -382,8 +375,7 @@ void cfmakeraw(struct termios *s_termios);
 # define CIBAUD     002003600000    /* input baud rate (not used) */
 # define CRTSCTS    020000000000    /* flow control */
 
-/* c_l flag
- */
+/* c_l flag */
 #define ISIG    0000001
 #define ICANON  0000002
 #define XCASE   0000004
@@ -400,8 +392,7 @@ void cfmakeraw(struct termios *s_termios);
 #define PENDIN  0040000
 #define IEXTEN  0100000
 
-/* glue for unsupported windows speeds
- */
+/* glue for unsupported windows speeds */
 #define CBR_28800      28800
 #define CBR_230400    230400
 #define CBR_460800    460800
@@ -417,21 +408,19 @@ void cfmakeraw(struct termios *s_termios);
 #define CBR_3500000  3500000
 #define CBR_4000000  4000000
 
-/* Values for the ACTION argument to `tcflow'.
- */
+
+/* Values for the ACTION argument to `tcflow'. */
 #define TCOOFF      0
 #define TCOON       1
 #define TCIOFF      2
 #define TCION       3
 
-/* Values for the QUEUE_SELECTOR argument to `tcflush'.
- */
+/* Values for the QUEUE_SELECTOR argument to `tcflush'. */
 #define TCIFLUSH    0
 #define TCOFLUSH    1
 #define TCIOFLUSH   2
 
-/* Values for the OPTIONAL_ACTIONS argument to `tcsetattr'.
- */
+/* Values for the OPTIONAL_ACTIONS argument to `tcsetattr'. */
 #define TCSANOW     0
 #define TCSADRAIN   1
 #define TCSAFLUSH   2
@@ -439,10 +428,7 @@ void cfmakeraw(struct termios *s_termios);
 /* ioctls */
 #define TIOCSERGETLSR   0x5459
 
-#endif /* _WIN32S_H_ */
-
-/* unused ioctls
- */
+/* unused ioctls */
 #define TCSBRK         0x5409
 #define TIOCCBRK       0x540a
 #define TIOCSBRK       0x540b
@@ -455,8 +441,8 @@ void cfmakeraw(struct termios *s_termios);
 #define TIOCSSOFTCAR   0x541a
 #define TIOCSER_TEMP   0x01
 
+
 /*
-  #define FIONREAD    0x541b
   TIOC[GS]SERIAL is not used on win32.  It was dropped after we could not
   find a way to get/set baud_base and divisor directly.
 
@@ -480,16 +466,14 @@ void cfmakeraw(struct termios *s_termios);
 */
 #define TIOCGICOUNT 0x545d
 
-/* ioctl errors
- */
+/* ioctl errors */
 #undef  ENOIOCTLCMD
 #define ENOIOCTLCMD 515
 
 #undef  EBADFD
 #define EBADFD       77
 
-/* modem lines
- */
+/* modem lines */
 #define TIOCM_LE    0x001
 #define TIOCM_DTR   0x002
 #define TIOCM_RTS   0x004
@@ -501,6 +485,7 @@ void cfmakeraw(struct termios *s_termios);
 #define TIOCM_DSR   0x100
 #define TIOCM_CD    TIOCM_CAR
 #define TIOCM_RI    TIOCM_RNG
+
 
 #define CMSPAR      010000000000  /* mark or space parity */
 

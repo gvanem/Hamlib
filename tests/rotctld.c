@@ -28,7 +28,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <ctype.h>
 
 #include <getopt.h>
 #include <errno.h>
@@ -38,9 +37,6 @@
 
 #ifdef HAVE_NETINET_IN_H
 #  include <netinet/in.h>
-#endif
-#ifdef HAVE_ARPA_INET_H
-#  include <arpa/inet.h>
 #endif
 #ifdef HAVE_SYS_SOCKET_H
 #  include <sys/socket.h>
@@ -60,9 +56,10 @@
 #endif
 
 #include <hamlib/rotator.h>
-#include "misc.h"
 
+#include "rig.h"
 #include "rotctl_parse.h"
+#include "rotlist.h"
 
 struct handle_data
 {
@@ -109,13 +106,13 @@ const char *src_addr = NULL;    /* INADDR_ANY */
 azimuth_t az_offset;
 elevation_t el_offset;
 
-#define MAXCONFLEN 1024
+#define MAXCONFLEN 2048
 
 
 static void handle_error(enum rig_debug_level_e lvl, const char *msg)
 {
     int e;
-#ifdef _WIN32
+#ifdef __MINGW32__
     LPVOID lpMsgBuf;
 
     lpMsgBuf = (LPVOID)"Unknown error";
@@ -348,12 +345,28 @@ int main(int argc, char *argv[])
         exit(2);
     }
 
-    retcode = set_conf(my_rot, conf_parms);
+    char *token=strtok(conf_parms,",");
 
-    if (retcode != RIG_OK)
+    while(token)
     {
-        fprintf(stderr, "Config parameter error: %s\n", rigerror(retcode));
-        exit(2);
+        char mytoken[100], myvalue[100];
+        token_t lookup;
+        sscanf(token,"%99[^=]=%99s", mytoken, myvalue);
+        //printf("mytoken=%s,myvalue=%s\n",mytoken, myvalue);
+        lookup = rot_token_lookup(my_rot,mytoken);
+        if (lookup == 0)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: no such token as '%s', use -L switch to see\n", __func__, mytoken);
+            token = strtok(NULL, ",");
+            continue;
+        }
+        retcode = rot_set_conf(my_rot, rot_token_lookup(my_rot,mytoken), myvalue);
+        if (retcode != RIG_OK)
+        {
+            fprintf(stderr, "Config parameter error: %s\n", rigerror(retcode));
+            exit(2);
+        }
+        token = strtok(NULL, ",");
     }
 
     if (rot_file)
@@ -414,7 +427,7 @@ int main(int argc, char *argv[])
               my_rot->caps->version,
               rig_strstatus(my_rot->caps->status));
 
-#ifdef _WIN32
+#ifdef __MINGW32__
 #  ifndef SO_OPENTYPE
 #    define SO_OPENTYPE     0x7008
 #  endif
@@ -516,7 +529,7 @@ int main(int argc, char *argv[])
         }
 
         handle_error(RIG_DEBUG_WARN, "binding failed (trying next interface)");
-#ifdef _WIN32
+#ifdef __MINGW32__
         closesocket(sock_listen);
 #else
         close(sock_listen);
@@ -570,11 +583,11 @@ int main(int argc, char *argv[])
      */
     do
     {
-        arg = malloc(sizeof(struct handle_data));
+        arg = calloc(1, sizeof(struct handle_data));
 
         if (!arg)
         {
-            rig_debug(RIG_DEBUG_ERR, "malloc: %s\n", strerror(errno));
+            rig_debug(RIG_DEBUG_ERR, "calloc: %s\n", strerror(errno));
             exit(1);
         }
 
@@ -624,6 +637,7 @@ int main(int argc, char *argv[])
 
 #else
         handle_socket(arg);
+        retcode = 1;
 #endif
     }
 
@@ -632,7 +646,7 @@ int main(int argc, char *argv[])
     rot_close(my_rot); /* close port */
     rot_cleanup(my_rot); /* if you care about memory */
 
-#ifdef _WIN32
+#ifdef __MINGW32__
     WSACleanup();
 #endif
 
@@ -652,7 +666,7 @@ void *handle_socket(void *arg)
     char host[NI_MAXHOST];
     char serv[NI_MAXSERV];
 
-#ifdef _WIN32
+#ifdef __MINGW32__
     int sock_osfhandle = _open_osfhandle(handle_data_arg->sock, _O_RDONLY);
 
     if (sock_osfhandle == -1)
@@ -675,7 +689,7 @@ void *handle_socket(void *arg)
         goto handle_exit;
     }
 
-#ifdef _WIN32
+#ifdef __MINGW32__
     fsockout = _fdopen(sock_osfhandle, "wb");
 #elif defined(ANDROID) || defined(__ANDROID__)
     // fdsan does not allow fdopen the same fd twice in Android
@@ -724,12 +738,12 @@ void *handle_socket(void *arg)
               serv);
 
     fclose(fsockin);
-#ifndef _WIN32
+#ifndef __MINGW32__
     fclose(fsockout);
 #endif
 
 handle_exit:
-#ifdef _WIN32
+#ifdef __MINGW32__
     closesocket(handle_data_arg->sock);
 #else
     close(handle_data_arg->sock);

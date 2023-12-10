@@ -19,15 +19,11 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <string.h>
 
 #include "hamlib/rig.h"
-#include "bandplan.h"
 #include "serial.h"
-#include "misc.h"
 #include "num_stdio.h"
 
 
@@ -81,7 +77,7 @@ static const char *rx340_get_info(RIG *rig);
  * TODO: from/to memory, scan, get_level, ..
  * supposes non-multidrop
  */
-const struct rig_caps rx340_caps =
+struct rig_caps rx340_caps =
 {
     RIG_MODEL(RIG_MODEL_RX340),
     .model_name = "RX-340",
@@ -239,7 +235,7 @@ int rx340_init(RIG *rig)
 {
     struct rx340_priv_data *priv;
 
-    priv = (struct rx340_priv_data *)malloc(sizeof(struct rx340_priv_data));
+    priv = (struct rx340_priv_data *)calloc(1, sizeof(struct rx340_priv_data));
 
     if (!priv)
     {

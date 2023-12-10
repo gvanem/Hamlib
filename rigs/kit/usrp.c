@@ -19,8 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
 /*
  * Compile only this model if usrp is available
  */
@@ -62,7 +60,7 @@ static const struct confparams usrp_cfg_params[] =
  *
  */
 
-const struct rig_caps usrp_caps =
+struct rig_caps usrp_caps =
 {
     RIG_MODEL(RIG_MODEL_USRP),
     .model_name = "USRP",

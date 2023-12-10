@@ -18,17 +18,12 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <math.h>
 #include <errno.h>
 
 #include "hamlib/rig.h"
 #include "tuner.h"  /* include config.h */
-
-#include "misc.h"
 
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
@@ -36,7 +31,6 @@
 
 #ifdef V4L_IOCTL
 
-#include <stdlib.h>
 #include "idx_builtin.h"
 
 
@@ -69,7 +63,7 @@ static const char *v4l2_get_info(RIG *rig);
  *
  *
  */
-const struct rig_caps v4l2_caps =
+struct rig_caps v4l2_caps =
 {
     RIG_MODEL(RIG_MODEL_V4L2),
     .model_name = "SW/FM radio",
@@ -94,7 +88,6 @@ const struct rig_caps v4l2_caps =
     .has_set_parm =  RIG_PARM_SET(V4L2_PARM_ALL),
     .vfo_ops =  RIG_OP_NONE,
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 65535 } },
     },
     .preamp =   { RIG_DBLST_END },
@@ -197,7 +190,7 @@ int v4l2_open(RIG *rig)
 
 int v4l2_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
-    struct rig_state *rs = &rig->state;
+    const struct rig_state *rs = &rig->state;
     struct      v4l2_tuner vt;
     const freq_range_t *range;
     unsigned long f;
@@ -243,7 +236,7 @@ int v4l2_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
 int v4l2_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
-    struct rig_state *rs = &rig->state;
+    const struct rig_state *rs = &rig->state;
     const freq_range_t *range;
     unsigned long f;
     double fact;

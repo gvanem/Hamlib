@@ -18,16 +18,7 @@
  *
  */
 
-
-#include <hamlib/config.h>
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-
 #include <hamlib/rig.h>
-#include "misc.h"
 
 #ifdef HAVE_XML2
 #  include <libxml/parser.h>

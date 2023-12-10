@@ -19,16 +19,11 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <string.h>
 
 #include <hamlib/rig.h>
 #include <serial.h>
-#include <misc.h>
-
-#include "aor.h"
 
 static int ar3k_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
 static int ar3k_get_freq(RIG *rig, vfo_t vfo, freq_t *freq);
@@ -67,7 +62,7 @@ static int ar3k_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
  * TODO:
  * set_channel, get_channel, set_func MUTE,SQL, get_dcd, ...
  */
-const struct rig_caps ar3000a_caps =
+struct rig_caps ar3000a_caps =
 {
     RIG_MODEL(RIG_MODEL_AR3000A),
     .model_name = "AR3000A",

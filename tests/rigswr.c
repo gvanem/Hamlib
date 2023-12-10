@@ -20,19 +20,15 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <ctype.h>
-#include <errno.h>
 
 #include <getopt.h>
 
 #include <hamlib/rig.h>
 #include "misc.h"
+#include "riglist.h"
 
 
 /*
@@ -63,7 +59,7 @@ static struct option long_options[] =
     {0, 0, 0, 0}
 };
 
-#define MAXCONFLEN 1024
+#define MAXCONFLEN 2048
 
 
 int main(int argc, char *argv[])

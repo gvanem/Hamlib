@@ -19,13 +19,10 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <stdio.h>
 #include "hamlib/rig.h"
 
-#include "kit.h"
 #include "serial.h"
 #include "token.h"
 
@@ -83,7 +80,7 @@ static int elektor304_get_conf(RIG *rig, token_t token, char *val);
  * The receiver is controlled via the TX, RTS and DTR pins of the serial port.
  */
 
-const struct rig_caps elektor304_caps =
+struct rig_caps elektor304_caps =
 {
     RIG_MODEL(RIG_MODEL_ELEKTOR304),
     .model_name = "Elektor 3/04",
@@ -163,7 +160,7 @@ int elektor304_init(RIG *rig)
 {
     struct elektor304_priv_data *priv;
 
-    rig->state.priv = (struct elektor304_priv_data *)malloc(sizeof(struct
+    rig->state.priv = (struct elektor304_priv_data *)calloc(1, sizeof(struct
                       elektor304_priv_data));
 
     if (!rig->state.priv)
@@ -269,7 +266,7 @@ static int ad_delay(int m)
 {
     long j;
 
-    for (j = 0; j <= m; j++);
+    for (j = 0; j <= m; j++) {}
 
     return j;
 }
@@ -288,7 +285,7 @@ static int ad_sdata(hamlib_port_t *port, int i)
     return ret;
 }
 
-static int ad_sclk(hamlib_port_t *port, int i)
+static int ad_sclk(const hamlib_port_t *port, int i)
 {
     int ret;
 

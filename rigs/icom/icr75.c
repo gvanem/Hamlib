@@ -19,8 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <string.h>
 
@@ -105,7 +103,7 @@ static struct icom_priv_caps icr75_priv_caps =
     .ant_count = 2
 };
 
-const struct rig_caps icr75_caps =
+struct rig_caps icr75_caps =
 {
     RIG_MODEL(RIG_MODEL_ICR75),
     .model_name = "IC-R75",
@@ -133,8 +131,9 @@ const struct rig_caps icr75_caps =
     .has_set_level =  RIG_LEVEL_SET(ICR75_LEVEL_ALL),
     .has_get_parm =  ICR75_PARM_ALL,
     .has_set_parm =  RIG_PARM_SET(ICR75_PARM_ALL),
-    .level_gran = {
-        // cppcheck-suppress *
+    .level_gran =
+    {
+#include "level_gran_icom.h"
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_PBT_IN] = { .min = { .f = -1280 }, .max = { .f = +1280 }, .step = { .f = 15 } },
         [LVL_PBT_OUT] = { .min = { .f = -1280 }, .max = { .f = +1280 }, .step = { .f = 15 } },
@@ -144,7 +143,12 @@ const struct rig_caps icr75_caps =
     .parm_gran =  {
         [PARM_APO] = { .min = { .i = 1 }, .max = { .i = 1439} },
         [PARM_TIME] = { .min = { .i = 0 }, .max = { .i = 86399} },
+        [PARM_BACKLIGHT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.f = 1.0f / 255.0f}},
+        [PARM_BANDSELECT] = {.step = {.s = "BANDUNUSED,BAND160M,BAND80M,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BANDGEN"}},
+        [PARM_BEEP] = {.min = {.i = 0}, .max = {.i = 1}, .step = {.i = 1}},
+        [PARM_ANN] = {.min = {.i = 0}, .max = {.i = 2}, .step = {.i = 1}},
     },
+
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
     .preamp =   { 10, 20, RIG_DBLST_END, }, /* TBC */

@@ -18,19 +18,14 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <math.h>
 
 #include <hamlib/rig.h>
 #include "serial.h"
 #include "misc.h"
-#include "cal.h"
-#include "token.h"
 #include "register.h"
 
 #include "codan.h"
@@ -70,7 +65,7 @@ int codan_transaction(RIG *rig, char *cmd, int expected, char **result)
 
     if (expected == 0)
     {
-        // response format is reponse...0x0d0x0a
+        // response format is response...0x0d0x0a
         retval = read_string(&rs->rigport, (unsigned char *) priv->ret_data,
                              sizeof(priv->ret_data),
                              "\x0a", 1, 0, 1);
@@ -222,7 +217,7 @@ int codan_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
     }
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: result=%s", __func__, result);
-    int n = sscanf(result, "MODE: %[A-Z], %[A-Z], %d, %d", modeA, modeB, &center,
+    int n = sscanf(result, "MODE: %7[A-Z], %7[A-Z], %d, %d", modeA, modeB, &center,
                    &widthA);
 
     if (n != 4)
@@ -338,7 +333,7 @@ int codan_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 
     retval = sscanf(response, "FREQ: %lg", freq);
 
-    *freq *= 1000; // returne freq is in kHz
+    *freq *= 1000; // returned freq is in kHz
 
     if (retval != 1)
     {
@@ -368,7 +363,7 @@ int codan_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
         return retval;
     }
 
-    char *p = strstr(response, "Ptt");
+    const char *p = strstr(response, "Ptt");
 
     if (p)
     {
@@ -415,7 +410,7 @@ int codan_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
 
 
 
-const struct rig_caps envoy_caps =
+struct rig_caps envoy_caps =
 {
     RIG_MODEL(RIG_MODEL_CODAN_ENVOY),
     .model_name =       "Envoy",
@@ -480,7 +475,7 @@ const struct rig_caps envoy_caps =
     .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
-const struct rig_caps ngs_caps =
+struct rig_caps ngs_caps =
 {
     RIG_MODEL(RIG_MODEL_CODAN_NGT),
     .model_name =       "NGT",

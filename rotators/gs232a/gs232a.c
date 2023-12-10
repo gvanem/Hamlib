@@ -19,16 +19,13 @@
  *
  */
 
-#include <hamlib/config.h>
 
 // cppcheck-suppress *
 #include <stdio.h>
 // cppcheck-suppress *
-#include <stdlib.h>
 // cppcheck-suppress *
 #include <string.h>  /* String function definitions */
 // cppcheck-suppress *
-#include <unistd.h>  /* UNIX standard function definitions */
 // cppcheck-suppress *
 #include <math.h>
 
@@ -239,7 +236,7 @@ gs232a_rot_stop(ROT *rot)
 
 static int gs232a_rot_get_level(ROT *rot, setting_t level, value_t *val)
 {
-    struct rot_state *rs = &rot->state;
+    const struct rot_state *rs = &rot->state;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s\n", __func__, rot_strlevel(level));
 
@@ -260,8 +257,6 @@ static int gs232a_rot_get_level(ROT *rot, setting_t level, value_t *val)
 static int gs232a_rot_set_level(ROT *rot, setting_t level, value_t val)
 {
     struct rot_state *rs = &rot->state;
-    char cmdstr[24];
-    int retval;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s\n", __func__, rot_strlevel(level));
 
@@ -269,6 +264,8 @@ static int gs232a_rot_set_level(ROT *rot, setting_t level, value_t val)
     {
     case ROT_LEVEL_SPEED:
     {
+        char cmdstr[24];
+        int retval;
         int speed = val.i;
 
         if (speed < 1)

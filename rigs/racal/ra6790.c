@@ -19,12 +19,8 @@
  *
  */
 
-#include <hamlib/config.h>
-
-#include <stdlib.h>
-
 #include <hamlib/rig.h>
-#include "idx_builtin.h"
+
 #include "racal.h"
 
 
@@ -45,7 +41,7 @@
  * Required A6A1 serial asynchronous interface
  *
  */
-const struct rig_caps ra6790_caps =
+struct rig_caps ra6790_caps =
 {
     RIG_MODEL(RIG_MODEL_RA6790),
     .model_name = "RA6790/GM",

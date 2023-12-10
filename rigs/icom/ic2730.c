@@ -19,13 +19,10 @@
  *
  */
 
-#include <hamlib/config.h>
-
-#include <stdlib.h>
-
 #include "hamlib/rig.h"
 #include "idx_builtin.h"
 #include "icom.h"
+#include "tones.h"
 
 #define IC2730_MODES (RIG_MODE_FM)
 #define IC2730_ALL_RX_MODES (RIG_MODE_AM|IC2730_MODES)
@@ -62,7 +59,7 @@ static const struct icom_priv_caps ic2730_priv_caps =
     1,      /* no XCHG */
 };
 
-const struct rig_caps ic2730_caps =
+struct rig_caps ic2730_caps =
 {
     RIG_MODEL(RIG_MODEL_IC2730),
     .model_name = "IC-2730",
@@ -91,7 +88,6 @@ const struct rig_caps ic2730_caps =
     .has_get_parm =  IC2730_PARM_ALL,
     .has_set_parm =  IC2730_PARM_ALL,
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .parm_gran =  { 0 },

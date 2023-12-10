@@ -22,12 +22,6 @@
  */
 
 
-#include <hamlib/config.h>
-
-#include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-
 #include "hamlib/rig.h"
 #include "serial.h"
 #include "misc.h"
@@ -50,7 +44,7 @@ static int frg9600_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width);
  *
  */
 
-const struct rig_caps frg9600_caps =
+struct rig_caps frg9600_caps =
 {
     RIG_MODEL(RIG_MODEL_FRG9600),
     .model_name =         "FRG-9600",
@@ -78,6 +72,10 @@ const struct rig_caps frg9600_caps =
     .has_set_level =      RIG_LEVEL_BAND_SELECT,
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .vfo_ops =        RIG_OP_NONE,
     .preamp =             { RIG_DBLST_END, },
     .attenuator =         { RIG_DBLST_END, },

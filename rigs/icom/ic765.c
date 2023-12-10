@@ -19,8 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
@@ -56,7 +54,7 @@ static const struct icom_priv_caps ic765_priv_caps =
     ic737_ts_sc_list
 };
 
-const struct rig_caps ic765_caps =
+struct rig_caps ic765_caps =
 {
     RIG_MODEL(RIG_MODEL_IC765),
     .model_name = "IC-765",
@@ -84,7 +82,7 @@ const struct rig_caps ic765_caps =
     .has_set_level =  RIG_LEVEL_NONE,
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
-    .level_gran =  { 0 },
+    .level_gran = { 0 },
     .parm_gran =  { 0 },
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
@@ -131,8 +129,8 @@ const struct rig_caps ic765_caps =
         {MHz(6.9), kHz(7499.99), IC765_AM_TX_MODES, 2000, 40000, IC765_VFO_ALL},
         {MHz(9.9), MHz(1049999), IC765_OTHER_TX_MODES, 5000, 100000, IC765_VFO_ALL},
         {MHz(9.9), MHz(1049999), IC765_AM_TX_MODES, 2000, 40000, IC765_VFO_ALL},
-        {MHz(13.9), kHz(14.49999), IC765_OTHER_TX_MODES, 5000, 100000, IC765_VFO_ALL},
-        {MHz(13.9), kHz(14.49999), IC765_AM_TX_MODES, 2000, 40000, IC765_VFO_ALL},
+        {MHz(13.9), MHz(14.49999), IC765_OTHER_TX_MODES, 5000, 100000, IC765_VFO_ALL},
+        {MHz(13.9), MHz(14.49999), IC765_AM_TX_MODES, 2000, 40000, IC765_VFO_ALL},
         {kHz(17900), kHz(18499.99), IC765_OTHER_TX_MODES, 5000, 100000, IC765_VFO_ALL},
         {kHz(17900), kHz(18499.99), IC765_AM_TX_MODES, 2000, 40000, IC765_VFO_ALL},
         {MHz(20.9), kHz(21499.99), IC765_OTHER_TX_MODES, 5000, 100000, IC765_VFO_ALL},

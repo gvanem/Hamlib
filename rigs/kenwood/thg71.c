@@ -19,12 +19,9 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include <hamlib/rig.h>
 #include "kenwood.h"
@@ -83,7 +80,7 @@ static int thg71_set_func(RIG *rig, vfo_t vfo, setting_t func, int status);
  *
  * http://www.iw5edi.com/ham-radio/files/TH-G71_Serial_Protocol.pdf
  */
-const struct rig_caps thg71_caps =
+struct rig_caps thg71_caps =
 {
     RIG_MODEL(RIG_MODEL_THG71),
     .model_name = "TH-G71",
@@ -109,11 +106,9 @@ const struct rig_caps thg71_caps =
     .has_set_func =  THG71_FUNC_ALL,
     .has_get_level =  THG71_LEVEL_ALL,
     .has_set_level =  RIG_LEVEL_SET(THG71_LEVEL_ALL),
-    .level_gran = {
-        // cppcheck-suppress *
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_SQL] = { .min = { .i = 0 }, .max = { .i = 5 } },
-        [LVL_RFPOWER] = { .min = { .i = 3 }, .max = { .i = 0 } },
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
     },
     .parm_gran =  { 0 },
     .ctcss_list =  kenwood38_ctcss_list,

@@ -19,12 +19,7 @@
  *
  */
 
-#include <hamlib/config.h>
-
-#include <stdlib.h>
-
 #include "hamlib/rig.h"
-#include "bandplan.h"
 #include "kenwood.h"
 
 
@@ -65,7 +60,7 @@ static struct kenwood_priv_caps trc80_priv_caps  =
 /*
  * TRC-80/TK-80 rig capabilities.
  */
-const struct rig_caps trc80_caps =
+struct rig_caps trc80_caps =
 {
     RIG_MODEL(RIG_MODEL_TRC80),
     .model_name = "TRC-80",
@@ -94,7 +89,10 @@ const struct rig_caps trc80_caps =
     .has_set_level =  RIG_LEVEL_SET(TRC80_LEVEL_ALL),
     .has_get_parm =  TRC80_PARMS,
     .has_set_parm =  RIG_LEVEL_SET(TRC80_PARMS),    /* FIXME: parms */
-    .level_gran =  { 0 },                 /* FIXME: granularity */
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+    },
     .parm_gran =  { 0 },
     .preamp =   { RIG_DBLST_END, },
     .attenuator =   { RIG_DBLST_END, },

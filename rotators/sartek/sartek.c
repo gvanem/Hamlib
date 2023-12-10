@@ -20,12 +20,9 @@
  *
  */
 
-#include <hamlib/config.h>
 
 #include <stdio.h>
-#include <stdlib.h>             /* Standard library definitions */
 #include <string.h>             /* String function definitions */
-#include <unistd.h>             /* UNIX standard function definitions */
 
 #include "hamlib/rotator.h"
 #include "serial.h"

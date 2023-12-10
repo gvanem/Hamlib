@@ -36,11 +36,9 @@
 
 #include <hamlib/config.h>
 
-#include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>   /* Standard input/output definitions */
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include <hamlib/rig.h>
 
@@ -48,7 +46,7 @@
 
 static int rig_has_ext_token(RIG *rig, token_t token)
 {
-    int *ext_tokens = rig->caps->ext_tokens;
+    const int *ext_tokens = rig->caps->ext_tokens;
     int i;
 
     if (ext_tokens == NULL)

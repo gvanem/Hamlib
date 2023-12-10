@@ -19,14 +19,13 @@
  *
  */
 
-#include <hamlib/config.h>
-
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include <hamlib/rig.h>
 #include <serial.h>
+#include "tones.h"
 #include <misc.h>
 #include <iofunc.h>
 #include <num_stdio.h>
@@ -44,7 +43,7 @@
 
 #define DXSR8_PARM_ALL RIG_PARM_NONE
 
-#define DXSR8_VFO RIG_VFO_NONE
+#define DXSR8_VFO RIG_VFO_A
 
 /* Line Feed */
 #define EOM "\r\n"
@@ -76,7 +75,7 @@ int dxsr8_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt);
  *      https://yo5ptd.wordpress.com/2017/02/12/alinco-dx-sr8/
  * for a partially documented protocol
  */
-const struct rig_caps dxsr8_caps =
+struct rig_caps dxsr8_caps =
 {
     RIG_MODEL(RIG_MODEL_DXSR8),
     .model_name =       "DX-SR8",
@@ -345,7 +344,6 @@ int dxsr8_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
         return -RIG_EINVAL;
     }
 
-    // cppcheck-suppress *
     SNPRINTF(cmd, sizeof(cmd), AL "~RW_RXF%08"PRIll EOM, (int64_t)freq);
     return dxsr8_transaction(rig, cmd, strlen(cmd), NULL, NULL);
 }
@@ -358,7 +356,7 @@ int dxsr8_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
     int retval, data_len;
 
-    char cmd[] = AL "~RR_RXF" EOM;
+    const char cmd[] = AL "~RR_RXF" EOM;
     char freqbuf[BUFSZ];
 
     retval = dxsr8_transaction(rig, cmd, strlen(cmd), freqbuf, &data_len);
@@ -369,7 +367,7 @@ int dxsr8_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
     }
 
     /* extract RX freq */
-    retval = num_sscanf(freqbuf, "%"SCNfreq, freq);
+    num_sscanf(freqbuf, "%"SCNfreq, freq);
 
     return RIG_OK;
 }
@@ -470,8 +468,14 @@ int dxsr8_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
         return -RIG_EINVAL;
     }
 
-    filter = 0; // avoid compiler warings of being possibly uninitialized
+    filter = 0; // avoid compiler warnings of being possibly uninitialized
     retval = dxsr8_read_num(rig, AL "~RR_NAR" EOM, &filter);
+
+    if (retval != RIG_OK)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: dxsr8_read_num:%s\n", __func__, rigerror(retval));
+        return retval;
+    }
 
     if (filter == 0)
     {

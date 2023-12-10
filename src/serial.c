@@ -40,9 +40,7 @@
 #include <unistd.h>  /* UNIX standard function definitions */
 #include <fcntl.h>   /* File control definitions */
 #include <errno.h>   /* Error number definitions */
-#include <sys/time.h>
 #include <sys/types.h>
-#include <unistd.h>
 #include <ctype.h>
 
 #ifdef HAVE_SYS_IOCTL_H
@@ -65,6 +63,8 @@
 #  endif
 #endif
 
+#include <hamlib/rig.h>
+
 //! @cond Doxygen_Suppress
 #if defined(WIN32) && !defined(HAVE_TERMIOS_H)
 #  include "win32termios.h"
@@ -76,7 +76,6 @@
 #endif
 //! @endcond
 
-#include <hamlib/rig.h>
 #include "serial.h"
 #include "misc.h"
 
@@ -228,12 +227,12 @@ int HAMLIB_API serial_open(hamlib_port_t *rp)
 
         if (fd == -1) // some serial ports fail to open 1st time for some unknown reason
         {
-            rig_debug(RIG_DEBUG_WARN, "%s(%d): open failed#%d\n", __func__, __LINE__, i);
+            rig_debug(RIG_DEBUG_WARN, "%s(%d): open failed#%d %s\n", __func__, __LINE__, i, strerror(errno));
             hl_usleep(500 * 1000);
             fd = OPEN(rp->pathname, O_RDWR | O_NOCTTY | O_NDELAY);
         }
     }
-    while (++i <= 4 && fd == -1);
+    while (++i <= 4 && fd == -1 && errno != ENOENT && errno != EPERM);
 
     if (fd == -1)
     {
@@ -256,8 +255,8 @@ int HAMLIB_API serial_open(hamlib_port_t *rp)
         return (err);
     }
 
-    serial_flush(rp); // ensure nothing is there when we open
     hl_usleep(50 * 1000); // give a little time for MicroKeyer to finish
+    serial_flush(rp); // ensure nothing is there when we open
 
     return (RIG_OK);
 }
@@ -290,6 +289,12 @@ int HAMLIB_API serial_setup(hamlib_port_t *rp)
     }
 
     fd = rp->fd;
+
+    // Linux sets pins high so we force them low once
+    // This fails on Linux and MacOS with hardware flow control
+    // Seems setting low disables hardware flow setting later
+//    ser_set_rts(rp, 0);
+//    ser_set_dtr(rp, 0);
 
     /*
      * Get the current options for the port...
@@ -370,10 +375,87 @@ int HAMLIB_API serial_setup(hamlib_port_t *rp)
         break;
 #endif
 
+#ifdef B460800
+
+    case 460800:
+        speed = B460800;    /* extra super awesome! */
+        break;
+#endif
+
 #ifdef B500000
 
     case 500000:
         speed = B500000;    /* extra super awesome! */
+        break;
+#endif
+
+#ifdef B576000
+
+    case 576000:
+        speed = B576000;    /* out of adverbs */
+        break;
+#endif
+
+#ifdef B921600
+
+    case 921600:
+        speed = B921600;
+        break;
+#endif
+
+#ifdef B1000000
+
+    case 1000000:
+        speed = B1000000;
+        break;
+#endif
+
+#ifdef B1152000
+
+    case 1152000:
+        speed = B1152000;
+        break;
+#endif
+
+#ifdef B1500000
+
+    case 1500000:
+        speed = B1500000;
+        break;
+#endif
+
+#ifdef B2000000
+
+    case 2000000:
+        speed = B2000000;
+        break;
+#endif
+
+#ifdef B2500000
+
+    case 2500000:
+        speed = B2500000;
+        break;
+#endif
+
+#ifdef B3000000
+
+    case 3000000:
+        speed = B3000000;
+        break;
+#endif
+
+#ifdef B3500000
+
+    case 3500000:
+        speed = B3500000;
+        break;
+#endif
+
+#ifdef B4000000
+
+    case 4000000:
+        speed = B4000000;
         break;
 #endif
 
@@ -620,7 +702,7 @@ int HAMLIB_API serial_setup(hamlib_port_t *rp)
 #endif
 
     // Store a copy of the original options for this FD, to be restored on close.
-    term_backup = malloc(sizeof(term_options_backup_t));
+    term_backup = calloc(1, sizeof(term_options_backup_t));
     term_backup-> fd = fd;
 #if defined(HAVE_TERMIOS_H) || defined(HAVE_TERMIO_H)
     memcpy(&term_backup->options, &orig_options, sizeof(orig_options));
@@ -645,7 +727,22 @@ int HAMLIB_API serial_flush(hamlib_port_t *p)
 {
     int len;
     int timeout_save;
+    short timeout_retry_save;
     unsigned char buf[4096];
+
+#ifdef __WIN32__
+    struct termios_list *index;
+    index = win32_serial_find_port(p->fd);
+
+    if (!index)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: No WIN32 index for port???\n", __func__);
+        return -1;
+    }
+    PurgeComm(index->hComm, PURGE_RXCLEAR);
+    return RIG_OK;
+
+#endif
 
     if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd || p->flushx)
     {
@@ -675,13 +772,17 @@ int HAMLIB_API serial_flush(hamlib_port_t *p)
     }
 
     timeout_save = p->timeout;
-    p->timeout = 1;
+    //rig_debug(RIG_DEBUG_ERR, "%s: p->timeout=%d\n", __func__,  p->timeout);
+    timeout_retry_save = p->timeout_retry;
+    p->timeout = 0;
+    p->timeout_retry = 0;
+
 
     do
     {
         // we pass an empty stopset so read_string can determine
         // the appropriate stopset for async data
-        char stopset[1];
+        const char stopset[1];
         len = read_string(p, buf, sizeof(buf) - 1, stopset, 0, 1, 1);
 
         if (len > 0)
@@ -712,9 +813,13 @@ int HAMLIB_API serial_flush(hamlib_port_t *p)
     while (len > 0);
 
     p->timeout = timeout_save;
-    //rig_debug(RIG_DEBUG_VERBOSE, "tcflush%s\n", "");
-    //tcflush(p->fd, TCIFLUSH);
-    return (RIG_OK);
+    p->timeout_retry = timeout_retry_save;
+
+//    rig_debug(RIG_DEBUG_VERBOSE, "tcflush%s\n", "");
+    // we also do this flush https://github.com/Hamlib/Hamlib/issues/1241
+    tcflush(p->fd,TCIFLUSH);
+
+    return RIG_OK;
 }
 
 
@@ -1059,7 +1164,7 @@ int HAMLIB_API ser_get_dtr(hamlib_port_t *p, int *state)
  * \param state (ignored?)
  * \return RIG_OK or < 0
  */
-int HAMLIB_API ser_set_brk(hamlib_port_t *p, int state)
+int HAMLIB_API ser_set_brk(const hamlib_port_t *p, int state)
 {
     // ignore this for microHam ports
     if (p->fd == uh_ptt_fd || p->fd == uh_radio_fd)

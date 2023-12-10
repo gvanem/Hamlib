@@ -19,8 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -95,7 +93,7 @@ ts711_set_vfo(RIG *rig, vfo_t vfo)
 /*
  * ts711 rig capabilities.
  */
-const struct rig_caps ts711_caps =
+struct rig_caps ts711_caps =
 {
     RIG_MODEL(RIG_MODEL_TS711),
     .model_name = "TS-711",
@@ -124,7 +122,10 @@ const struct rig_caps ts711_caps =
     .has_set_level =  RIG_LEVEL_SET(TS711_LEVEL_ALL),
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
-    .level_gran =  { 0 },                 /* FIXME: granularity */
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+    },
     .parm_gran =  { 0 },
     .vfo_ops =  TS711_VFO_OP,
     .scan_ops =  TS711_SCAN_OP,

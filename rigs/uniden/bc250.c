@@ -19,7 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
 
 #include <stdlib.h>
 
@@ -51,7 +50,7 @@
  *
  * TODO: check this with manual or web site.
  */
-const struct rig_caps bc250_caps =
+struct rig_caps bc250_caps =
 {
     RIG_MODEL(RIG_MODEL_BC250),
     .model_name = "BC250D",

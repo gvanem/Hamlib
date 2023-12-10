@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <hamlib/rig.h>
 #ifdef _WIN32
 #include <windows.h>
 //#include <Wincrypt.h>
@@ -27,6 +28,7 @@
 #include "AESStringCrypt.h"
 #include "password.h"
 #include "../src/misc.h"
+#include "hamlib/config.h"
 
 #if defined(_WIN32)
 // gmtime_r can be defined by mingw
@@ -34,7 +36,7 @@
 static struct tm *gmtime_r(const time_t *t, struct tm *r)
 {
     // gmtime is threadsafe in windows because it uses TLS
-    struct tm *theTm = gmtime(t);
+    const struct tm *theTm = gmtime(t);
 
     if (theTm)
     {
@@ -68,7 +70,7 @@ static int my_rand(int max)
 
 void rig_make_key(char key[33])
 {
-    char *all =
+    const char *all =
         "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123467890!@#$%^&*()_=~<>/?";
     int max = strlen(all);
     int i;

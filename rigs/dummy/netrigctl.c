@@ -19,18 +19,12 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
 #include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
-#include <time.h>
-#include <errno.h>
 
 #include "hamlib/rig.h"
-#include "network.h"
 #include "serial.h"
 #include "iofunc.h"
 #include "misc.h"
@@ -41,10 +35,7 @@
 #define CMD_MAX 64
 #define BUF_MAX 1024
 
-#define CHKSCN1ARG(num)  do {                     \
-                           if (num != 1)          \
-                              return -RIG_EPROTO; \
-                         } while(0)
+#define CHKSCN1ARG(a) if ((a) != 1) return -RIG_EPROTO; else do {} while(0)
 
 struct netrigctl_priv_data
 {
@@ -173,7 +164,7 @@ static int netrigctl_init(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    rig->state.priv = (struct netrigctl_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct netrigctl_priv_data *)calloc(1, sizeof(
                           struct netrigctl_priv_data));
 
     if (!rig->state.priv)
@@ -272,9 +263,9 @@ static int netrigctl_open(RIG *rig)
     SNPRINTF(cmd, sizeof(cmd), "\\chk_vfo\n");
     ret = netrigctl_transaction(rig, cmd, strlen(cmd), buf);
 
-    if (sscanf(buf, "CHKVFO %d", &priv->rigctld_vfo_mode) == 1)
+    if (sscanf(buf, "%d", &priv->rigctld_vfo_mode) == 1)
     {
-        rig->state.vfo_opt = 1;
+        rig->state.vfo_opt = priv->rigctld_vfo_mode;
         rig_debug(RIG_DEBUG_TRACE, "%s: chkvfo=%d\n", __func__, priv->rigctld_vfo_mode);
     }
     else if (ret == 2)
@@ -301,7 +292,7 @@ static int netrigctl_open(RIG *rig)
 
     if (ret <= 0)
     {
-        RETURNFUNC( (ret < 0) ? ret : -RIG_EPROTO);
+        RETURNFUNC((ret < 0) ? ret : -RIG_EPROTO);
     }
 
     prot_ver = atoi(buf);
@@ -309,7 +300,7 @@ static int netrigctl_open(RIG *rig)
 
     if (prot_ver < RIGCTLD_PROT_VER)
     {
-        RETURNFUNC( -RIG_EPROTO);
+        RETURNFUNC(-RIG_EPROTO);
     }
 
     ret = read_string(&rig->state.rigport, (unsigned char *) buf, BUF_MAX, "\n", 1,
@@ -628,11 +619,6 @@ static int netrigctl_open(RIG *rig)
 
     rig->caps->has_set_parm = rs->has_set_parm = strtoll(buf, NULL, 0);
 
-#if 0
-    gran_t level_gran[RIG_SETTING_MAX];   /*!< level granularity */
-    gran_t parm_gran[RIG_SETTING_MAX];    /*!< parm granularity */
-#endif
-
     for (i = 0; i < HAMLIB_FRQRANGESIZ
             && !RIG_IS_FRNG_END(rs->rx_range_list[i]); i++)
     {
@@ -684,7 +670,7 @@ static int netrigctl_open(RIG *rig)
             else if (strcmp(setting, "ptt_type") == 0)
             {
                 ptt_type_t temp = (ptt_type_t)strtol(value, NULL, 0);
-                rig_debug(RIG_DEBUG_ERR, "%s: ptt_type='%s'(%d)\n", __func__, value, temp);
+                rig_debug(RIG_DEBUG_VERBOSE, "%s: ptt_type='%s'(%d)\n", __func__, value, temp);
 
                 if (RIG_PTT_RIG_MICDATA == rig->state.pttport.type.ptt
                         || temp == RIG_PTT_RIG_MICDATA)
@@ -707,18 +693,13 @@ static int netrigctl_open(RIG *rig)
                 }
             }
 
-            // setting targetable_vfo this way breaks WSJTX in rig split with rigctld
-            // Ends up putting VFOB freq on VFOA
-            // Have to figure out why but disabling this fixes it for now
-#if 0
             else if (strcmp(setting, "targetable_vfo") == 0)
             {
                 rig->caps->targetable_vfo = strtol(value, NULL, 0);
-                rig_debug(RIG_DEBUG_ERR, "%s: targetable_vfo=0x%2x\n", __func__,
+                rig_debug(RIG_DEBUG_VERBOSE, "%s: targetable_vfo=0x%2x\n", __func__,
                           rig->caps->targetable_vfo);
             }
 
-#endif
             else if (strcmp(setting, "has_set_vfo") == 0)
             {
                 int has = strtol(value, NULL, 0);
@@ -785,7 +766,7 @@ static int netrigctl_open(RIG *rig)
             }
             else if (strcmp(setting, "timeout") == 0)
             {
-                // use the rig's timeout value pluse 500ms for potential network delays
+                // use the rig's timeout value plus 500ms for potential network delays
                 rig->caps->timeout = strtol(value, NULL, 0) + 500;
                 rig_debug(RIG_DEBUG_TRACE, "%s: timeout value = '%s', final timeout=%d\n",
                           __func__, value, rig->caps->timeout);
@@ -820,6 +801,91 @@ static int netrigctl_open(RIG *rig)
 
                 if (n < DCS_LIST_SIZE) { rig->caps->dcs_list[n] = 0; }
             }
+            else if (strcmp(setting, "agc_levels") == 0)
+            {
+                char *p = strtok(value, " ");
+                rig->caps->agc_levels[0] = RIG_AGC_NONE; // default value gets overwritten
+                rig->caps->agc_level_count = 0;
+
+                while (p)
+                {
+                    int agc_code;
+                    char agc_string[32];
+                    int n = sscanf(p, "%d=%31s\n", &agc_code, agc_string);
+
+                    if (n == 2)
+                    {
+                        rig->caps->agc_levels[i++] = agc_code;
+                        rig->caps->agc_level_count++;
+                        rig_debug(RIG_DEBUG_VERBOSE, "%s: rig has agc code=%d, level=%s\n", __func__,
+                                  agc_code, agc_string);
+                    }
+                    else
+                    {
+                        rig_debug(RIG_DEBUG_ERR, "%s did not parse code=agc from '%s'\n", __func__, p);
+                    }
+
+                    rig_debug(RIG_DEBUG_VERBOSE, "%d=%s\n", agc_code, agc_string);
+                    p = strtok(NULL, " ");
+                }
+            }
+            else if (strcmp(setting, "level_gran") == 0)
+            {
+                char *p = strtok(value, ";");
+
+                for (i = 0; p != NULL && i < RIG_SETTING_MAX; ++i)
+                {
+                    int level;
+                    sscanf(p, "%d", &level);
+
+                    if (RIG_LEVEL_IS_FLOAT(level))
+                    {
+                        double min, max, step;
+                        sscanf(p, "%*d=%lf,%lf,%lf", &min, &max, &step);
+                        rig->caps->level_gran[i].min.f = rs->level_gran[i].min.f = min;
+                        rig->caps->level_gran[i].max.f = rs->level_gran[i].max.f = max;
+                        rig->caps->level_gran[i].step.f = rs->level_gran[i].step.f = step;
+                    }
+                    else
+                    {
+                        int min, max, step;
+                        sscanf(p, "%*d=%d,%d,%d", &min, &max, &step);
+                        rig->caps->level_gran[i].min.i = rs->level_gran[i].min.i = min;
+                        rig->caps->level_gran[i].max.i = rs->level_gran[i].max.i = max;
+                        rig->caps->level_gran[i].step.i = rs->level_gran[i].step.i = step;
+                    }
+
+                    p = strtok(NULL, ";");
+                }
+            }
+            else if (strcmp(setting, "parm_gran") == 0)
+            {
+                char *p = strtok(value, ";");
+                for (i = 0; p != NULL && i < RIG_SETTING_MAX; ++i)
+                {
+                    int level;
+                    sscanf(p, "%d", &level);
+
+                    if (RIG_LEVEL_IS_FLOAT(level))
+                    {
+                        double min, max, step;
+                        sscanf(p, "%*d=%lf,%lf,%lf", &min, &max, &step);
+                        rig->caps->parm_gran[i].min.f = rs->parm_gran[i].min.f = min;
+                        rig->caps->parm_gran[i].max.f = rs->parm_gran[i].max.f = max;
+                        rig->caps->parm_gran[i].step.f = rs->parm_gran[i].step.f = step;
+                    }
+                    else
+                    {
+                        int min, max, step;
+                        sscanf(p, "%*d=%d,%d,%d", &min, &max, &step);
+                        rig->caps->parm_gran[i].min.i = rs->parm_gran[i].min.i = min;
+                        rig->caps->parm_gran[i].max.i = rs->parm_gran[i].max.i = max;
+                        rig->caps->parm_gran[i].step.i = rs->parm_gran[i].step.i = step;
+                    }
+                    p = strtok(NULL, ";");
+                }
+            }
+
             else
             {
                 // not an error -- just a warning for backward compatibility
@@ -837,15 +903,26 @@ static int netrigctl_open(RIG *rig)
     }
     while (1);
 
+    if (rs->auto_power_on)
+    {
+        rig_set_powerstat(rig, 1);
+    }
+
     RETURNFUNC(RIG_OK);
 }
 
 static int netrigctl_close(RIG *rig)
 {
+    const struct rig_state *rs = &rig->state;
     int ret;
     char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    if (rs->auto_power_off && rs->comm_state)
+    {
+        rig_set_powerstat(rig, 0);
+    }
 
     ret = netrigctl_transaction(rig, "q\n", 2, buf);
 
@@ -1015,14 +1092,13 @@ static int netrigctl_set_vfo(RIG *rig, vfo_t vfo)
     int ret;
     char cmd[CMD_MAX];
     char buf[BUF_MAX];
-    char vfostr[16] = "";
     struct netrigctl_priv_data *priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     priv = (struct netrigctl_priv_data *)rig->state.priv;
 
-    SNPRINTF(cmd, sizeof(cmd), "V%s %s\n", vfostr, rig_strvfo(vfo));
+    SNPRINTF(cmd, sizeof(cmd), "V %s\n", rig_strvfo(vfo));
     rig_debug(RIG_DEBUG_VERBOSE, "%s: cmd='%s'\n", __func__, cmd);
     ret = netrigctl_transaction(rig, cmd, strlen(cmd), buf);
 
@@ -1081,8 +1157,11 @@ static int netrigctl_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
     char buf[BUF_MAX];
     char vfostr[16] = "";
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called vfo=%s, ptt=%d\n", __func__,
-              rig_strvfo(vfo), ptt);
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called vfo=%s, ptt=%d, ptt_type=%d\n",
+              __func__,
+              rig_strvfo(vfo), ptt, rig->state.pttport.type.ptt);
+
+    if (rig->state.pttport.type.ptt == RIG_PTT_NONE) { return RIG_OK; }
 
     ret = netrigctl_vfostr(rig, vfostr, sizeof(vfostr), RIG_VFO_A);
 
@@ -1903,6 +1982,8 @@ static int netrigctl_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
 
     if (ret != RIG_OK) { return ret; }
 
+    if (strlen(rig_strfunc(func)) == 0) { return -RIG_ENAVAIL; }
+
     SNPRINTF(cmd, sizeof(cmd), "u%s %s\n", vfostr, rig_strfunc(func));
 
     ret = netrigctl_transaction(rig, cmd, strlen(cmd), buf);
@@ -2030,14 +2111,36 @@ static int netrigctl_get_powerstat(RIG *rig, powerstat_t *status)
 
     ret = netrigctl_transaction(rig, cmd, strlen(cmd), buf);
 
-    if (ret <= 0)
+    if (ret > 0)
     {
-        return (ret < 0) ? ret : -RIG_EPROTO;
+        int offset = 0;
+
+        // see if there is a RPRT answer to make SDR++ happy
+        if (strstr(buf, "RPRT")) { offset = 4; }
+
+        *status = atoi(&buf[offset]);
+    }
+    else
+    {
+        // was causing problems with sdr++ since it does not have PS command
+        // a return of 1 should indicate there is no powerstat command available
+        // so we fake the ON status
+        // also a problem with Flex 6xxx and Log4OM not working due to lack of PS command
+        if (ret != -RIG_ETIMEOUT)
+        {
+            rig_debug(RIG_DEBUG_VERBOSE,
+                      "%s: PS command failed (ret=%d) so returning RIG_POWER_ON\n", __func__, ret);
+            *status = RIG_POWER_ON;
+        }
+        else
+        {
+            rig_debug(RIG_DEBUG_VERBOSE,
+                      "%s: PS command failed (ret=%d) so returning RIG_POWER_OFF\n", __func__, ret);
+            *status = RIG_POWER_OFF;
+        }
     }
 
-    *status = atoi(buf);
-
-    return RIG_OK;
+    return RIG_OK; // always return RIG_OK
 }
 
 
@@ -2390,14 +2493,15 @@ static const char *netrigctl_get_info(RIG *rig)
 static int netrigctl_send_dtmf(RIG *rig, vfo_t vfo, const char *digits)
 {
     int ret, len;
-    char *cmdp, cmd[] = "\\send_dtmf ";
+    char *cmdp;
+    const char cmd[] = "\\send_dtmf ";
     char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     // allocate memory for size of (cmd + digits + \n + \0)
     len = strlen(cmd) + strlen(digits) + 2;
-    cmdp = malloc(len);
+    cmdp = calloc(1, len);
 
     if (cmdp == NULL)
     {
@@ -2473,14 +2577,15 @@ static int netrigctl_send_voice_mem(RIG *rig, vfo_t vfo, int ch)
 static int netrigctl_send_morse(RIG *rig, vfo_t vfo, const char *msg)
 {
     int ret, len;
-    char *cmdp, cmd[] = "\\send_morse ";
+    char *cmdp; 
+    const char cmd[] = "\\send_morse ";
     char buf[BUF_MAX];
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     // allocate memory for size of (cmd + msg + \n + \0)
     len = strlen(cmd) + strlen(msg) + 2;
-    cmdp = malloc(len);
+    cmdp = calloc(1, len);
 
     if (cmdp == NULL)
     {
@@ -2666,6 +2771,7 @@ int netrigctl_set_lock_mode(RIG *rig, int lock)
     {
         return -RIG_EPROTO;
     }
+
     return (RIG_OK);
 }
 
@@ -2676,12 +2782,22 @@ int netrigctl_get_lock_mode(RIG *rig, int *lock)
     int ret;
     SNPRINTF(cmdbuf, sizeof(cmdbuf), "\\get_lock_mode\n");
     ret = netrigctl_transaction(rig, cmdbuf, strlen(cmdbuf), buf);
+
     if (ret == 0)
     {
         return -RIG_EPROTO;
     }
-    sscanf(buf,"%d", lock);
+
+    sscanf(buf, "%d", lock);
     return (RIG_OK);
+}
+
+int netrigctl_send_raw(RIG *rig, char *s)
+{
+    int ret;
+    char buf[BUF_MAX];
+    ret = netrigctl_transaction(rig, s, strlen(s), buf);
+    return ret;
 }
 
 /*
@@ -2693,7 +2809,7 @@ struct rig_caps netrigctl_caps =
     RIG_MODEL(RIG_MODEL_NETRIGCTL),
     .model_name =     "NET rigctl",
     .mfg_name =       "Hamlib",
-    .version =        "20220612.0",
+    .version =        "20231004.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_OTHER,

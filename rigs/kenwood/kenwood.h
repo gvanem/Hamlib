@@ -26,9 +26,9 @@
 
 #include <string.h>
 #include "token.h"
-#include "misc.h"
+#include "idx_builtin.h"
 
-#define BACKEND_VER "20220602"
+#define BACKEND_VER "20231112"
 
 #define EOM_KEN ';'
 #define EOM_TH '\r'
@@ -91,6 +91,7 @@ extern struct confparams kenwood_cfg_params[];
 #define RIG_IS_KX3       (rig->caps->rig_model == RIG_MODEL_KX3)
 #define RIG_IS_THD7A     (rig->caps->rig_model == RIG_MODEL_THD7A)
 #define RIG_IS_THD74     (rig->caps->rig_model == RIG_MODEL_THD74)
+#define RIG_IS_TMD700    (rig->caps->rig_model == RIG_MODEL_TMD700)
 #define RIG_IS_TS2000    (rig->caps->rig_model == RIG_MODEL_TS2000)
 #define RIG_IS_TS50      (rig->caps->rig_model == RIG_MODEL_TS50)
 #define RIG_IS_TS450S    (rig->caps->rig_model == RIG_MODEL_TS450S)
@@ -109,6 +110,7 @@ extern struct confparams kenwood_cfg_params[];
 #define RIG_IS_PT8000A   (rig->caps->rig_model == RIG_MODEL_PT8000A)
 #define RIG_IS_POWERSDR  (rig->caps->rig_model == RIG_MODEL_POWERSDR)
 #define RIG_IS_MALACHITE (rig->caps->rig_model == RIG_MODEL_MALACHITE)
+#define RIG_IS_QRPLABS (rig->caps->rig_model == RIG_MODEL_QRPLABS)
 
 struct kenwood_filter_width
 {
@@ -133,6 +135,7 @@ struct kenwood_priv_caps
     struct kenwood_filter_width *filter_width; /* Last entry should have value == -1 and width_hz == -1 */
     struct kenwood_slope_filter *slope_filter_high; /* Last entry should have value == -1 and frequency_hz == -1 */
     struct kenwood_slope_filter *slope_filter_low; /* Last entry should have value == -1 and frequency_hz == -1 */
+    double swr;
 };
 
 struct kenwood_priv_data
@@ -155,6 +158,7 @@ struct kenwood_priv_data
     struct timespec cache_start;
     char last_if_response[KENWOOD_MAX_BUF_LEN];
     int poweron;   /* to avoid powering on more than once */
+    int has_ps;    /* rig has PS cmd */
     int ag_format; /* which AG command is being used...see LEVEL_AF in kenwood.c*/
     int has_rit2; /* rig has set 2 rit command -- can set rit 0-99999 directly */
     int micgain_min, micgain_max; /* varies by rig so we figure it out automagically */
@@ -172,6 +176,10 @@ struct kenwood_priv_data
     rmode_t modeB;
     int datamodeA; // datamode status from get_mode or set_mode
     int datamodeB; // datamode status from get_mode or set_mode
+    int question_mark_response_means_rejected; /* the question mark response has multiple meanings */
+    int save_k2_ext_lvl; // so we can restore to original
+    int save_k3_ext_lvl; // so we can restore to original -- for future use if needed
+    int voice_bank; /* last voice bank send for use by stop_voice_mem */
 };
 
 
@@ -229,6 +237,7 @@ int kenwood_set_powerstat(RIG *rig, powerstat_t status);
 int kenwood_get_powerstat(RIG *rig, powerstat_t *status);
 int kenwood_reset(RIG *rig, reset_t reset);
 int kenwood_send_morse(RIG *rig, vfo_t vfo, const char *msg);
+int kenwood_stop_morse(RIG *rig, vfo_t vfo);
 int kenwood_set_ant(RIG *rig, vfo_t vfo, ant_t ant, value_t option);
 int kenwood_set_ant_no_ack(RIG *rig, vfo_t vfo, ant_t ant, value_t option);
 int kenwood_get_ant(RIG *rig, vfo_t vfo, ant_t dummy, value_t *option, ant_t *ant_curr, ant_t *ant_tx, ant_t *ant_rx);
@@ -246,6 +255,8 @@ int kenwood_scan(RIG *rig, vfo_t vfo, scan_t scan, int ch);
 const char *kenwood_get_info(RIG *rig);
 int kenwood_get_id(RIG *rig, char *buf);
 int kenwood_get_if(RIG *rig);
+int kenwood_send_voice_mem(RIG *rig, vfo_t vfo, int bank);
+int kenwood_stop_voice_mem(RIG *rig, vfo_t vfo);
 
 int kenwood_set_trn(RIG *rig, int trn);
 int kenwood_get_trn(RIG *rig, int *trn);
@@ -253,62 +264,65 @@ int kenwood_get_trn(RIG *rig, int *trn);
 /* only use if returned string has length 6, e.g. 'SQ011;' */
 int get_kenwood_level(RIG *rig, const char *cmd, float *fval, int *ival);
 int get_kenwood_func(RIG *rig, const char *cmd, int *status);
+int get_kenwood_meter_reading(RIG *rig, char meter, int *pips);
 
-extern const struct rig_caps ts950s_caps;
-extern const struct rig_caps ts950sdx_caps;
-extern const struct rig_caps ts50s_caps;
-extern const struct rig_caps ts140_caps;
-extern const struct rig_caps ts450s_caps;
-extern const struct rig_caps ts570d_caps;
-extern const struct rig_caps ts570s_caps;
-extern const struct rig_caps ts680s_caps;
-extern const struct rig_caps ts690s_caps;
-extern const struct rig_caps ts790_caps;
-extern const struct rig_caps ts850_caps;
-extern const struct rig_caps ts870s_caps;
-extern const struct rig_caps ts930_caps;
-extern const struct rig_caps ts2000_caps;
-extern const struct rig_caps k2_caps;
-extern const struct rig_caps k3_caps;
-extern const struct rig_caps k3s_caps;
-extern const struct rig_caps kx2_caps;
-extern const struct rig_caps kx3_caps;
-extern const struct rig_caps k4_caps;
-extern const struct rig_caps xg3_caps;
-extern const struct rig_caps trc80_caps;
+extern struct rig_caps ts950s_caps;
+extern struct rig_caps ts950sdx_caps;
+extern struct rig_caps ts50s_caps;
+extern struct rig_caps ts140_caps;
+extern struct rig_caps ts450s_caps;
+extern struct rig_caps ts570d_caps;
+extern struct rig_caps ts570s_caps;
+extern struct rig_caps ts680s_caps;
+extern struct rig_caps ts690s_caps;
+extern struct rig_caps ts790_caps;
+extern struct rig_caps ts850_caps;
+extern struct rig_caps ts870s_caps;
+extern struct rig_caps ts930_caps;
+extern struct rig_caps ts2000_caps;
+extern struct rig_caps k2_caps;
+extern struct rig_caps k3_caps;
+extern struct rig_caps k3s_caps;
+extern struct rig_caps kx2_caps;
+extern struct rig_caps kx3_caps;
+extern struct rig_caps k4_caps;
+extern struct rig_caps xg3_caps;
+extern struct rig_caps trc80_caps;
 
-extern const struct rig_caps thd7a_caps;
-extern const struct rig_caps thd72a_caps;
-extern const struct rig_caps thd74_caps;
-extern const struct rig_caps tmd700_caps;
-extern const struct rig_caps thf7a_caps;
-extern const struct rig_caps thf7e_caps;
-extern const struct rig_caps thg71_caps;
-extern const struct rig_caps tmv7_caps;
-extern const struct rig_caps tmv71_caps;
-extern const struct rig_caps tmd710_caps;
+extern struct rig_caps thd7a_caps;
+extern struct rig_caps thd72a_caps;
+extern struct rig_caps thd74_caps;
+extern struct rig_caps tmd700_caps;
+extern struct rig_caps thf7a_caps;
+extern struct rig_caps thf7e_caps;
+extern struct rig_caps thg71_caps;
+extern struct rig_caps tmv7_caps;
+extern struct rig_caps tmv71_caps;
+extern struct rig_caps tmd710_caps;
 
-extern const struct rig_caps ts440_caps;
-extern const struct rig_caps ts940_caps;
-extern const struct rig_caps ts711_caps;
-extern const struct rig_caps ts811_caps;
-extern const struct rig_caps r5000_caps;
+extern struct rig_caps ts440_caps;
+extern struct rig_caps ts940_caps;
+extern struct rig_caps ts711_caps;
+extern struct rig_caps ts811_caps;
+extern struct rig_caps r5000_caps;
 
-extern const struct rig_caps ts480_caps;
-extern const struct rig_caps ts590_caps;
-extern const struct rig_caps ts590sg_caps;
-extern const struct rig_caps thf6a_caps;
+extern struct rig_caps ts480_caps;
+extern struct rig_caps ts590_caps;
+extern struct rig_caps ts590sg_caps;
+extern struct rig_caps thf6a_caps;
 
-extern const struct rig_caps transfox_caps;
+extern struct rig_caps transfox_caps;
 
-extern const struct rig_caps f6k_caps;
-extern const struct rig_caps powersdr_caps;
-extern const struct rig_caps pihpsdr_caps;
-extern const struct rig_caps ts890s_caps;
-extern const struct rig_caps pt8000a_caps;
-extern const struct rig_caps malachite_caps;
-extern const struct rig_caps tx500_caps;
-extern const struct rig_caps sdruno_caps;
+extern struct rig_caps f6k_caps;
+extern struct rig_caps powersdr_caps;
+extern struct rig_caps pihpsdr_caps;
+extern struct rig_caps ts890s_caps;
+extern struct rig_caps pt8000a_caps;
+extern struct rig_caps malachite_caps;
+extern struct rig_caps tx500_caps;
+extern struct rig_caps sdruno_caps;
+extern struct rig_caps qrplabs_caps;
+extern struct rig_caps fx4_caps;
 
 /* use when not interested in the answer, but want to check its len */
 static int inline kenwood_simple_transaction(RIG *rig, const char *cmd,

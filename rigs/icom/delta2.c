@@ -31,15 +31,8 @@
  * To Do: get the datasheet, and testing on real hardware!!
  */
 
-#include <hamlib/config.h>
-
-#include <stdlib.h>
-
 #include <hamlib/rig.h>
 #include "icom.h"
-#include "icom_defs.h"
-#include "frame.h"
-#include "misc.h"
 
 #define DELTAII_VFO_ALL (RIG_VFO_A|RIG_VFO_B|RIG_VFO_MEM)
 
@@ -59,7 +52,7 @@ static const struct icom_priv_caps delta2_priv_caps =
     ic737_ts_sc_list  /* TODO: ts_sc_list */
 };
 
-const struct rig_caps delta2_caps =
+struct rig_caps delta2_caps =
 {
     RIG_MODEL(RIG_MODEL_DELTAII),
     .model_name = "Delta II",

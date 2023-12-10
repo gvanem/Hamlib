@@ -18,21 +18,15 @@
 *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 *
 */
-#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>             /* String function definitions */
-#include <unistd.h>             /* UNIX standard function definitions */
-#include <math.h>
 
 #include <hamlib/rig.h>
 #include <serial.h>
 #include <misc.h>
-#include <cal.h>
 #include <token.h>
-#include <register.h>
-#include <network.h>
 
 #include "dummy_common.h"
 
@@ -46,10 +40,11 @@
 
 #define DEFAULTPATH "127.0.0.1:50001"
 
-#ifndef FALSE  /* On Windows */
 #define FALSE 0
-#define TRUE (!FALSE)
+#ifdef TRUE
+#undef TRUE
 #endif
+#define TRUE (!FALSE)
 
 #define TCI_VFOS (RIG_VFO_A|RIG_VFO_B)
 
@@ -137,7 +132,7 @@ static const struct confparams tci1x_ext_parms[] =
     { RIG_CONF_END, NULL, }
 };
 
-const struct rig_caps tci1x_caps =
+struct rig_caps tci1x_caps =
 {
     RIG_MODEL(RIG_MODEL_TCI1X),
     .model_name = "TCI1.X",
@@ -162,6 +157,7 @@ const struct rig_caps tci1x_caps =
     .has_set_parm =    RIG_PARM_SET(TCI1X_PARM),
 
     .filters =  {
+        {RIG_MODE_ALL, RIG_FLT_ANY},
         RIG_FLT_END
     },
 
@@ -317,7 +313,7 @@ static int read_transaction(RIG *rig, unsigned char *buf, int buf_len)
 * write_transaction
 * Assumes rig!=NULL, xml!=NULL, xml_len=total size of xml for response
 */
-static int write_transaction(RIG *rig, unsigned char *buf, int buf_len)
+static int write_transaction(RIG *rig, const unsigned char *buf, int buf_len)
 {
 
     int try = rig->caps->retry;
@@ -428,7 +424,7 @@ static int tci1x_init(RIG *rig)
     ENTERFUNC;
     rig_debug(RIG_DEBUG_TRACE, "%s version %s\n", __func__, rig->caps->version);
 
-    rig->state.priv  = (struct tci1x_priv_data *)malloc(sizeof(
+    rig->state.priv  = (struct tci1x_priv_data *)calloc(1, sizeof(
                            struct tci1x_priv_data));
 
     if (!rig->state.priv)
@@ -600,6 +596,8 @@ static int tci1x_open(RIG *rig)
     char *p;
     char *pr;
     //struct tci1x_priv_data *priv = (struct tci1x_priv_data *) rig->state.priv;
+    arg[0] = '?';
+    arg[1] = 0;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: version %s\n", __func__, rig->caps->version);
     char *websocket =
@@ -624,7 +622,7 @@ static int tci1x_open(RIG *rig)
         // we fall through and assume old version
     }
 
-    sscanf(&value[2], "device:%s", value);
+    sscanf(&value[2], "device:%8191s", value);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: TCI Device is %s\n", __func__, arg);
 
@@ -637,8 +635,8 @@ static int tci1x_open(RIG *rig)
                   rigerror(retval));
     }
 
-    sscanf(&value[2], "receive_only:%s", value);
-    rig_debug(RIG_DEBUG_VERBOSE, "%s: readonly is %s\n", __func__, arg);
+    sscanf(&value[2], "receive_only:%8191s", value);
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: readonly is %8191s\n", __func__, arg);
 
     // TRX count
     retval = tci1x_transaction(rig, "trx_count;", NULL, value, sizeof(value));
@@ -672,7 +670,7 @@ static int tci1x_open(RIG *rig)
 
     if (retval != RIG_OK) { RETURNFUNC2(retval); }
 
-    sscanf(&value[2], "modulations_list:%s", arg);
+    sscanf(&value[2], "modulations_list:%8191s", arg);
     rig_debug(RIG_DEBUG_VERBOSE, "%s: modes=%s\n", __func__, arg);
     modes = 0;
     pr = value;
@@ -821,11 +819,6 @@ static int tci1x_cleanup(RIG *rig)
     struct tci1x_priv_data *priv;
 
     ENTERFUNC;
-
-    if (!rig)
-    {
-        RETURNFUNC(-RIG_EINVAL);
-    }
 
     priv = (struct tci1x_priv_data *)rig->state.priv;
 
@@ -1101,7 +1094,7 @@ static int tci1x_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     char cmd_arg[MAXCMDLEN];
     char *p;
     char *pttmode;
-    char *ttmode;
+    char *ttmode = NULL;
     struct tci1x_priv_data *priv = (struct tci1x_priv_data *) rig->state.priv;
 
     ENTERFUNC;
@@ -1463,7 +1456,7 @@ static int tci1x_set_vfo(RIG *rig, vfo_t vfo)
     int retval;
     char cmd_arg[MAXBUFLEN];
     struct rig_state *rs = &rig->state;
-    struct tci1x_priv_data *priv = (struct tci1x_priv_data *) rig->state.priv;
+    const struct tci1x_priv_data *priv = (struct tci1x_priv_data *) rig->state.priv;
 
     ENTERFUNC;
     rig_debug(RIG_DEBUG_TRACE, "%s: vfo=%s\n", __func__,
@@ -1719,7 +1712,7 @@ static int tci1x_set_split_freq_mode(RIG *rig, vfo_t vfo, freq_t freq,
 
     ENTERFUNC;
 
-    // we alway do split on VFOB
+    // we always do split on VFOB
     retval = tci1x_set_freq(rig, RIG_VFO_B, freq);
 
     if (retval != RIG_OK)
@@ -1838,7 +1831,7 @@ static int tci1x_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     char value[MAXARGLEN];
     char *cmd;
     int retval;
-    struct tci1x_priv_data *priv = (struct tci1x_priv_data *) rig->state.priv;
+    const struct tci1x_priv_data *priv = (struct tci1x_priv_data *) rig->state.priv;
 
     ENTERFUNC;
     rig_debug(RIG_DEBUG_TRACE, "%s: vfo=%s\n", __func__,
@@ -1914,7 +1907,7 @@ static int tci1x_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 */
 static const char *tci1x_get_info(RIG *rig)
 {
-    struct tci1x_priv_data *priv = (struct tci1x_priv_data *) rig->state.priv;
+    const struct tci1x_priv_data *priv = (struct tci1x_priv_data *) rig->state.priv;
 
     return (priv->info);
 }
@@ -1922,7 +1915,7 @@ static const char *tci1x_get_info(RIG *rig)
 static int tci1x_power2mW(RIG *rig, unsigned int *mwpower, float power,
                           freq_t freq, rmode_t mode)
 {
-    struct tci1x_priv_data *priv = (struct tci1x_priv_data *) rig->state.priv;
+    const struct tci1x_priv_data *priv = (struct tci1x_priv_data *) rig->state.priv;
     ENTERFUNC;
     rig_debug(RIG_DEBUG_TRACE, "%s: passed power = %f\n", __func__, power);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed freq = %"PRIfreq" Hz\n", __func__, freq);

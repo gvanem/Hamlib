@@ -29,17 +29,12 @@
 
 #include <hamlib/config.h>
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
 #include <time.h>
 #include <limits.h>
-
-#ifdef HAVE_ERRNO_H
-#  include <errno.h>
-#endif
 
 #ifdef HAVE_SYS_SELECT_H
 #  include <sys/select.h>

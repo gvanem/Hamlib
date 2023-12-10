@@ -19,8 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 
 #include <hamlib/rig.h>
@@ -119,7 +117,7 @@ int ts450_open(RIG *rig)
  * specs: http://www.qsl.net/sm7vhs/radio/kenwood/ts450/specs.htm
  * infos comes from http://www.cnham.com/ts450/ts_450_ex_control.pdf
  */
-const struct rig_caps ts450s_caps =
+struct rig_caps ts450s_caps =
 {
     RIG_MODEL(RIG_MODEL_TS450S),
     .model_name = "TS-450S",
@@ -149,7 +147,10 @@ const struct rig_caps ts450s_caps =
     .has_set_level      = RIG_LEVEL_SET(TS450S_LEVEL_ALL),
     .has_get_parm       = 0,
     .has_set_parm       = 0,
-    .level_gran     = { 0 },     /* FIXME: granularity */
+    .level_gran =
+    {
+#include "level_gran_kenwood.h"
+    },
     .parm_gran      = { 0 },
     .extparms       = ts450_ext_parms,
     .ctcss_list     = NULL, /* hw dip-switch */

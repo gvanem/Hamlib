@@ -19,12 +19,9 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#include <hamlib/config.h>
 
 // cppcheck-suppress *
 #include <stdlib.h>
-// cppcheck-suppress *
-#include <string.h>  /* String function definitions */
 
 #include "hamlib/rig.h"
 

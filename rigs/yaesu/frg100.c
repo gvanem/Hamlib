@@ -21,12 +21,8 @@
  *
  */
 
-
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -151,7 +147,7 @@ static int mode2rig(RIG *rig, rmode_t mode, pbwidth_t width);
  *  - Dim
  */
 
-const struct rig_caps frg100_caps =
+struct rig_caps frg100_caps =
 {
     RIG_MODEL(RIG_MODEL_FRG100),
     .model_name =         "FRG-100",
@@ -178,7 +174,11 @@ const struct rig_caps frg100_caps =
     .has_get_level =      RIG_LEVEL_RAWSTR,
     .has_set_level =      RIG_LEVEL_BAND_SELECT,
     .has_get_parm =       RIG_PARM_NONE,
-    .has_set_parm =       RIG_PARM_BACKLIGHT,
+    .has_set_parm =       RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .vfo_ops =        RIG_OP_FROM_VFO | RIG_OP_TO_VFO | RIG_OP_UP | RIG_OP_DOWN,
     .preamp =             { RIG_DBLST_END, },
     .attenuator =         { RIG_DBLST_END, },
@@ -194,22 +194,22 @@ const struct rig_caps frg100_caps =
         {   0x33,  0x34, RIG_MTYPE_EDGE },
     },
     .rx_range_list1 =     {
-        {kHz(50), MHz(30), FRG100_MODES, -1, -1, FRG100_VFOS, FRG100_ANTS },
+        {kHz(50), MHz(30), FRG100_MODES, 0, 0, FRG100_VFOS, FRG100_ANTS },
         RIG_FRNG_END,
     }, /* Region 1 rx ranges */
 
     .tx_range_list1 =     {
-        {kHz(50), MHz(30), FRG100_MODES, -1, -1, FRG100_VFOS, FRG100_ANTS },
+        {kHz(50), MHz(30), FRG100_MODES, 0, 0, FRG100_VFOS, FRG100_ANTS },
         RIG_FRNG_END,
     },    /* region 1 TX ranges */
 
     .rx_range_list2 =     {
-        {kHz(50), MHz(30), FRG100_MODES, -1, -1, FRG100_VFOS, FRG100_ANTS },
+        {kHz(50), MHz(30), FRG100_MODES, 0, 0, FRG100_VFOS, FRG100_ANTS },
         RIG_FRNG_END,
     }, /* Region 2 rx ranges */
 
     .tx_range_list2 =     {
-        {kHz(50), MHz(30), FRG100_MODES, -1, -1, FRG100_VFOS, FRG100_ANTS },
+        {kHz(50), MHz(30), FRG100_MODES, 0, 0, FRG100_VFOS, FRG100_ANTS },
         RIG_FRNG_END,
     },    /* region 2 TX ranges */
 
@@ -348,7 +348,7 @@ static int frg100_read_op_data(RIG *rig, unsigned char *hwmode,
  */
 int frg100_open(RIG *rig)
 {
-    unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x0e};
+    const  unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x0e};
 
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
 

@@ -19,9 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
-#include <stdlib.h>
 
 #include <hamlib/rig.h>
 #include "idx_builtin.h"
@@ -47,7 +44,7 @@
  *
  * TODO: TUNING, BFO, SENSITIVITY(RF gain?)
  */
-const struct rig_caps trp8000_caps =
+struct rig_caps trp8000_caps =
 {
     RIG_MODEL(RIG_MODEL_TRP8000),
     .model_name = "TRP8000",
@@ -101,8 +98,8 @@ const struct rig_caps trp8000_caps =
         RIG_FRNG_END,
     },
     .tuning_steps =  {
-        {TRP8000_ALL_MODES, 100},
         {TRP8000_ALL_MODES, 10},
+        {TRP8000_ALL_MODES, 100},
         {TRP8000_ALL_MODES, kHz(1)},
         RIG_TS_END,
     },

@@ -25,18 +25,15 @@
  * Looks like the GP2000 could be reused in other rigs so
  * we implement that and then the XK2100 uses this interface
  */
-#include <hamlib/config.h>
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>     /* String function definitions */
-#include <unistd.h>     /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
 #include "misc.h"
-#include "register.h"
 #include "num_stdio.h"
 
 #include "gp2000.h"

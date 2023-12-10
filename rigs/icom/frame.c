@@ -23,6 +23,10 @@
 
 #include <string.h>  /* String function definitions */
 
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+
 #include "hamlib/rig.h"
 #include "serial.h"
 #include "misc.h"
@@ -134,6 +138,7 @@ int icom_one_transaction(RIG *rig, unsigned char cmd, int subcmd,
     unsigned char sendbuf[MAXFRAMELEN];
     int frm_len, frm_data_len, retval;
     unsigned char ctrl_id;
+    int collision_retry = 0;
 
     ENTERFUNC;
     memset(buf, 0, 200);
@@ -152,6 +157,7 @@ int icom_one_transaction(RIG *rig, unsigned char cmd, int subcmd,
      */
     set_transaction_active(rig);
 
+collision_retry:
     rig_flush(&rs->rigport);
 
     if (data_len) { *data_len = 0; }
@@ -218,7 +224,18 @@ int icom_one_transaction(RIG *rig, unsigned char cmd, int subcmd,
         switch (buf[retval - 1])
         {
         case COL:
+
             /* Collision */
+            // IC746 for example responds 0xfc when tuning is active so we will retry
+            if (collision_retry++ < 20)
+            {
+                rig_debug(RIG_DEBUG_VERBOSE, "%s: collision retry#%d\n", __func__,
+                          collision_retry);
+                hl_usleep(500 *
+                          1000); // 500ms 20 times for ~15 second max before we back out for a retry if needed
+                goto collision_retry;
+            }
+
             set_transaction_inactive(rig);
             RETURNFUNC(-RIG_BUSBUSY);
 
@@ -242,7 +259,9 @@ int icom_one_transaction(RIG *rig, unsigned char cmd, int subcmd,
             RETURNFUNC(-RIG_EPROTO);
         }
 
-        if (memcmp(buf, sendbuf, frm_len) != 0)
+        // first 2 bytes of everyting are 0xfe so we won't test those
+        // this allows some corruptin of the 0xfe bytes which has been seen in the wild
+        if (memcmp(&buf[2], &sendbuf[2], frm_len-2) != 0)
         {
             /* Frames are different? */
             /* Problem on ci-v bus? */
@@ -271,6 +290,8 @@ read_another_frame:
      */
     buf[0] = 0;
     frm_len = read_icom_frame(&rs->rigport, buf, sizeof(buf));
+    if (frm_len > 4 && memcmp(buf, sendbuf, frm_len) == 0)
+        priv->serial_USB_echo_off = 0;
 
 #if 0
 
@@ -289,6 +310,13 @@ read_another_frame:
     if (frm_len < 0)
     {
         set_transaction_inactive(rig);
+
+        if (priv_caps->re_civ_addr != priv->re_civ_addr)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: Icom timeout civ expected=%02x, used=%02x\n",
+                      __func__, priv_caps->re_civ_addr, priv->re_civ_addr);
+        }
+
         /* RIG_TIMEOUT: timeout getting response, return timeout */
         /* other error: return it */
         RETURNFUNC(frm_len);
@@ -373,15 +401,15 @@ read_another_frame:
     // TODO: Does ctrlid (detected by icom_is_async_frame) vary (seeing some code above using 0x80 for non-full-duplex)?
     if (icom_is_async_frame(rig, frm_len, buf))
     {
-        int elapsed_ms;
+        int elapsedms;
         icom_process_async_frame(rig, frm_len, buf);
 
         gettimeofday(&current_time, NULL);
         timersub(&current_time, &start_time, &elapsed_time);
 
-        elapsed_ms = (int)(elapsed_time.tv_sec * 1000 + elapsed_time.tv_usec / 1000);
+        elapsedms = (int)(elapsed_time.tv_sec * 1000 + elapsed_time.tv_usec / 1000);
 
-        if (elapsed_ms > rs->rigport.timeout)
+        if (elapsedms > rs->rigport.timeout)
         {
             set_transaction_inactive(rig);
             RETURNFUNC(-RIG_ETIMEOUT);
@@ -394,7 +422,7 @@ read_another_frame:
 
     *data_len = frm_data_len;
 
-    if (data != NULL && data_len != NULL) { memcpy(data, buf + 4, *data_len); }
+    if (data != NULL) { memcpy(data, buf + 4, *data_len); }
 
     /*
      * TODO: check addresses in reply frame
@@ -434,7 +462,8 @@ int icom_transaction(RIG *rig, int cmd, int subcmd,
         retval = icom_one_transaction(rig, cmd, subcmd, payload, payload_len, data,
                                       data_len);
 
-        if (retval == RIG_OK || retval == -RIG_ERJCTED)
+        // codes that make us return immediately
+        if (retval == RIG_OK || retval == -RIG_ERJCTED || retval == -RIG_BUSERROR)
         {
             break;
         }
@@ -496,7 +525,7 @@ static int read_icom_frame_generic(hamlib_port_t *p,
                             icom_block_end, icom_block_end_length, 0, 1);
         }
 
-        if (i < 0 && i != RIG_BUSBUSY) /* die on errors */
+        if (i < 0 && i != -RIG_BUSBUSY) /* die on errors */
         {
             return (i);
         }
@@ -518,6 +547,13 @@ static int read_icom_frame_generic(hamlib_port_t *p,
     }
     while ((read < rxbuffer_len) && (rxbuffer[read - 1] != FI)
             && (rxbuffer[read - 1] != COL));
+
+    // Check that we have a valid frame preamble (which might be just a single preable character)
+    // Or an error code
+    if (rxbuffer[0] != PR && rxbuffer[0] != COL)
+    {
+        return -RIG_EPROTO;
+    }
 
     return (read);
 }
@@ -551,7 +587,7 @@ int rig2icom_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width,
     unsigned char icmode;
     signed char icmode_ext;
     pbwidth_t width_tmp = width;
-    struct icom_priv_data *priv_data = (struct icom_priv_data *) rig->state.priv;
+    const struct icom_priv_data *priv_data = (struct icom_priv_data *) rig->state.priv;
 
     ENTERFUNC;
     rig_debug(RIG_DEBUG_TRACE, "%s: mode=%d, width=%d\n", __func__, (int)mode,
@@ -588,22 +624,26 @@ int rig2icom_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width,
 
     case RIG_MODE_USB:  icmode = S_USB; break;
 
-    case RIG_MODE_PKTUSB:  
-        icmode = S_USB; 
+    case RIG_MODE_PKTUSB:
+        icmode = S_USB;
+
         if (rig->caps->rig_model == RIG_MODEL_IC7800)
         {
             icmode = S_PSK;
         }
+
         break;
 
     case RIG_MODE_LSB:  icmode = S_LSB; break;
 
-    case RIG_MODE_PKTLSB:  
+    case RIG_MODE_PKTLSB:
         icmode = S_LSB;
+
         if (rig->caps->rig_model == RIG_MODEL_IC7800)
         {
             icmode = S_PSKR;
         }
+
         break;
 
     case RIG_MODE_RTTY: icmode = S_RTTY; break;
@@ -698,7 +738,6 @@ int rig2icom_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width,
 void icom2rig_mode(RIG *rig, unsigned char md, int pd, rmode_t *mode,
                    pbwidth_t *width)
 {
-    ENTERFUNC;
     rig_debug(RIG_DEBUG_TRACE, "%s: mode=0x%02x, pd=%d\n", __func__, md, pd);
     *width = RIG_PASSBAND_NORMAL;
 
@@ -746,20 +785,24 @@ void icom2rig_mode(RIG *rig, unsigned char md, int pd, rmode_t *mode,
     case S_RTTYR:   *mode = RIG_MODE_RTTYR; break;
 
     case S_PSK:
-    *mode = RIG_MODE_PSK; 
-    if (rig->caps->rig_model == RIG_MODEL_IC7800)
-    {
-        *mode = RIG_MODE_PKTUSB;
-    }
-    break;
+        *mode = RIG_MODE_PSK;
+
+        if (rig->caps->rig_model == RIG_MODEL_IC7800)
+        {
+            *mode = RIG_MODE_PKTUSB;
+        }
+
+        break;
 
     case S_PSKR:
-    *mode = RIG_MODE_PSKR; 
-    if (rig->caps->rig_model == RIG_MODEL_IC7800)
-    {
-        *mode = RIG_MODE_PKTLSB;
-    }
-    break;
+        *mode = RIG_MODE_PSKR;
+
+        if (rig->caps->rig_model == RIG_MODEL_IC7800)
+        {
+            *mode = RIG_MODE_PKTLSB;
+        }
+
+        break;
 
     case S_DSTAR:   *mode = RIG_MODE_DSTAR; break;
 
@@ -825,6 +868,5 @@ void icom2rig_mode(RIG *rig, unsigned char md, int pd, rmode_t *mode,
     default:
         rig_debug(RIG_DEBUG_ERR, "icom: Unsupported Icom mode width %#.2x\n", pd);
     }
-
 }
 

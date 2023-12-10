@@ -18,19 +18,14 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <math.h>
 
 #include <hamlib/rig.h>
 #include "serial.h"
 #include "misc.h"
-#include "cal.h"
-#include "token.h"
 #include "register.h"
 
 #include "barrett.h"
@@ -266,7 +261,7 @@ int barrett_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     char cmd_buf[MAXCMDLEN];
     int retval;
-    struct barrett_priv_data *priv = rig->state.priv;
+    const struct barrett_priv_data *priv = rig->state.priv;
     freq_t tfreq;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: vfo=%s freq=%.0f\n", __func__,
@@ -647,6 +642,27 @@ int barrett_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
         break;
 
+    case RIG_LEVEL_AGC:
+        retval = barrett_transaction(rig, "IGA", 0, &response);
+
+        if (retval < 0)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: invalid response=%s\n", __func__,
+                      response);
+            return retval;
+        }
+
+        if (response[0] == 'H') // then AGC hang is on
+        {
+            val->i = 1;
+        }
+        else
+        {
+            val->i = 0;
+        }
+
+        break;
+
     default:
         rig_debug(RIG_DEBUG_ERR, "%s: unsupported level %s\n", __func__,
                   rig_strlevel(level));
@@ -656,6 +672,29 @@ int barrett_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     rig_debug(RIG_DEBUG_VERBOSE, "%s: vfo=%s level=%s val=%s\n", __func__,
               rig_strvfo(vfo), rig_strlevel(level), response);
 
+    return RIG_OK;
+}
+
+int barrett_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
+{
+    char cmd_buf[MAXCMDLEN];
+    struct rig_state *rs = &rig->state;
+    int retval;
+
+    switch (level)
+    {
+        case RIG_LEVEL_AGC:
+            sprintf(cmd_buf,"EG%c%s", val.i==0?'N':'H' , EOM);
+            break;
+        default: return -RIG_ENIMPL;
+    }
+    rig_flush(&rs->rigport);
+    retval = write_block(&rs->rigport, (unsigned char *) cmd_buf, strlen(cmd_buf));
+
+    if (retval < 0)
+    {
+        return retval;
+    }
     return RIG_OK;
 }
 
@@ -677,13 +716,13 @@ const char *barrett_get_info(RIG *rig)
     {
         rig_debug(RIG_DEBUG_WARN, "%s: IDR command failed: %s\n", __func__,
                   strerror(retval));
+        series = "unknown";
     }
     else
     {
-        series = "unknown";
+        series = strdup(response);
     }
 
-    series = strdup(response);
     retval = barrett_transaction(rig, "IDS", 0, &response);
 
     if (retval != RIG_OK)
@@ -717,7 +756,7 @@ int barrett_open(RIG *rig)
 }
 
 
-const struct rig_caps barrett_caps =
+struct rig_caps barrett_caps =
 {
     RIG_MODEL(RIG_MODEL_BARRETT_2050),
     .model_name =       "2050",

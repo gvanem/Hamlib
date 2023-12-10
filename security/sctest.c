@@ -19,6 +19,7 @@
 #include <string.h>
 #ifdef _WIN32
 #include <windows.h>
+//#include <Wincrypt.h>
 #else
 #include <unistd.h>
 #endif
@@ -45,16 +46,22 @@
  */
 int main(int argc, char *argv[])
 {
+#ifdef __linux__
     char pass_input[MAX_PASSWD_LEN + 1];
-    char plaintext[512];
-    char ciphertext[512 + 68];
-    char *pass; //[MAX_PASSWD_LEN * 2 + 2];
-
+#endif
+    char plaintext[512],
+         ciphertext[512 + 68];
+#ifdef _WIN32
+    wchar_t pass_input[MAX_PASSWD_LEN + 1];
+    char *pass;
+#else
+    char pass_input[MAX_PASSWD_LEN * 2 + 2];
+#endif
     int  i,
          passlen;
     unsigned long long plaintext_length,
              ciphertext_length;
-    char *plaintext_tests[TEST_COUNT] =
+    const char *plaintext_tests[TEST_COUNT] =
     {
         "",
         "0",
@@ -101,15 +108,30 @@ int main(int argc, char *argv[])
         /*
          * We will use the password "Hello"
          */
-        pass = strcpy(pass_input, "Hello");
-        passlen = strlen(pass_input);
+#ifdef _WIN32
+        wcscpy(pass_input, L"Hello");
+        passlen = (int) wcslen(pass_input) * 2;
+        pass = (char*) pass_input;
+#else
+        strcpy(pass_input, "Hello");
+        passlen = passwd_to_utf16(pass_input,
+                                  strlen(pass_input),
+                                  MAX_PASSWD_LEN + 1,
+                                  pass);
+#endif
+
+        if (passlen <= 0)
+        {
+            printf("Error converting the password to UTF-16LE\n");
+            return -1;
+        }
 
         /*
          * Put the text vector into "plaintext"
          */
-        strcpy(plaintext, pass_input);
+        strcpy(plaintext, pass);
         printf("Plaintext: %s\n", plaintext);
-        printf("Plaintext length: %zu\n", strlen(plaintext));
+        printf("Plaintext length: %ld\n", strlen(plaintext));
 
         /*
          * Encrypt the string

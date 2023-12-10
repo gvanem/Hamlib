@@ -30,19 +30,14 @@
  * '02, Stephane
  */
 
-
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <math.h>
 
 #include "hamlib/rig.h"
 #include "bandplan.h"
 #include "serial.h"
 #include "misc.h"
-#include "cal.h"
 #include "yaesu.h"
 #include "ft1000mp.h"
 
@@ -313,12 +308,12 @@ struct ft1000mp_priv_data
  *
  */
 
-const struct rig_caps ft1000mp_caps =
+struct rig_caps ft1000mp_caps =
 {
     RIG_MODEL(RIG_MODEL_FT1000MP),
     .model_name =         "FT-1000MP",
     .mfg_name =           "Yaesu",
-    .version =            "20220421.0",
+    .version =            "20230104.0",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -341,6 +336,10 @@ const struct rig_caps ft1000mp_caps =
     .has_set_level =      RIG_LEVEL_BAND_SELECT, /* as strange as it could be */
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .ctcss_list =         ft1000mp_ctcss_list,
     .dcs_list =           NULL,
     .vfo_ops =        FT1000MP_VFO_OPS,
@@ -452,12 +451,12 @@ const struct rig_caps ft1000mp_caps =
     .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
-const struct rig_caps ft1000mpmkv_caps =
+struct rig_caps ft1000mpmkv_caps =
 {
     RIG_MODEL(RIG_MODEL_FT1000MPMKV),
     .model_name =         "MARK-V FT-1000MP",
     .mfg_name =           "Yaesu",
-    .version =            "20220421.0",
+    .version =            "20230104.0",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -480,6 +479,10 @@ const struct rig_caps ft1000mpmkv_caps =
     .has_set_level =      RIG_LEVEL_BAND_SELECT, /* as strange as it could be */
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .ctcss_list =         ft1000mp_ctcss_list,
     .dcs_list =           NULL,
     .vfo_ops =        FT1000MP_VFO_OPS,
@@ -591,12 +594,12 @@ const struct rig_caps ft1000mpmkv_caps =
     /* TODO: the remaining ... */
 };
 
-const struct rig_caps ft1000mpmkvfld_caps =
+struct rig_caps ft1000mpmkvfld_caps =
 {
     RIG_MODEL(RIG_MODEL_FT1000MPMKVFLD),
     .model_name =         "MARK-V Field FT-1000MP",
     .mfg_name =           "Yaesu",
-    .version =            "20220421.0",
+    .version =            "20230104.0",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -619,6 +622,10 @@ const struct rig_caps ft1000mpmkvfld_caps =
     .has_set_level =      RIG_LEVEL_BAND_SELECT, /* as strange as it could be */
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .ctcss_list =         ft1000mp_ctcss_list,
     .dcs_list =           NULL,
     .vfo_ops =        FT1000MP_VFO_OPS,
@@ -1035,6 +1042,7 @@ static int ft1000mp_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 
         break;
 
+    case RIG_MODE_PKTUSB:
     case RIG_MODE_RTTYR:
         cmd_index = FT1000MP_NATIVE_MODE_SET_RTTY_USB;
 

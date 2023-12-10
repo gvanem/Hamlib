@@ -19,21 +19,16 @@
 *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 *
 */
-#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>             /* String function definitions */
-#include <unistd.h>             /* UNIX standard function definitions */
 #include <math.h>
 
 #include <hamlib/rig.h>
 #include <serial.h>
 #include <misc.h>
-#include <cal.h>
 #include <token.h>
-#include <register.h>
-#include <network.h>
 
 #include "dummy_common.h"
 #include "flrig.h"
@@ -57,7 +52,7 @@
                     RIG_MODE_FM | RIG_MODE_WFM | RIG_MODE_FMN | RIG_MODE_PKTFM |\
                     RIG_MODE_C4FM)
 
-#define FLRIG_LEVELS (RIG_LEVEL_AF | RIG_LEVEL_RF | RIG_LEVEL_MICGAIN | RIG_LEVEL_STRENGTH | RIG_LEVEL_RFPOWER_METER | RIG_LEVEL_RFPOWER_METER_WATTS | RIG_LEVEL_RFPOWER)
+#define FLRIG_LEVELS (RIG_LEVEL_AF | RIG_LEVEL_RF | RIG_LEVEL_MICGAIN | RIG_LEVEL_STRENGTH | RIG_LEVEL_RFPOWER_METER | RIG_LEVEL_RFPOWER_METER_WATTS | RIG_LEVEL_RFPOWER | RIG_LEVEL_SWR)
 
 #define FLRIG_PARM (TOK_FLRIG_VERIFY_FREQ|TOK_FLRIG_VERIFY_PTT)
 
@@ -78,6 +73,7 @@ static int flrig_get_vfo(RIG *rig, vfo_t *vfo);
 static int flrig_set_vfo(RIG *rig, vfo_t vfo);
 static int flrig_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt);
 static int flrig_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt);
+static int flrig_set_func(RIG *rig, vfo_t vfo, setting_t setting, int status);
 static int flrig_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq);
 static int flrig_get_split_freq(RIG *rig, vfo_t vfo, freq_t *tx_freq);
 static int flrig_set_split_vfo(RIG *rig, vfo_t vfo, split_t split,
@@ -121,6 +117,10 @@ struct flrig_priv_data
     float powermeter_scale;  /* So we can scale power meter to 0-1 */
     value_t parms[RIG_SETTING_MAX];
     struct ext_list *ext_parms;
+    int get_SWR;
+    int has_get_modeB; /* True if this function is available */
+    int has_get_bwB; /* True if this function is available */
+    int has_set_bwB; /* True if this function is available */
 };
 
 /* level's and parm's tokens */
@@ -138,12 +138,12 @@ static const struct confparams flrig_ext_parms[] =
     { RIG_CONF_END, NULL, }
 };
 
-const struct rig_caps flrig_caps =
+struct rig_caps flrig_caps =
 {
     RIG_MODEL(RIG_MODEL_FLRIG),
     .model_name = "FLRig",
     .mfg_name = "FLRig",
-    .version = "20220504.0",
+    .version = "20231204.0",
     .copyright = "LGPL",
     .status = RIG_STATUS_STABLE,
     .rig_type = RIG_TYPE_TRANSCEIVER,
@@ -156,13 +156,15 @@ const struct rig_caps flrig_caps =
     .retry = 2,
 
     .has_get_func = RIG_FUNC_NONE,
-    .has_set_func = RIG_FUNC_NONE,
+    .has_set_func = RIG_FUNC_TUNER,
+    .set_func = flrig_set_func,
     .has_get_level = FLRIG_LEVELS,
     .has_set_level = RIG_LEVEL_SET(FLRIG_LEVELS),
     .has_get_parm =    FLRIG_PARM,
     .has_set_parm =    RIG_PARM_SET(FLRIG_PARM),
 
     .filters =  {
+        {RIG_MODE_ALL, RIG_FLT_ANY},
         RIG_FLT_END
     },
 
@@ -270,8 +272,9 @@ static int check_vfo(vfo_t vfo)
 
 /*Rather than use some huge XML library we only need a few things
 * So we'll hand craft them
-* xml_build takes a value and return an xml string for FLRig
+* xml_build takes a value and returns an xml string for FLRig
 */
+// cppcheck-suppress constParameterPointer
 static char *xml_build(RIG *rig, char *cmd, char *value, char *xmlbuf,
                        int xmlbuflen)
 {
@@ -336,7 +339,7 @@ static char *xml_parse2(char *xml, char *value, int valueLen)
             if (streq(p, "/value")) { continue; } // empty value
 
             if (streq(p, "i4") || streq(p, "double") || streq(p, "int")
-                    || streq(p, " string"))
+                    || streq(p, "string"))
             {
                 p = strtok_r(NULL, delims, &pr);
             }
@@ -443,9 +446,11 @@ static int read_transaction(RIG *rig, char *xml, int xml_len)
             rig_debug(RIG_DEBUG_WARN, "%s: retry needed? retry=%d\n", __func__, retry);
         }
 
+        rig_debug(RIG_DEBUG_TRACE, "%s: before read_string\n", __func__);
         int len = read_string(&rs->rigport, (unsigned char *) tmp_buf, sizeof(tmp_buf),
                               delims,
                               strlen(delims), 0, 1);
+//                              "</methodResponse>", 17,0,1);
         rig_debug(RIG_DEBUG_TRACE, "%s: string='%s'\n", __func__, tmp_buf);
 
         // if our first response we should see the HTTP header
@@ -488,7 +493,7 @@ static int read_transaction(RIG *rig, char *xml, int xml_len)
     {
         rig_debug(RIG_DEBUG_TRACE, "%s: got %s\n", __func__, terminator);
         // Slow down just a bit -- not sure this is needed anymore but not a big deal here
-        hl_usleep(2 * 1000);
+        // hl_usleep(2 * 1000); // try without this
         retval = RIG_OK;
     }
     else
@@ -582,8 +587,10 @@ static int flrig_transaction(RIG *rig, char *cmd, char *cmd_arg, char *value,
 
         read_transaction(rig, xml, sizeof(xml)); // this might time out -- that's OK
 
-        // we get an uknown response if function does not exist
+        // we get an unknown response if function does not exist
         if (strstr(xml, "unknown")) { set_transaction_inactive(rig); RETURNFUNC(RIG_ENAVAIL); }
+
+        if (strstr(xml, "get_bw") && strstr(xml, "NONE")) { set_transaction_inactive(rig); RETURNFUNC(RIG_ENAVAIL); }
 
         if (value)
         {
@@ -615,7 +622,7 @@ static int flrig_init(RIG *rig)
     ENTERFUNC;
     rig_debug(RIG_DEBUG_TRACE, "%s version %s\n", __func__, rig->caps->version);
 
-    rig->state.priv  = (struct flrig_priv_data *)malloc(sizeof(
+    rig->state.priv  = (struct flrig_priv_data *)calloc(1, sizeof(
                            struct flrig_priv_data));
 
     if (!rig->state.priv)
@@ -638,6 +645,7 @@ static int flrig_init(RIG *rig)
     priv->curr_modeB = -1;
     priv->curr_widthA = -1;
     priv->curr_widthB = -1;
+    priv->get_SWR = 1;  // we'll try getSWR once to see if it works
 
     if (!rig->caps)
     {
@@ -708,7 +716,7 @@ static rmode_t modeMapGetHamlib(const char *modeFLRig)
                   modeFLRigCheck, modeMap[i].mode_flrig);
 
         if (modeMap[i].mode_flrig
-                && strcmp(modeMap[i].mode_flrig, modeFLRigCheck) == 0)
+                && strstr(modeMap[i].mode_flrig, modeFLRigCheck))
         {
             return (modeMap[i].mode_hamlib);
         }
@@ -860,6 +868,21 @@ static int flrig_open(RIG *rig)
         rig_debug(RIG_DEBUG_VERBOSE, "%s: getmodeA is available\n", __func__);
     }
 
+    /* see if get_modeB is available */
+    retval = flrig_transaction(rig, "rig.get_modeB", NULL, value, sizeof(value));
+
+    if (retval == RIG_ENAVAIL) // must not have it
+    {
+        priv->has_get_modeB = 0;
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: getmodeB is not available=%s\n", __func__,
+                  value);
+    }
+    else
+    {
+        priv->has_get_modeB = 1;
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: getmodeB is available\n", __func__);
+    }
+
     freq_t freq;
     retval = flrig_get_freq(rig, RIG_VFO_CURR, &freq);
 
@@ -875,27 +898,63 @@ static int flrig_open(RIG *rig)
     if (retval == RIG_ENAVAIL) // must not have it
     {
         priv->has_get_bwA = 0;
-        rig_debug(RIG_DEBUG_VERBOSE, "%s: get_bwA is not available=%s\n", __func__,
+        priv->has_get_bwB = 0; // if we don't have A then surely we don't have B either
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: get_bwA/B is not available=%s\n", __func__,
                   value);
     }
     else
     {
         priv->has_get_bwA = 1;
-        rig_debug(RIG_DEBUG_VERBOSE, "%s: set_bwA is not available=%s\n", __func__,
-                  value);
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: get_bwA is available=%s\n", __func__, value);
     }
 
     /* see if set_bwA is available */
     retval = flrig_transaction(rig, "rig.set_bwA", NULL, value, sizeof(value));
+
     if (retval == RIG_ENAVAIL) // must not have it
     {
         priv->has_set_bwA = 0;
-        rig_debug(RIG_DEBUG_VERBOSE, "%s: set_bwA is not available=%s\n", __func__, value);
+        priv->has_set_bwB = 0;
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: set_bwA is not available=%s\n", __func__,
+                  value);
     }
     else
     {
         priv->has_set_bwA = 1;
         rig_debug(RIG_DEBUG_VERBOSE, "%s: set_bwA is available=%s\n", __func__, value);
+    }
+
+    if (priv->has_get_bwA)
+    {
+        /* see if get_bwB is available FLRig can return empty value too */
+        retval = flrig_transaction(rig, "rig.get_bwB", NULL, value, sizeof(value));
+
+        if (retval == RIG_ENAVAIL || strlen(value) == 0) // must not have it
+        {
+            priv->has_get_bwB = 0;
+            rig_debug(RIG_DEBUG_VERBOSE, "%s: get_bwB is not available=%s\n", __func__,
+                      value);
+        }
+        else
+        {
+            priv->has_get_bwB = 1;
+            rig_debug(RIG_DEBUG_VERBOSE, "%s: get_bwB is available=%s\n", __func__, value);
+        }
+
+        /* see if set_bwA is available */
+        retval = flrig_transaction(rig, "rig.set_bwB", NULL, value, sizeof(value));
+
+        if (retval == RIG_ENAVAIL) // must not have it
+        {
+            priv->has_set_bwB = 0;
+            rig_debug(RIG_DEBUG_VERBOSE, "%s: set_bwB is not available=%s\n", __func__,
+                      value);
+        }
+        else
+        {
+            priv->has_set_bwB = 1;
+            rig_debug(RIG_DEBUG_VERBOSE, "%s: set_bwB is available=%s\n", __func__, value);
+        }
     }
 
     retval = flrig_transaction(rig, "rig.get_AB", NULL, value, sizeof(value));
@@ -998,12 +1057,12 @@ static int flrig_open(RIG *rig)
         else if (streq(p, "LSB-D2")) { modeMapAdd(&modes, RIG_MODE_PKTLSB, p); }
         else if (streq(p, "LSB-D3")) { modeMapAdd(&modes, RIG_MODE_PKTLSB, p); }
         else if (streq(p, "NFM")) { modeMapAdd(&modes, RIG_MODE_FMN, p); }
-        else if (streq(p, "PKT")) { modeMapAdd(&modes, RIG_MODE_RTTY, p); }
+        else if (streq(p, "PKT")) { modeMapAdd(&modes, RIG_MODE_PKTUSB, p); }
         else if (streq(p, "PKT-FM")) { modeMapAdd(&modes, RIG_MODE_PKTFM, p); }
-        else if (streq(p, "PKT-L")) { modeMapAdd(&modes, RIG_MODE_RTTYR, p); }
-        else if (streq(p, "PKT-U")) { modeMapAdd(&modes, RIG_MODE_RTTY, p); }
-        else if (streq(p, "PKT(L)")) { modeMapAdd(&modes, RIG_MODE_RTTYR, p); }
-        else if (streq(p, "PKT(U)")) { modeMapAdd(&modes, RIG_MODE_RTTY, p); }
+        else if (streq(p, "PKT-L")) { modeMapAdd(&modes, RIG_MODE_PKTLSB, p); }
+        else if (streq(p, "PKT-U")) { modeMapAdd(&modes, RIG_MODE_PKTUSB, p); }
+        else if (streq(p, "PKT(L)")) { modeMapAdd(&modes, RIG_MODE_PKTLSB, p); }
+        else if (streq(p, "PKT(U)")) { modeMapAdd(&modes, RIG_MODE_PKTUSB, p); }
         else if (streq(p, "PSK")) { modeMapAdd(&modes, RIG_MODE_RTTY, p); }
         else if (streq(p, "PSK-L")) { modeMapAdd(&modes, RIG_MODE_RTTYR, p); }
         else if (streq(p, "PSK-R")) { modeMapAdd(&modes, RIG_MODE_RTTYR, p); }
@@ -1150,6 +1209,9 @@ static int flrig_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 
     *freq = atof(value);
 
+
+#if 0 // zero is actually valid for PowerSDR
+
     if (*freq == 0)
     {
         rig_debug(RIG_DEBUG_ERR, "%s: freq==0??\nvalue=%s\n", __func__,
@@ -1157,6 +1219,7 @@ static int flrig_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
         RETURNFUNC(-RIG_EPROTO);
     }
     else
+#endif
     {
         rig_debug(RIG_DEBUG_TRACE, "%s: freq=%.0f\n", __func__, *freq);
     }
@@ -1295,6 +1358,8 @@ static int flrig_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
     struct flrig_priv_data *priv = (struct flrig_priv_data *) rig->state.priv;
 
     ENTERFUNC;
+    xml[0] = 0;
+    value[0] = 0;
     rig_debug(RIG_DEBUG_TRACE, "%s: vfo=%s\n", __func__,
               rig_strvfo(vfo));
 
@@ -1307,11 +1372,14 @@ static int flrig_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
         RETURNFUNC(retval);
     }
 
-    xml_parse(xml, value, sizeof(value));
-    *ptt = atoi(value);
-    rig_debug(RIG_DEBUG_TRACE, "%s: '%s'\n", __func__, value);
+    if (strlen(value) > 0)
+    {
+        xml_parse(xml, value, sizeof(value));
+        *ptt = atoi(value);
+        rig_debug(RIG_DEBUG_TRACE, "%s: '%s'\n", __func__, value);
 
-    priv->ptt = *ptt;
+        priv->ptt = *ptt;
+    }
 
     RETURNFUNC(RIG_OK);
 }
@@ -1371,7 +1439,7 @@ static int flrig_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     char cmd_arg[MAXCMDLEN];
     char *p;
     char *pttmode;
-    char *ttmode;
+    char *ttmode = NULL;
     struct flrig_priv_data *priv = (struct flrig_priv_data *) rig->state.priv;
 
     ENTERFUNC;
@@ -1526,11 +1594,11 @@ static int flrig_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 
         if (vfo == RIG_VFO_A)
         {
-        retval = flrig_transaction(rig, "rig.set_bwA", cmd_arg, NULL, 0);
+            retval = flrig_transaction(rig, "rig.set_bwA", cmd_arg, NULL, 0);
         }
         else
         {
-        retval = flrig_transaction(rig, "rig.set_bwB", cmd_arg, NULL, 0);
+            retval = flrig_transaction(rig, "rig.set_bwB", cmd_arg, NULL, 0);
         }
 
         if (retval < 0)
@@ -1590,6 +1658,8 @@ static int flrig_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
     rig_debug(RIG_DEBUG_TRACE, "%s: vfo=%s\n", __func__,
               rig_strvfo(vfo));
 
+    *width = 0;
+
     if (check_vfo(vfo) == FALSE)
     {
         rig_debug(RIG_DEBUG_ERR, "%s: unsupported VFO %s\n",
@@ -1646,7 +1716,7 @@ static int flrig_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
         /* so we may not be 100% accurate if op is twiddling knobs */
         cmdp = "rig.get_modeA";
 
-        if (vfo == RIG_VFO_B) { cmdp = "rig.get_modeB"; }
+        if (priv->has_get_modeB && vfo == RIG_VFO_B) { cmdp = "rig.get_modeB"; }
     }
 
     retval = flrig_transaction(rig, cmdp, NULL, value, sizeof(value));
@@ -1683,15 +1753,37 @@ static int flrig_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
         /* vfo B may not be getting polled though in FLRig */
         /* so we may not be 100% accurate if op is twiddling knobs */
         cmdp = "rig.get_bwA";
+        retval = flrig_transaction(rig, cmdp, NULL, value, sizeof(value));
+        if (retval == RIG_OK && strstr(value,"NONE"))
+        {
+            priv->has_get_bwA = priv->has_get_bwB = 0;
+            *width = 0;
+            rig_debug(RIG_DEBUG_VERBOSE, "%s: does not have rig.get_bwA/B\n", __func__);
+        }
 
-        if (vfo == RIG_VFO_B) { cmdp = "rig.get_bwB"; }
-    }
+        if (retval != RIG_OK || strstr(value,"NONE"))
+        {
+            RETURNFUNC(retval);
+        }
 
-    retval = flrig_transaction(rig, cmdp, NULL, value, sizeof(value));
 
-    if (retval != RIG_OK)
-    {
-        RETURNFUNC(retval);
+        if (priv->has_get_bwB && vfo == RIG_VFO_B)
+        {
+            cmdp = "rig.get_bwB";
+            retval = flrig_transaction(rig, cmdp, NULL, value, sizeof(value));
+            if (retval == RIG_OK && strlen(value)==0)
+            {
+                rig_debug(RIG_DEBUG_VERBOSE, "%s: does not have rig.get_bwB\n", __func__);
+                priv->has_get_bwB = 0;
+                *width = 0;
+            }
+
+            if (retval != RIG_OK)
+            {
+                RETURNFUNC(retval);
+            }
+
+        }
     }
 
     rig_debug(RIG_DEBUG_TRACE, "%s: mode=%s width='%s'\n", __func__,
@@ -1740,7 +1832,7 @@ static int flrig_set_vfo(RIG *rig, vfo_t vfo)
     int retval;
     char cmd_arg[MAXXMLLEN];
     struct rig_state *rs = &rig->state;
-    struct flrig_priv_data *priv = (struct flrig_priv_data *) rig->state.priv;
+    const struct flrig_priv_data *priv = (struct flrig_priv_data *) rig->state.priv;
 
     ENTERFUNC;
     rig_debug(RIG_DEBUG_TRACE, "%s: vfo=%s\n", __func__,
@@ -1996,7 +2088,7 @@ static int flrig_set_split_freq_mode(RIG *rig, vfo_t vfo, freq_t freq,
 
     ENTERFUNC;
 
-    // we alway do split on VFOB
+    // we always do split on VFOB
     retval = flrig_set_freq(rig, RIG_VFO_B, freq);
 
     if (retval != RIG_OK)
@@ -2105,6 +2197,49 @@ static int flrig_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
     RETURNFUNC(RIG_OK);
 }
 
+typedef struct
+{
+    float mtr;
+    float swr;
+} swrpair;
+
+static swrpair swrtbl[] =
+{
+    {0.0, 1.0},
+    {10.5, 1.5},
+    {23.0, 2.0},
+    {35.0, 2.5},
+    {48.0, 3.0},
+    {100.0, 10.0 } // assuming 10.0 is infinity for FLRig
+};
+
+// Function to interpolate SWR from MTR
+float interpolateSWR(float mtr)
+{
+    int i;
+
+    for (i = 0; i < sizeof(swrtbl) / sizeof(swrpair) - 1; i++)
+    {
+        if (mtr == swrtbl[i].mtr)
+        {
+            // Exact match
+            return swrtbl[i].swr;
+        }
+
+        if (mtr < swrtbl[i + 1].mtr)
+        {
+            // Perform linear interpolation
+            float slope = (swrtbl[i + 1].swr - swrtbl[i].swr) / (swrtbl[i + 1].mtr -
+                          swrtbl[i].mtr);
+            float swr = round((swrtbl[i].swr + slope * (mtr - swrtbl[i].mtr)) * 10) / 10.0;
+            rig_debug(RIG_DEBUG_VERBOSE, "%s: swr=%f\n", __func__, swr);
+            return swr;
+        }
+    }
+
+    // If mtr is not within the range of values in the table, you could choose to return an error or extrapolate
+    return 10; // Example er
+}
 /*
 * flrig_get_level
 * Assumes rig!=NULL, rig->state.priv!=NULL, val!=NULL
@@ -2131,6 +2266,14 @@ static int flrig_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
     case RIG_LEVEL_STRENGTH: cmd = "rig.get_smeter"; break;
 
+    case RIG_LEVEL_SWR:
+        cmd = "rig.get_swrmeter";
+
+        // we'll try get_SWR at least once to see if it works
+        if (priv->get_SWR) { cmd = "rig.get_SWR"; }
+
+        break;
+
     case RIG_LEVEL_RFPOWER: cmd = "rig.get_power"; break;
 
     case RIG_LEVEL_RFPOWER_METER_WATTS:
@@ -2143,6 +2286,13 @@ static int flrig_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
     retval = flrig_transaction(rig, cmd, NULL, value, sizeof(value));
 
+    if (retval == RIG_ENAVAIL && strcmp(cmd, "rig.get_SWR") == 0)
+    {
+        priv->get_SWR = 0;
+        cmd = "rig.get_swrmeter"; // revert to old flrig method
+        retval = flrig_transaction(rig, cmd, NULL, value, sizeof(value));
+    }
+
     if (retval != RIG_OK)
     {
         rig_debug(RIG_DEBUG_ERR, "%s: flrig_transaction failed retval=%s\n", __func__,
@@ -2153,6 +2303,20 @@ static int flrig_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     // most levels are 0-100 -- may have to allow for different ranges
     switch (level)
     {
+    case RIG_LEVEL_SWR:
+    {
+        if (priv->get_SWR)
+        {
+            val->f = atof(value);
+        }
+        else
+        {
+            val->f = interpolateSWR(atoi(value));
+        }
+
+        break;
+    }
+
     case RIG_LEVEL_STRENGTH:
         val->i = atoi(value) - 54;
         //if (val->i > 0) val->i /= 10;
@@ -2189,7 +2353,7 @@ static int flrig_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 */
 static const char *flrig_get_info(RIG *rig)
 {
-    struct flrig_priv_data *priv = (struct flrig_priv_data *) rig->state.priv;
+    const struct flrig_priv_data *priv = (struct flrig_priv_data *) rig->state.priv;
 
     return (priv->info);
 }
@@ -2197,7 +2361,7 @@ static const char *flrig_get_info(RIG *rig)
 static int flrig_power2mW(RIG *rig, unsigned int *mwpower, float power,
                           freq_t freq, rmode_t mode)
 {
-    struct flrig_priv_data *priv = (struct flrig_priv_data *) rig->state.priv;
+    const struct flrig_priv_data *priv = (struct flrig_priv_data *) rig->state.priv;
     ENTERFUNC;
     rig_debug(RIG_DEBUG_TRACE, "%s: passed power = %f\n", __func__, power);
     rig_debug(RIG_DEBUG_TRACE, "%s: passed freq = %"PRIfreq" Hz\n", __func__, freq);
@@ -2352,6 +2516,29 @@ HAMLIB_EXPORT(int) flrig_cat_string(RIG *rig, const char *arg)
     SNPRINTF(cmd_arg, sizeof(cmd_arg),
              "<params><param><value>%s</value></param></params>", arg);
     retval = flrig_transaction(rig, "rig.cat_string", cmd_arg, NULL, 0);
+    return retval;
+}
+
+HAMLIB_EXPORT(int) flrig_set_func(RIG *rig, vfo_t vfo, setting_t func,
+                                  int status)
+{
+    int retval;
+    char cmd_arg[MAXARGLEN];
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called: level=%s, status=%d\n", __func__,
+              rig_strfunc(func), status);
+
+    switch (func)
+    {
+    case RIG_FUNC_TUNER:
+        SNPRINTF(cmd_arg, sizeof(cmd_arg),
+                 "<params><param><value>%d</value></param></params>", status);
+        retval = flrig_transaction(rig, "rig.tune", cmd_arg, NULL, 0);
+        break;
+
+    default:
+        retval = -RIG_ENIMPL;
+    }
+
     return retval;
 }
 

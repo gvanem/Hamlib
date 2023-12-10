@@ -19,15 +19,12 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "hamlib/rig.h"
-#include "tentec.h"
 #include "bandplan.h"
 #include "iofunc.h"
 #include "serial.h"
@@ -95,7 +92,7 @@ static int tt585_get_status_data(RIG *rig);
  * tt585 transceiver capabilities,
  * with the optional model 258 RS232 Interface board.
  */
-const struct rig_caps tt585_caps =
+struct rig_caps tt585_caps =
 {
     RIG_MODEL(RIG_MODEL_TT585),
     .model_name = "TT-585 Paragon",
@@ -212,7 +209,7 @@ int tt585_init(RIG *rig)
 {
     struct tt585_priv_data *priv;
 
-    rig->state.priv = (struct tt585_priv_data *) malloc(sizeof(
+    rig->state.priv = (struct tt585_priv_data *) calloc(1, sizeof(
                           struct tt585_priv_data));
 
     if (!rig->state.priv)
@@ -382,7 +379,7 @@ int tt585_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
  */
 int tt585_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
-    struct tt585_priv_data *priv = (struct tt585_priv_data *)rig->state.priv;
+    const struct tt585_priv_data *priv = (struct tt585_priv_data *)rig->state.priv;
     int ret;
 
     ret = tt585_get_status_data(rig);

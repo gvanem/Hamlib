@@ -19,17 +19,16 @@
  *
  */
 
-#include <hamlib/config.h>
 
 #include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif
 
+#ifdef HAVE_PARALLEL
 #ifdef HAVE_LINUX_PARPORT_H
 #include <linux/parport.h>
+#endif
 #endif
 
 #include "hamlib/rotator.h"
@@ -49,12 +48,23 @@
 static int setDirection(hamlib_port_t *port, unsigned char outputvalue,
                         int direction)
 {
+    int retval;
     unsigned char outputstatus;
 
-    par_lock(port);
+    retval = par_lock(port);
+    if  (retval != RIG_OK)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s(%d): %s\n", __func__, __LINE__, rigerror(retval));
+        return retval;
+    }
 
     // set the data bits
-    par_write_data(port, outputvalue);
+    retval = par_write_data(port, outputvalue);
+    if  (retval != RIG_OK)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s(%d): %s\n", __func__, __LINE__, rigerror(retval));
+        return retval;
+    }
 
     // autofd=true --> azimuth otherwise elevation
     if (direction)
@@ -66,7 +76,12 @@ static int setDirection(hamlib_port_t *port, unsigned char outputvalue,
         outputstatus = 0;
     }
 
-    par_write_control(port, outputstatus ^ CP_ACTIVE_LOW_BITS);
+    retval = par_write_control(port, outputstatus ^ CP_ACTIVE_LOW_BITS);
+    if  (retval != RIG_OK)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s(%d): %s\n", __func__, __LINE__, rigerror(retval));
+        return retval;
+    }
     // and now the strobe impulse
     hl_usleep(1);
 
@@ -79,7 +94,12 @@ static int setDirection(hamlib_port_t *port, unsigned char outputvalue,
         outputstatus = PARPORT_CONTROL_STROBE;
     }
 
-    par_write_control(port, outputstatus ^ CP_ACTIVE_LOW_BITS);
+    retval = par_write_control(port, outputstatus ^ CP_ACTIVE_LOW_BITS);
+    if  (retval != RIG_OK)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s(%d): %s\n", __func__, __LINE__, rigerror(retval));
+        return retval;
+    }
     hl_usleep(1);
 
     if (direction)
@@ -91,9 +111,19 @@ static int setDirection(hamlib_port_t *port, unsigned char outputvalue,
         outputstatus = 0;
     }
 
-    par_write_control(port, outputstatus ^ CP_ACTIVE_LOW_BITS);
+    retval = par_write_control(port, outputstatus ^ CP_ACTIVE_LOW_BITS);
+    if  (retval != RIG_OK)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s(%d): %s\n", __func__, __LINE__, rigerror(retval));
+        return retval;
+    }
 
-    par_unlock(port);
+    retval = par_unlock(port);
+    if  (retval != RIG_OK)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s(%d): %s\n", __func__, __LINE__, rigerror(retval));
+        return retval;
+    }
 
     return RIG_OK;
 }

@@ -50,12 +50,8 @@
  * doesn't work from front panel either.
  */
 
-#include <hamlib/config.h>
-
-#include <math.h>
 #include <stdlib.h>
 #include <string.h>     /* String function definitions */
-#include <unistd.h>     /* UNIX standard function definitions */
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -241,14 +237,14 @@ enum ft857_digi
 #define FT857_VFO_ALL           (RIG_VFO_A|RIG_VFO_B)
 #define FT857_ANTS              0
 
-static int ft857_send_icmd(RIG *rig, int index, unsigned char *data);
+static int ft857_send_icmd(RIG *rig, int index, const unsigned char *data);
 
-const struct rig_caps ft857_caps =
+struct rig_caps ft857_caps =
 {
     RIG_MODEL(RIG_MODEL_FT857),
     .model_name =     "FT-857",
     .mfg_name =       "Yaesu",
-    .version =        "20220603.0",
+    .version =        "20230206.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_TRANSCEIVER,
@@ -271,7 +267,10 @@ const struct rig_caps ft857_caps =
     .has_set_level =  RIG_LEVEL_BAND_SELECT,
     .has_get_parm =   RIG_PARM_NONE,
     .has_set_parm =   RIG_PARM_NONE,
-    .level_gran =     { 0 },                     /* granularity */
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .parm_gran =      { 0 },
     .ctcss_list =     common_ctcss_list,
     .dcs_list =       common_dcs_list,   /* only 104 supported */
@@ -342,6 +341,7 @@ const struct rig_caps ft857_caps =
     * per testing by Rich Newsom, WA4SXZ
     */
     .filters =  {
+        {RIG_MODE_ALL, RIG_FLT_ANY},
 //        {RIG_MODE_SSB, kHz(2.2)},
 //        {RIG_MODE_CW, kHz(2.2)},
 //        {RIG_MODE_CWR, kHz(2.2)},
@@ -431,7 +431,7 @@ int ft857_close(RIG *rig)
 
 /* ---------------------------------------------------------------------- */
 
-static inline long timediff(struct timeval *tv1, struct timeval *tv2)
+static inline long timediff(const struct timeval *tv1, const struct timeval *tv2)
 {
     struct timeval tv;
 
@@ -581,7 +581,7 @@ static int ft857_send_cmd(RIG *rig, int index)
 /*
  * The same for incomplete commands.
  */
-static int ft857_send_icmd(RIG *rig, int index, unsigned char *data)
+static int ft857_send_icmd(RIG *rig, int index, const unsigned char *data)
 {
     unsigned char cmd[YAESU_CMD_LENGTH];
 
@@ -605,13 +605,23 @@ static int ft857_send_icmd(RIG *rig, int index, unsigned char *data)
 int ft857_get_vfo(RIG *rig, vfo_t *vfo)
 {
     unsigned char c;
+    static int ignore = 0;
     *vfo = RIG_VFO_B;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: called \n", __func__);
 
+    // Some 857's cannot read so we'll just return the cached value if we've seen an error
+    if (ignore)
+    {
+        *vfo = rig->state.cache.vfo;
+        return RIG_OK;
+    }
+
     if (ft857_read_eeprom(rig, 0x0068, &c) < 0)   /* get vfo status */
     {
-        return -RIG_EPROTO;
+        ignore = 1;
+        *vfo = rig->state.cache.vfo;
+        return RIG_OK;
     }
 
     if ((c & 0x1) == 0) { *vfo = RIG_VFO_A; }
@@ -622,9 +632,10 @@ int ft857_get_vfo(RIG *rig, vfo_t *vfo)
 int ft857_set_vfo(RIG *rig, vfo_t vfo)
 {
     vfo_t curvfo;
-    int retval =  ft857_get_vfo(rig, &curvfo);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s: called \n", __func__);
+
+    int retval =  ft857_get_vfo(rig, &curvfo);
 
     if (retval != RIG_OK)
     {
@@ -662,7 +673,7 @@ int ft857_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
     return -RIG_OK;
 }
 
-static void get_mode(RIG *rig, struct ft857_priv_data *priv, rmode_t *mode,
+static void get_mode(RIG *rig, const struct ft857_priv_data *priv, rmode_t *mode,
                      pbwidth_t *width)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s: called \n", __func__);
@@ -936,7 +947,6 @@ int ft857_get_dcd(RIG *rig, vfo_t vfo, dcd_t *dcd)
 int ft857_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     unsigned char data[YAESU_CMD_LENGTH - 1];
-    int retval;
     int i;
     ptt_t ptt = RIG_PTT_ON;
 
@@ -947,7 +957,7 @@ int ft857_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     // cannot set freq while PTT is on
     for (i = 0; i < 10 && ptt == RIG_PTT_ON; ++i)
     {
-        retval = rig_get_ptt(rig, vfo, &ptt);
+        int retval = ft857_get_ptt(rig, vfo, &ptt);
 
         if (retval != RIG_OK) { return retval; }
 

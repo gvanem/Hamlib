@@ -18,19 +18,20 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
 #include <hamlib/config.h>
+
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
 #include "misc.h"
-#include "cal.h"
-#include "token.h"
 
 #include "icom.h"
 #include "icom_defs.h"
@@ -52,7 +53,7 @@ const struct confparams opto_ext_parms[] =
 };
 
 static int optoscan_get_status_block(RIG *rig, struct optostat *status_block);
-static int optoscan_send_freq(RIG *rig, vfo_t vfo, pltstate_t *state);
+static int optoscan_send_freq(RIG *rig, vfo_t vfo, const pltstate_t *state);
 static int optoscan_RTS_toggle(RIG *rig);
 static int optoscan_start_timer(RIG *rig, pltstate_t *state);
 static int optoscan_wait_timer(RIG *rig, pltstate_t *state);
@@ -72,7 +73,7 @@ int optoscan_open(RIG *rig)
     rs = &rig->state;
     priv = (struct icom_priv_data *)rs->priv;
 
-    pltstate = malloc(sizeof(pltstate_t));
+    pltstate = calloc(1, sizeof(pltstate_t));
 
     if (!pltstate)
     {
@@ -766,7 +767,7 @@ static int optoscan_get_status_block(RIG *rig, struct optostat *status_block)
 }
 
 
-static int optoscan_send_freq(RIG *rig, vfo_t vfo, pltstate_t *state)
+static int optoscan_send_freq(RIG *rig, vfo_t vfo, const pltstate_t *state)
 {
     unsigned char buff[OPTO_BUFF_SIZE];
     char md, pd;

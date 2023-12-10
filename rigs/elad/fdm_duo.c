@@ -20,13 +20,10 @@
  *
  */
 
-#include <hamlib/config.h>
-
-#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <hamlib/rig.h>
-#include "idx_builtin.h"
 #include "elad.h"
 
 #define FDM_DUO_ALL_MODES (RIG_MODE_AM|RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_FM|RIG_MODE_RTTY|RIG_MODE_RTTYR)
@@ -331,19 +328,19 @@ static struct elad_priv_caps fdm_duo_priv_caps =
  * Notice that some rigs share the same functions.
  * Also this struct is READONLY!
  */
-const struct rig_caps fdm_duo_caps =
+struct rig_caps fdm_duo_caps =
 {
     RIG_MODEL(RIG_MODEL_ELAD_FDM_DUO),
     .model_name = "FDM-DUO",
     .mfg_name = "ELAD",
     .version = BACKEND_VER ".0",
     .copyright = "LGPL",
-    .status = RIG_STATUS_ALPHA,
+    .status = RIG_STATUS_STABLE,
     .rig_type = RIG_TYPE_TRANSCEIVER,
     .ptt_type = RIG_PTT_RIG_MICDATA,
     .dcd_type = RIG_DCD_RIG,
     .port_type = RIG_PORT_SERIAL,
-    .serial_rate_min = 4800,
+    .serial_rate_min = 9600,
     .serial_rate_max = 115200,
     .serial_data_bits = 8,
     .serial_stop_bits = 1,

@@ -165,8 +165,6 @@ static enum
 /* Avoid depending on library functions or files
    whose names are inconsistent.  */
 
-char *getenv();
-
 static char *
 my_index(str, chr)
 const char *str;
@@ -223,7 +221,7 @@ exchange(argv)
 char **argv;
 {
     int nonopts_size = (last_nonopt - first_nonopt) * sizeof(char *);
-    char **temp = (char **) malloc(nonopts_size);
+    char **temp = (char **) calloc(1, nonopts_size);
 
     /* Interchange the two blocks of data in ARGV.  */
 

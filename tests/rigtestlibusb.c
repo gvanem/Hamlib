@@ -22,11 +22,12 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 */
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include "config.h"
 #if defined(HAVE_LIBUSB_H)
-#include "libusb.h"
+#include <libusb.h>
 #elif defined(HAVE_LIBUSB_1_0_LIBUSB_H)
 #include <libusb-1.0/libusb.h>
 #endif
@@ -97,7 +98,7 @@ static void print_altsetting(const struct libusb_interface_descriptor
     }
 }
 
-static void print_2_0_ext_cap(struct libusb_usb_2_0_extension_descriptor
+static void print_2_0_ext_cap(const struct libusb_usb_2_0_extension_descriptor
                               *usb_2_0_ext_cap)
 {
     printf("    USB 2.0 Extension Capabilities:\n");
@@ -106,7 +107,7 @@ static void print_2_0_ext_cap(struct libusb_usb_2_0_extension_descriptor
     printf("      bmAttributes:          %08xh\n", usb_2_0_ext_cap->bmAttributes);
 }
 
-static void print_ss_usb_cap(struct libusb_ss_usb_device_capability_descriptor
+static void print_ss_usb_cap(const struct libusb_ss_usb_device_capability_descriptor
                              *ss_usb_cap)
 {
     printf("    USB 3.0 Capabilities:\n");
@@ -354,11 +355,10 @@ static int test_wrapped_device(const char *device_name)
 }
 #endif
 
-int main(int argc, char *argv[])
+int main(int argc, const char *argv[])
 {
     const char *device_name = NULL;
     libusb_device **devs;
-    ssize_t cnt;
     int r, i;
 
     for (i = 1; i < argc; i++)
@@ -393,6 +393,7 @@ int main(int argc, char *argv[])
     }
     else
     {
+        ssize_t cnt;
         cnt = libusb_get_device_list(NULL, &devs);
 
         if (cnt < 0)

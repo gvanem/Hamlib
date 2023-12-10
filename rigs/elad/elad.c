@@ -21,8 +21,8 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#include <hamlib/config.h>
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>  /* String function definitions */
@@ -31,7 +31,6 @@
 #include <ctype.h>
 
 #include "hamlib/rig.h"
-#include "network.h"
 #include "serial.h"
 #include "misc.h"
 #include "register.h"
@@ -166,7 +165,7 @@ const struct confparams elad_cfg_params[] =
 int elad_transaction(RIG *rig, const char *cmdstr, char *data, size_t datasize)
 {
     struct elad_priv_data *priv = rig->state.priv;
-    struct elad_priv_caps *caps = elad_caps(rig);
+    const struct elad_priv_caps *caps = elad_caps(rig);
     struct rig_state *rs;
     int retval;
     char cmdtrm[2];  /* Default Command/Reply termination char */
@@ -203,7 +202,7 @@ transaction_write:
 
         len = strlen(cmdstr);
 
-        cmd = malloc(len + 2);
+        cmd = calloc(1, len + 2);
 
         if (cmd == NULL)
         {
@@ -515,7 +514,7 @@ int elad_init(RIG *rig)
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    rig->state.priv = malloc(sizeof(struct elad_priv_data));
+    rig->state.priv = calloc(1, sizeof(struct elad_priv_data));
 
     if (rig->state.priv == NULL)
     {
@@ -699,7 +698,7 @@ int elad_open(RIG *rig)
 
 int elad_close(RIG *rig)
 {
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = rig->state.priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -735,7 +734,7 @@ int elad_get_id(RIG *rig, char *buf)
 static int elad_get_if(RIG *rig)
 {
     struct elad_priv_data *priv = rig->state.priv;
-    struct elad_priv_caps *caps = elad_caps(rig);
+    const struct elad_priv_caps *caps = elad_caps(rig);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -754,7 +753,7 @@ int elad_set_vfo(RIG *rig, vfo_t vfo)
     char cmdbuf[6];
     int retval;
     char vfo_function;
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = rig->state.priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -904,6 +903,8 @@ int elad_get_vfo_main_sub(RIG *rig, vfo_t *vfo)
  */
 int elad_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
 {
+    // this is a bogus suppress which complains priv is not used -- but it is 20231012
+    // cppcheck-suppress unreadVariable
     struct elad_priv_data *priv = rig->state.priv;
     char cmdbuf[6];
     int retval;
@@ -914,12 +915,19 @@ int elad_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     retval = elad_get_split_vfo_if(rig, vfo, &tsplit, &tvfo);
+    if (retval != RIG_OK)
+    {
+        return retval;
+    }
 
     if (split == tsplit)
     {
-        rig_debug(RIG_DEBUG_TRACE, "%s: No change detected...ignoring request\n", __func__);
+        rig_debug(RIG_DEBUG_TRACE, "%s: No change detected...ignoring request\n",
+                  __func__);
     }
-    rig_debug(RIG_DEBUG_TRACE, "%s: Change detected requested split %d!=%d\n", __func__, split, tsplit);
+
+    rig_debug(RIG_DEBUG_TRACE, "%s: Change detected requested split %d!=%d\n",
+              __func__, split, tsplit);
 
     if (split)
     {
@@ -975,6 +983,10 @@ int elad_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
     }
 
     retval = elad_set_split(rig, vfo, split, txvfo);
+    if (retval != RIG_OK)
+    {
+        return retval;
+    }
     /* Remember whether split is on, for elad_set_vfo */
     priv->split = split;
 
@@ -1168,7 +1180,7 @@ int elad_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     unsigned char vfo_letter = '\0';
     vfo_t tvfo;
     int err;
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = rig->state.priv;
 
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -1205,7 +1217,6 @@ int elad_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
         return -RIG_EINVAL;
     }
 
-    // cppcheck-suppress *
     SNPRINTF(freqbuf, sizeof(freqbuf), "F%c%011"PRIll, vfo_letter, (int64_t)freq);
 
     err = elad_transaction(rig, freqbuf, NULL, 0);
@@ -1255,7 +1266,7 @@ int elad_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
 int elad_get_freq_if(RIG *rig, vfo_t vfo, freq_t *freq)
 {
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = rig->state.priv;
     char freqbuf[50];
     int retval;
 
@@ -1355,7 +1366,7 @@ int elad_get_rit(RIG *rig, vfo_t vfo, shortfreq_t *rit)
 {
     int retval;
     char buf[6];
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = rig->state.priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -1488,7 +1499,7 @@ static int elad_set_filter(RIG *rig, pbwidth_t width)
  */
 int elad_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = rig->state.priv;
     struct elad_priv_caps *caps = elad_caps(rig);
     char buf[6];
     char kmode;
@@ -1809,7 +1820,7 @@ int elad_get_mode_if(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
     int err;
     struct elad_priv_caps *caps = elad_caps(rig);
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = rig->state.priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -2457,7 +2468,7 @@ int elad_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
  */
 int elad_set_ctcss_tone(RIG *rig, vfo_t vfo, tone_t tone)
 {
-    const struct rig_caps *caps;
+    struct rig_caps *caps;
     char tonebuf[16];
     int i;
 
@@ -2487,7 +2498,7 @@ int elad_set_ctcss_tone(RIG *rig, vfo_t vfo, tone_t tone)
 
 int elad_set_ctcss_tone_tn(RIG *rig, vfo_t vfo, tone_t tone)
 {
-    const struct rig_caps *caps = rig->caps;
+    struct rig_caps *caps = rig->caps;
     char buf[16];
     int i;
 
@@ -2548,8 +2559,8 @@ int elad_set_ctcss_tone_tn(RIG *rig, vfo_t vfo, tone_t tone)
  */
 int elad_get_ctcss_tone(RIG *rig, vfo_t vfo, tone_t *tone)
 {
-    struct elad_priv_data *priv = rig->state.priv;
-    const struct rig_caps *caps;
+    const struct elad_priv_data *priv = rig->state.priv;
+    struct rig_caps *caps;
     char tonebuf[3];
     int i, retval;
     unsigned int tone_idx;
@@ -2626,7 +2637,7 @@ int elad_get_ctcss_tone(RIG *rig, vfo_t vfo, tone_t *tone)
 
 int elad_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
 {
-    const struct rig_caps *caps = rig->caps;
+    struct rig_caps *caps = rig->caps;
     char buf[16];
     int i;
 
@@ -2682,7 +2693,7 @@ int elad_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
 
 int elad_get_ctcss_sql(RIG *rig, vfo_t vfo, tone_t *tone)
 {
-    const struct rig_caps *caps;
+    struct rig_caps *caps;
     char cmd[4];
     char tonebuf[6];
     int offs;
@@ -3352,7 +3363,7 @@ int elad_get_mem_if(RIG *rig, vfo_t vfo, int *ch)
 {
     int err;
     char buf[4];
-    struct elad_priv_data *priv = rig->state.priv;
+    const struct elad_priv_data *priv = rig->state.priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -3681,6 +3692,7 @@ DECLARE_PROBERIG_BACKEND(elad)
     int retval = -1;
     int rates[] = { 115200, 57600, 38400, 19200, 9600, 4800, 1200, 0 }; /* possible baud rates */
     int rates_idx;
+    idbuf[0] = 0;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 

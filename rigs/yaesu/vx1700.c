@@ -28,16 +28,11 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
-#include "idx_builtin.h"
 #include "hamlib/rig.h"
-#include "bandplan.h"
 #include "serial.h"
 #include "misc.h"
 #include "yaesu.h"
@@ -212,7 +207,7 @@ struct vx1700_priv_data
         .width   = 1,   \
 }
 
-const struct rig_caps vx1700_caps =
+struct rig_caps vx1700_caps =
 {
     RIG_MODEL(RIG_MODEL_VX1700),
     .model_name =  "VX-1700",
@@ -242,7 +237,6 @@ const struct rig_caps vx1700_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran =  {
-        // cppcheck-suppress *
         [LVL_RFPOWER] = { .min = { .i = 0 }, .max = { .i = 2 } },
     },
     .parm_gran =  { 0 },
@@ -405,7 +399,7 @@ static int vx1700_do_transaction(RIG *rig,
  *              ci      Command index of the ncmd table
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 static int vx1700_do_static_cmd(RIG *rig, unsigned char ci)
 {
@@ -432,7 +426,7 @@ static int vx1700_do_static_cmd(RIG *rig, unsigned char ci)
  *              p1-p4   Command parameters
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 static int vx1700_do_dynamic_cmd(RIG *rig, unsigned char ci,
                                  unsigned char p1, unsigned char p2,
@@ -765,7 +759,7 @@ static const char *vx1700_get_info(RIG *rig)
 
 static int vx1700_set_vfo(RIG *rig, vfo_t vfo)
 {
-    struct vx1700_priv_data *priv = (struct vx1700_priv_data *)rig->state.priv;
+    const struct vx1700_priv_data *priv = (struct vx1700_priv_data *)rig->state.priv;
 
     rig_debug(RIG_DEBUG_TRACE, "%s, vfo=%s\n", __func__, rig_strvfo(vfo));
 
@@ -1132,7 +1126,7 @@ static int vx1700_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 static int vx1700_set_mem(RIG *rig, vfo_t vfo, int ch)
 {
     struct vx1700_priv_data *priv = (struct vx1700_priv_data *)rig->state.priv;
-    struct rig_state *state = &rig->state;
+    const struct rig_state *state = &rig->state;
 
     if (! vx1700_channel_is_ok(ch)) { return -RIG_EINVAL; }
 
@@ -1155,7 +1149,7 @@ static int vx1700_set_mem(RIG *rig, vfo_t vfo, int ch)
 static int vx1700_get_mem(RIG *rig, vfo_t vfo, int *ch)
 {
     struct vx1700_priv_data *priv = (struct vx1700_priv_data *)rig->state.priv;
-    struct rig_state        *state = &rig->state;
+    const struct rig_state        *state = &rig->state;
     unsigned char       channel = 0;
 
     if (vfo == RIG_VFO_CURR) { vfo = state->current_vfo; }
@@ -1184,7 +1178,7 @@ static int vx1700_get_mem(RIG *rig, vfo_t vfo, int *ch)
 
 static int vx1700_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
 {
-    struct vx1700_priv_data *priv = (struct vx1700_priv_data *)rig->state.priv;
+    const struct vx1700_priv_data *priv = (struct vx1700_priv_data *)rig->state.priv;
 
     (void) rig;
     (void) vfo;

@@ -18,20 +18,13 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
 #include "misc.h"
-#include "cal.h"
-#include "register.h"
-#include "token.h"
 
 #include "ra37xx.h"
 
@@ -75,7 +68,7 @@ const struct confparams ra37xx_cfg_params[] =
 static int ra37xx_one_transaction(RIG *rig, const char *cmd, char *data,
                                   int *data_len)
 {
-    struct ra37xx_priv_data *priv = (struct ra37xx_priv_data *)rig->state.priv;
+    const struct ra37xx_priv_data *priv = (struct ra37xx_priv_data *)rig->state.priv;
     struct rig_state *rs = &rig->state;
     char cmdbuf[BUFSZ];
     char respbuf[BUFSZ];
@@ -221,7 +214,7 @@ int ra37xx_init(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    rig->state.priv = (struct ra37xx_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct ra37xx_priv_data *)calloc(1, sizeof(
                           struct ra37xx_priv_data));
 
     if (!rig->state.priv)
@@ -296,7 +289,7 @@ int ra37xx_set_conf(RIG *rig, token_t token, const char *val)
  */
 int ra37xx_get_conf2(RIG *rig, token_t token, char *val, int val_len)
 {
-    struct ra37xx_priv_data *priv = (struct ra37xx_priv_data *)rig->state.priv;
+    const struct ra37xx_priv_data *priv = (struct ra37xx_priv_data *)rig->state.priv;
 
     switch (token)
     {

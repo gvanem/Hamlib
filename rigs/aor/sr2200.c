@@ -21,14 +21,10 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <string.h>
 #include <hamlib/rig.h>
 #include "serial.h"
-#include "idx_builtin.h"
-#include "misc.h"
 #include "aor.h"
 
 #define SR2200_MODES (RIG_MODE_AM|RIG_MODE_FM|RIG_MODE_WFM)
@@ -123,7 +119,7 @@ static const struct aor_priv_caps sr2200_priv_caps =
  *
  * TODO: retrieve BW info, and rest of commands
  */
-const struct rig_caps sr2200_caps =
+struct rig_caps sr2200_caps =
 {
     RIG_MODEL(RIG_MODEL_SR2200),
     .model_name = "SR2200",

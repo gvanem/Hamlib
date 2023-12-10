@@ -19,13 +19,10 @@
  *
  */
 
-#include <hamlib/config.h>
-
-#include <stdlib.h>
-
 #include "hamlib/rig.h"
 #include "icom.h"
 #include "idx_builtin.h"
+#include "tones.h"
 
 #define ICR6_MODES (RIG_MODE_AM|RIG_MODE_FM|RIG_MODE_WFM)
 
@@ -54,7 +51,7 @@ static struct icom_priv_caps icr6_priv_caps =
     .ant_count = 2
 };
 
-const struct rig_caps icr6_caps =
+struct rig_caps icr6_caps =
 {
     RIG_MODEL(RIG_MODEL_ICR6),
     .model_name = "IC-R6",
@@ -83,7 +80,6 @@ const struct rig_caps icr6_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .parm_gran =  { 0 },
@@ -120,6 +116,8 @@ const struct rig_caps icr6_caps =
     .tuning_steps =     {
         {ICR6_MODES, Hz(5000)},
         {ICR6_MODES, Hz(6250)},
+        {ICR6_MODES, Hz(8330)}, // Air band only
+        {ICR6_MODES, Hz(9000)}, // AM broadcast band only
         {ICR6_MODES, Hz(10000)},
         {ICR6_MODES, Hz(12500)},
         {ICR6_MODES, kHz(15)},
@@ -130,10 +128,6 @@ const struct rig_caps icr6_caps =
         {ICR6_MODES, kHz(100)},
         {ICR6_MODES, kHz(125)},
         {ICR6_MODES, kHz(200)},
-        /* Air band only */
-        {ICR6_MODES, Hz(8330)},
-        /* AM broadcast band only */
-        {ICR6_MODES, Hz(9000)},
         RIG_TS_END,
     },
 

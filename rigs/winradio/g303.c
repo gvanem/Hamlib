@@ -19,7 +19,7 @@
  *
  */
 
-#include <stdlib.h>
+#include <hamlib/config.h>
 
 #include <hamlib/rig.h>
 #include "winradio.h"
@@ -120,7 +120,7 @@ struct g3_priv_data
 };
 
 
-const struct rig_caps g303_caps =
+struct rig_caps g303_caps =
 {
     RIG_MODEL(RIG_MODEL_G303),
     .model_name =     "WR-G303",
@@ -191,7 +191,7 @@ int g3_init(RIG *rig)
 {
     struct g3_priv_data *priv;
 
-    rig->state.priv = (struct g3_priv_data *)malloc(sizeof(struct g3_priv_data));
+    rig->state.priv = (struct g3_priv_data *)calloc(1, sizeof(struct g3_priv_data));
 
     if (!rig->state.priv)
     {

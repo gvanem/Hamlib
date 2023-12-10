@@ -18,18 +18,15 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
 #include "idx_builtin.h"
 #include "misc.h"
-#include "aor.h"
 
 
 static int ar3030_set_vfo(RIG *rig, vfo_t vfo);
@@ -96,7 +93,7 @@ struct ar3030_priv_data
  *
  * ar3030 rig capabilities.
  */
-const struct rig_caps ar3030_caps =
+struct rig_caps ar3030_caps =
 {
     RIG_MODEL(RIG_MODEL_AR3030),
     .model_name = "AR3030",
@@ -283,7 +280,7 @@ int ar3030_init(RIG *rig)
 {
     struct ar3030_priv_data *priv;
 
-    rig->state.priv = malloc(sizeof(struct ar3030_priv_data));
+    rig->state.priv = calloc(1, sizeof(struct ar3030_priv_data));
 
     if (!rig->state.priv)
     {
@@ -359,7 +356,7 @@ int ar3030_set_vfo(RIG *rig, vfo_t vfo)
 
 int ar3030_get_vfo(RIG *rig, vfo_t *vfo)
 {
-    struct ar3030_priv_data *priv = (struct ar3030_priv_data *)rig->state.priv;
+    const struct ar3030_priv_data *priv = (struct ar3030_priv_data *)rig->state.priv;
 
     *vfo = priv->curr_vfo;
 
@@ -799,7 +796,6 @@ int ar3030_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
                   rig_passband_normal(rig, chan->mode);
 
 
-    // cppcheck-suppress *
     chan->levels[LVL_ATT].i = infobuf[6] == '0' ? 0 :
                               rig->caps->attenuator[infobuf[4] - '1'];
 

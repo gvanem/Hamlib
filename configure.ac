@@ -14,7 +14,9 @@ dnl Please do not use '-' in the version number, as package managers will fail,
 dnl however, the use of '~' should be fine as apt (others?) will treat
 dnl it as an earlier version than the actual release.  TNX KA6MAL
 dnl PACKAGE_NAME + " " + PACKAGE_VERSION must not exceed 20 chars!
-AC_INIT([Hamlib],[4.5~git],[hamlib-developer@lists.sourceforge.net],[hamlib],[http://www.hamlib.org])
+AC_INIT([Hamlib],[4.6~git],[hamlib-developer@lists.sourceforge.net],[hamlib],[http://www.hamlib.org])
+#AC_INIT([PRODUCT_NAME], [Hamlib])
+#AC_DEFINE([Hamlib], [PRODUCT_VERSION_RESOURCE])
 
 AC_CONFIG_SRCDIR([include/hamlib/rig.h])
 AC_CONFIG_MACRO_DIR([macros])
@@ -41,27 +43,48 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 ## ------------------------------ ##
 ## Hamlib specific configuration. ##
 ## ------------------------------ ##
+AC_ARG_ENABLE([shared],
+              [AS_HELP_STRING([--enable-shared],
+                              [Enable shared libraries @<:@default=yes@:>@])],
+              [enable_shared=$enableval],
+              [enable_shared=yes])
+AC_ARG_ENABLE([static],
+              [AS_HELP_STRING([--enable-static],
+                              [Enable static libraries @<:@default=check@:>@])],
+              [enable_static=$enableval],
+              [enable_static=check])
+
+AS_IF([test "x$enable_static" = "xyes"], [
+    enable_shared=no
+])
+AS_IF([test "x$enable_static" = "xyes" && test "x$enable_shared" = "xyes"], [
+    AC_MSG_ERROR([Both --enable-static and --enable-shared cannot be enabled at the same time.])
+])
 
 dnl New backends must be listed here!  Also the new Makefile path must be
 dnl added to AC_CONFIG_FILES near the end of this file.  See README.developer
 dnl Beware of duplication should a backend directory include both rig and
 dnl rotor definitions, e.g. "dummy".  Optional backends will not be listed
 dnl here but will be added later, e.g. "winradio".
-RIG_BACKEND_LIST="rigs/adat rigs/alinco rigs/aor rigs/barrett rigs/codan rigs/dorji rigs/drake rigs/dummy rigs/elad rigs/flexradio rigs/icom rigs/icmarine rigs/jrc rigs/kachina rigs/kenwood rigs/kit rigs/lowe rigs/pcr rigs/prm80 rigs/racal rigs/rft rigs/rs rigs/skanti rigs/tapr rigs/tentec rigs/tuner rigs/uniden rigs/winradio rigs/wj rigs/yaesu rigs/gomspace"
-ROT_BACKEND_LIST="rotators/amsat rotators/ars rotators/celestron rotators/cnctrk rotators/grbltrk rotators/easycomm rotators/ether6 rotators/fodtrack rotators/gs232a rotators/heathkit rotators/m2 rotators/meade rotators/rotorez rotators/sartek rotators/spid rotators/ts7400 rotators/prosistel rotators/ioptron rotators/satel rotators/radant"
+RIG_BACKEND_LIST="rigs/adat rigs/alinco rigs/aor rigs/barrett rigs/codan rigs/dorji rigs/drake rigs/dummy rigs/elad rigs/flexradio rigs/icom rigs/icmarine rigs/jrc rigs/kachina rigs/kenwood rigs/kit rigs/lowe rigs/pcr rigs/prm80 rigs/racal rigs/rft rigs/rs rigs/skanti rigs/tapr rigs/tentec rigs/tuner rigs/uniden rigs/winradio rigs/wj rigs/yaesu rigs/gomspace rigs/mds rigs/anytone"
+ROT_BACKEND_LIST="rotators/amsat rotators/apex rotators/ars rotators/celestron rotators/cnctrk rotators/grbltrk rotators/easycomm rotators/ether6 rotators/flir rotators/fodtrack rotators/gs232a rotators/heathkit rotators/m2 rotators/meade rotators/rotorez rotators/sartek rotators/saebrtrack rotators/spid rotators/ts7400 rotators/prosistel rotators/ioptron rotators/satel rotators/radant"
 # Amplifiers are all in the amplifiers directory
-AMP_BACKEND_LIST="amplifiers/elecraft"
+AMP_BACKEND_LIST="amplifiers/elecraft amplifiers/gemini amplifiers/expert"
 
 dnl See README.release on setting these values
 # Values given to -version-info when linking.  See libtool documentation.
 # Set them here to keep c++/Makefile and src/Makefile in sync.
 ABI_VERSION=4
-ABI_REVISION=5
+ABI_REVISION=6
+ABI_PATCH=0
 ABI_AGE=0
 
 AC_DEFINE_UNQUOTED([ABI_VERSION], [$ABI_VERSION], [Frontend ABI version])
 AC_DEFINE_UNQUOTED([ABI_REVISION], [$ABI_REVISION], [Frontend ABI revision])
 AC_DEFINE_UNQUOTED([ABI_AGE], [$ABI_AGE], [Frontend ABI age])
+AC_DEFINE_UNQUOTED([ABI_VERSION_MAJOR], [$ABI_VERSION], [Frontend Major version])
+AC_DEFINE_UNQUOTED([ABI_VERSION_MINOR], [$ABI_REVISION], [Frontend Minor version])
+AC_DEFINE_UNQUOTED([ABI_VERSION_PATCH], [$ABI_PATCH], [Frontend Patch version])
 
 AC_SUBST([ABI_VERSION])
 AC_SUBST([ABI_REVISION])
@@ -71,7 +94,7 @@ AC_SUBST([ABI_AGE])
 AM_CPPFLAGS="${AM_CPPFLAGS} -DIN_HAMLIB"
 
 # Add Hamlib header include paths
-AM_CPPFLAGS="${AM_CPPFLAGS} -I\$(top_srcdir)/include -I\$(top_srcdir)/src -I\$(top_srcdir)/lib -I\$(top_builddir)/include"
+AM_CPPFLAGS="${AM_CPPFLAGS} -I\$(top_srcdir)/include -I\$(top_srcdir)/src -I\$(top_srcdir)/lib -I\$(top_builddir)/include  -I\$(top_srcdir)/include/hamlib"
 
 
 ## --------------- ##
@@ -218,7 +241,17 @@ AC_CHECK_FUNC([gethostbyname],
 	      [],
 	      [AC_CHECK_LIB([ws2_32],
 			    [main],
-			    [NET_LIBS="$NET_LIBS -lws2_32"],
+			    [NET_LIBS="$NET_LIBS -lws2_32 -liphlpapi"],
+			    [],
+			    [])
+	      ])
+
+# Winsock2 32 bit
+AC_CHECK_FUNC([timeBeginPeriod],
+	      [],
+	      [AC_CHECK_LIB([winmm],
+			    [main],
+			    [NET_LIBS="$NET_LIBS -lwinmm"],
 			    [],
 			    [])
 	      ])
@@ -260,6 +293,7 @@ LT_PREREQ([2.2.6b])
 dnl N.B. LT_INIT([win32-dll]) does not work for older libtool
 dnl so require new enough version above.
 LT_INIT([win32-dll])
+LT_LANG([Windows Resource])
 
 
 ## -------------------------- ##
@@ -267,9 +301,10 @@ LT_INIT([win32-dll])
 ## -------------------------- ##
 
 dnl The host_os variable is set by the AC_CANONICAL_HOST macro above.
+AM_CONDITIONAL([VERSIONDLL], false)
 AS_CASE(["$host_os"],
     [freebsd*], [
-	AM_CPPFLAGS="-I/usr/local/include ${AM_CPPFLAGS}"
+	AM_CPPFLAGS="${AM_CPPFLAGS} -I/usr/local/include"
 	AM_LDFLAGS="${AM_LDFLAGS} -L/usr/local/lib"
 	AC_SUBST([AM_LDFLAGS])],
 
@@ -281,7 +316,9 @@ AS_CASE(["$host_os"],
 	AC_SUBST([OSXLDFLAGS])],
 
     [mingw* | pw32* | cygwin*], [
+	AM_CONDITIONAL([VERSIONDLL], true)
 	WINLDFLAGS="-Wl,--output-def,libhamlib.def -Wl,--add-stdcall-alias"
+    VERSIONDLL="version_dll.rc"
 	AC_SUBST([WINLDFLAGS])
 
 	# Enable ld's "auto import" for executables
@@ -362,12 +399,14 @@ AS_IF([test x"$ax_cv_lib_readline" = "xno"], [
 
 dnl Check if INDI support in rigctl/rotctl is wanted
 AC_MSG_CHECKING([whether to use INDI in rigctl/rotctl])
-AC_ARG_WITH([indi],
-    [AS_HELP_STRING([--without-indi],
-	[disable INDI in rigctl/rotctl @<:@default=yes@:>@])],
-	[cf_with_indi_support=no],
-	[cf_with_indi_support=yes]
+#AS_IF([test x"${cf_with_cxx_binding}" = "xyes"], [
+    AC_ARG_WITH([indi],
+        [AS_HELP_STRING([--without-indi],
+    	[disable INDI in rigctl/rotctl @<:@default=yes@:>@])],
+    	[cf_with_indi_support=yes],
+    	[cf_with_indi_support=no]
     )
+#])
 
 AS_IF([test x"$cf_with_indi_support" != "xno"], [
     # INDI support needs a C++ compiler, tested for presence above.
@@ -694,6 +733,15 @@ AC_ARG_ENABLE([winradio],
 	      [cf_with_winradio="yes" AC_DEFINE([HAVE_WINRADIO],[1],[Define if winradio backend is built])])
 AC_MSG_RESULT([$cf_with_winradio])
 
+dnl Parallel port device disable
+AC_MSG_CHECKING([whether to build parallel port devices])
+AC_ARG_ENABLE([parallel],
+	      [AS_HELP_STRING([--disable-parallel],
+			      [do not build parallel devices @<:@default=yes@:>@])],
+	      [cf_with_parallel="no"],
+	      [cf_with_parallel="yes" AC_DEFINE([HAVE_PARALLEL],[1],[Define if parallel devices are to be built])])
+AC_MSG_RESULT([$cf_with_parallel])
+
 DL_LIBS=""
 
 AS_IF([test x"${cf_with_winradio}" = "xyes"],
@@ -828,12 +876,14 @@ bindings/Makefile
 doc/Makefile
 doc/hamlib.cfg
 rotators/amsat/Makefile
+rotators/apex/Makefile
 rotators/ars/Makefile
 rotators/celestron/Makefile
 rotators/cnctrk/Makefile
 rotators/grbltrk/Makefile
 rotators/easycomm/Makefile
 rotators/ether6/Makefile
+rotators/flir/Makefile
 rotators/fodtrack/Makefile
 rotators/gs232a/Makefile
 rotators/heathkit/Makefile
@@ -843,6 +893,7 @@ rotators/meade/Makefile
 rotators/prosistel/Makefile
 rotators/rotorez/Makefile
 rotators/sartek/Makefile
+rotators/saebrtrack/Makefile
 rotators/spid/Makefile
 rotators/ts7400/Makefile
 rotators/indi/Makefile
@@ -879,10 +930,14 @@ rigs/winradio/Makefile
 rigs/wj/Makefile
 rigs/yaesu/Makefile
 rigs/gomspace/Makefile
+rigs/mds/Makefile
+rigs/anytone/Makefile
 tests/Makefile
 scripts/Makefile
 android/Makefile
 amplifiers/elecraft/Makefile
+amplifiers/gemini/Makefile
+amplifiers/expert/Makefile
 simulators/Makefile
 hamlib.pc
 ])
@@ -911,6 +966,7 @@ echo \
 
     Enable HTML rig feature matrix  ${cf_enable_html_matrix}
     Enable WinRadio		    ${cf_with_winradio}
+    Enable Parallel		    ${cf_with_parallel}
     Enable USRP 		    ${cf_with_usrp}
     Enable USB backends 	    ${cf_with_libusb}
     Enable shared libs		    ${enable_shared}

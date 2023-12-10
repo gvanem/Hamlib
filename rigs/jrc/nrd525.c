@@ -19,8 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <string.h>
 
@@ -56,7 +54,7 @@ static int nrd525_set_mem(RIG *rig, vfo_t vfo, int ch);
  * NRD-525 rig capabilities.
  *
  */
-const struct rig_caps nrd525_caps =
+struct rig_caps nrd525_caps =
 {
     RIG_MODEL(RIG_MODEL_NRD525),
     .model_name = "NRD-525",

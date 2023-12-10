@@ -25,7 +25,7 @@
 #define G313_FUNC  RIG_FUNC_NONE
 #define G313_LEVEL (RIG_LEVEL_ATT | RIG_LEVEL_AGC | RIG_LEVEL_RF | RIG_LEVEL_STRENGTH | RIG_LEVEL_RAWSTR)
 
-#define G313_MODES (RIG_MODE_NONE)
+#define G313_MODES (RIG_MODE_USB)
 
 #if defined (_WIN32) || !defined(OTHER_POSIX)
 
@@ -58,8 +58,6 @@ const struct confparams g313_cfg_params[] =
 
 #define G313_FUNC  RIG_FUNC_NONE
 #define G313_LEVEL (RIG_LEVEL_ATT | RIG_LEVEL_AGC | RIG_LEVEL_RF | RIG_LEVEL_STRENGTH | RIG_LEVEL_RAWSTR)
-
-#define G313_MODES (RIG_MODE_NONE)
 
 static int g313_init(RIG *rig);
 static int g313_cleanup(RIG *rig);
@@ -159,7 +157,7 @@ struct g313_priv_data
 };
 
 
-const struct rig_caps g313_caps =
+struct rig_caps g313_caps =
 {
     RIG_MODEL(RIG_MODEL_G313),
     .model_name =     "WR-G313",
@@ -234,7 +232,7 @@ int g313_init(RIG *rig)
 {
     struct g313_priv_data *priv;
 
-    rig->state.priv = (struct g313_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct g313_priv_data *)calloc(1, sizeof(
                           struct g313_priv_data));
 
     if (!rig->state.priv)
@@ -699,7 +697,7 @@ int g313_set_conf(RIG *rig, token_t token, const char *val)
 
 int g313_get_conf2(RIG *rig, token_t token, char *val, int val_len)
 {
-    struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
+    const struct g313_priv_data *priv = (struct g313_priv_data *)rig->state.priv;
 
     switch (token)
     {

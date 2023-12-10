@@ -21,10 +21,7 @@
  *  the complete text of the GNU Lesser Public License version 2.1.
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
-#include <string.h>
 
 #include <hamlib/rig.h>
 #include "kenwood.h"
@@ -66,7 +63,7 @@ static int transfox_get_level(RIG *rig, vfo_t vfo, setting_t level,
  *
  * Part of info comes from http://www.sigfox-system.com/TransFox-FE?lang=en
  */
-const struct rig_caps transfox_caps =
+struct rig_caps transfox_caps =
 {
     RIG_MODEL(RIG_MODEL_TRANSFOX),
     .model_name =       "Transfox",

@@ -19,13 +19,10 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <stdio.h>
 #include "hamlib/rig.h"
 
-#include "kit.h"
 #include "serial.h"
 #include "token.h"
 
@@ -91,7 +88,7 @@ static int drt1_get_conf(RIG *rig, token_t token, char *val);
  * The receiver is controlled via the TX, RTS and DTR pins of the serial port.
  */
 
-const struct rig_caps drt1_caps =
+struct rig_caps drt1_caps =
 {
     RIG_MODEL(RIG_MODEL_DRT1),
     .model_name = "DRT1",
@@ -171,7 +168,7 @@ int drt1_init(RIG *rig)
 {
     struct drt1_priv_data *priv;
 
-    rig->state.priv = (struct drt1_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct drt1_priv_data *)calloc(1, sizeof(
                           struct drt1_priv_data));
 
     if (!rig->state.priv)
@@ -322,7 +319,7 @@ static int ad_delay(int m)
 {
     long j;
 
-    for (j = 0; j <= m; j++);
+    for (j = 0; j <= m; j++) {}
 
     return j;
 }
@@ -341,7 +338,7 @@ static int ad_sdio(hamlib_port_t *port, int i)
     return ret;
 }
 
-static int ad_sclk(hamlib_port_t *port, int i)
+static int ad_sclk(const hamlib_port_t *port, int i)
 {
     int ret;
 
@@ -401,7 +398,7 @@ static int ad_write_reg(hamlib_port_t *port, unsigned addr, unsigned nb_bytes,
     return RIG_OK;
 }
 
-/* Register serial adresses */
+/* Register serial addresses */
 #define CFR1    0x0
 #define CFR2    0x1
 #define ASF 0x2

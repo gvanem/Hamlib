@@ -19,8 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -68,7 +66,7 @@
  *  - set/get_channels
  */
 
-const struct rig_caps xk2100_caps =
+struct rig_caps xk2100_caps =
 {
     RIG_MODEL(RIG_MODEL_XK2100),
     .model_name = "XK2100",
@@ -135,6 +133,12 @@ const struct rig_caps xk2100_caps =
         RIG_FRNG_END,
     },
     .tx_range_list2 = {RIG_FRNG_END,},
+
+    .tuning_steps =     {
+        // Rem: no support for changing tuning step
+        {RIG_MODE_ALL, 1},
+        RIG_TS_END,
+    },
 
     /*
     .tuning_steps =  {

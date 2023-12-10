@@ -22,16 +22,13 @@
 
 #include "winradio.h"   /* config.h */
 
-#include <stdlib.h>
 #include <string.h>  /* String function definitions */
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
-#include "misc.h"
 #include "register.h"
 
 
@@ -42,6 +39,8 @@
 #include <linradio/radio_ioctl.h>
 
 #define DEFAULT_WINRADIO_PATH "/dev/winradio0"
+
+#define WINRADIO_MODES RIG_MODE_AM | RIG_MODE_CW | RIG_MODE_LSB | RIG_MODE_USB | RIG_MODE_WFM | RIG_MODE_FM
 
 int wr_rig_init(RIG *rig)
 {

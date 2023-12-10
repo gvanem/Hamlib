@@ -19,22 +19,46 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 
 #include <hamlib/rig.h>
 #include "misc.h"
-
+#include "riglist.h"
 #include "sprintflst.h"
 #include "rigctl_parse.h"
+#include "../rigs/icom/icom.h"
+#include "dumpcaps.h"
 
 void range_print(FILE *fout, const struct freq_range_list range_list[], int rx);
 int range_sanity_check(const struct freq_range_list range_list[], int rx);
 int ts_sanity_check(const struct tuning_step_list tuning_step[]);
 static void dump_chan_caps(const channel_cap_t *chan, FILE *fout);
+
+struct rig_type_s
+{
+    int type;
+    char *description;
+};
+
+struct rig_type_s rig_type[] =
+{
+    {RIG_TYPE_OTHER, "Other"},
+    {RIG_FLAG_RECEIVER, "Receiver"},
+    {RIG_FLAG_TRANSMITTER, "Transmitter"},
+    {RIG_FLAG_SCANNER, "Scanner"},
+    {RIG_FLAG_MOBILE, "Mobile"},
+    {RIG_FLAG_HANDHELD, "Handheld"},
+    {RIG_FLAG_COMPUTER, "Computer"},
+    {RIG_FLAG_TRANSCEIVER, "Transceiver"},
+    {RIG_FLAG_TRUNKING, "Trunking scanner"},
+    {RIG_FLAG_APRS, "APRS"},
+    {RIG_FLAG_TNC, "TNC"},
+    {RIG_FLAG_DXCLUSTER, "DxCluster"},
+    {RIG_FLAG_DXCLUSTER, "DxCluster"},
+    {RIG_FLAG_TUNER, "Tuner"},
+    {-1, "?\n"}
+};
 
 static int print_ext(RIG *rig, const struct confparams *cfp, rig_ptr_t ptr)
 {
@@ -51,9 +75,13 @@ int dumpcaps(RIG *rig, FILE *fout)
     int can_esplit, can_echannel;
     char freqbuf[20];
     int backend_warnings = 0;
-    static char prntbuf[1024];  /* a malloc would be better.. */
+    char warnbuf[4096];
+    char prntbuf[2048];  /* a malloc would be better.. */
     char *label1, *label2, *label3, *label4, *label5;
     char *labelrx1; // , *labelrx2, *labelrx3, *labelrx4, *labelrx5;
+
+    warnbuf[0] = 0;
+    prntbuf[0] = 0;
 
     if (!rig || !rig->caps)
     {
@@ -65,55 +93,28 @@ int dumpcaps(RIG *rig, FILE *fout)
     fprintf(fout, "Caps dump for model: %u\n", caps->rig_model);
     fprintf(fout, "Model name:\t%s\n", caps->model_name);
     fprintf(fout, "Mfg name:\t%s\n", caps->mfg_name);
+    fprintf(fout, "Hamlib version:\t%s\n", hamlib_version2);
     fprintf(fout, "Backend version:\t%s\n", caps->version);
     fprintf(fout, "Backend copyright:\t%s\n", caps->copyright);
     fprintf(fout, "Backend status:\t%s\n", rig_strstatus(caps->status));
     fprintf(fout, "Rig type:\t");
 
-    switch (caps->rig_type & RIG_TYPE_MASK)
+    char *unknown = "Unknown";
+
+    for (i = 0; rig_type[i].type != -1; ++i)
     {
-    case RIG_TYPE_TRANSCEIVER:
-        fprintf(fout, "Transceiver\n");
-        break;
+        if ((rig_type[i].type & caps->rig_type) == rig_type[i].type)
+        {
+            fprintf(fout, "%s ", rig_type[i].description);
+            unknown = "";
+        }
+    }
 
-    case RIG_TYPE_HANDHELD:
-        fprintf(fout, "Handheld\n");
-        break;
+    fprintf(fout, "%s\n", unknown);
 
-    case RIG_TYPE_MOBILE:
-        fprintf(fout, "Mobile\n");
-        break;
-
-    case RIG_TYPE_RECEIVER:
-        fprintf(fout, "Receiver\n");
-        break;
-
-    case RIG_TYPE_PCRECEIVER:
-        fprintf(fout, "PC Receiver\n");
-        break;
-
-    case RIG_TYPE_SCANNER:
-        fprintf(fout, "Scanner\n");
-        break;
-
-    case RIG_TYPE_TRUNKSCANNER:
-        fprintf(fout, "Trunking scanner\n");
-        break;
-
-    case RIG_TYPE_COMPUTER:
-        fprintf(fout, "Computer\n");
-        break;
-
-    case RIG_TYPE_TUNER:
-        fprintf(fout, "Tuner\n");
-        break;
-
-    case RIG_TYPE_OTHER:
-        fprintf(fout, "Other\n");
-        break;
-
-    default:
-        fprintf(fout, "Unknown\n");
+    if (strlen(unknown) > 0)
+    {
+        strcat(warnbuf, " RIG_TYPE");
         backend_warnings++;
     }
 
@@ -147,6 +148,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     default:
         fprintf(fout, "Unknown\n");
+        strcat(warnbuf, " PTT_TYPE");
         backend_warnings++;
     }
 
@@ -180,6 +182,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     default:
         fprintf(fout, "Unknown\n");
+        strcat(warnbuf, " DCD_TYPE");
         backend_warnings++;
     }
 
@@ -190,7 +193,7 @@ int dumpcaps(RIG *rig, FILE *fout)
     case RIG_PORT_SERIAL:
         fprintf(fout, "RS-232\n");
         fprintf(fout,
-                "Serial speed: %d..%d bauds, %d%c%d %s\n",
+                "Serial speed: %d..%d baud, %d%c%d, ctrl=%s\n",
                 caps->serial_rate_min,
                 caps->serial_rate_max,
                 caps->serial_data_bits,
@@ -199,7 +202,7 @@ int dumpcaps(RIG *rig, FILE *fout)
                 caps->serial_parity == RIG_PARITY_EVEN ? 'E' :
                 caps->serial_parity == RIG_PARITY_MARK ? 'M' : 'S',
                 caps->serial_stop_bits,
-                caps->serial_handshake == RIG_HANDSHAKE_NONE ? "" :
+                caps->serial_handshake == RIG_HANDSHAKE_NONE ? "NONE" :
                 (caps->serial_handshake == RIG_HANDSHAKE_XONXOFF ? "XONXOFF" : "CTS/RTS")
                );
         break;
@@ -230,14 +233,15 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     default:
         fprintf(fout, "Unknown\n");
+        strcat(warnbuf, " PORT_TYPE");
         backend_warnings++;
     }
 
     fprintf(fout,
-            "Write delay: %dmS, timeout %dmS, %d retry\n",
+            "Write delay: %dms, timeout %dms, %d retry\n",
             caps->write_delay, caps->timeout, caps->retry);
     fprintf(fout,
-            "Post Write delay: %dmS\n",
+            "Post write delay: %dms\n",
             caps->post_write_delay);
 
     fprintf(fout,
@@ -291,21 +295,32 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     fprintf(fout, "\n");
 
-    fprintf(fout, "AGC levels:");
 
-    for (i = 0; i < HAMLIB_MAX_AGC_LEVELS && i < caps->agc_level_count; i++)
+    fprintf(fout, "AGC levels:");
+    const struct icom_priv_caps *priv_caps =
+        (const struct icom_priv_caps *) rig->caps->priv;
+
+    if (priv_caps && RIG_BACKEND_NUM(rig->caps->rig_model) == RIG_ICOM
+            && priv_caps->agc_levels_present)
     {
-        fprintf(fout, " %d=%s", caps->agc_levels[i],
-                rig_stragclevel(caps->agc_levels[i]));
+        for (i = 0; i < HAMLIB_MAX_AGC_LEVELS && priv_caps->agc_levels[i].level != RIG_AGC_LAST ; i++)
+        {
+            fprintf(fout, " %d=%s", priv_caps->agc_levels[i].level,
+                    rig_stragclevel(priv_caps->agc_levels[i].level));
+        }
+    }
+    else
+    {
+        for (i = 0; i < HAMLIB_MAX_AGC_LEVELS && i < caps->agc_level_count; i++)
+        {
+            fprintf(fout, " %d=%s", caps->agc_levels[i],
+                    rig_stragclevel(caps->agc_levels[i]));
+        }
     }
 
     if (i == 0)
     {
-        // Fall back to printing out all levels for backwards-compatibility
-        for (i = RIG_AGC_OFF; i <= RIG_AGC_LAST; i++)
-        {
-            fprintf(fout, " %d=%s", i, rig_stragclevel(i));
-        }
+        fprintf(fout, " %d=%s", RIG_AGC_NONE, rig_stragclevel(RIG_AGC_NONE));
     }
 
     fprintf(fout, "\n");
@@ -368,6 +383,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
         fprintf(fout,
                 "Warning--backend has get RAWSTR, but not calibration data\n");
+        strcat(warnbuf, " RAWSTR_level");
         backend_warnings++;
     }
 
@@ -380,6 +396,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
         //fprintf(fout, "Warning--backend can set readonly levels=0x%0llx\n", caps->has_set_level & RIG_LEVEL_READONLY_LIST);
         fprintf(fout, "Warning--backend can set readonly levels\n");
+        strcat(warnbuf, " READONLY_LEVEL");
         backend_warnings++;
     }
 
@@ -397,6 +414,7 @@ int dumpcaps(RIG *rig, FILE *fout)
     if (caps->has_set_parm & RIG_PARM_READONLY_LIST)
     {
         fprintf(fout, "Warning--backend can set readonly parms!\n");
+        strcat(warnbuf, " READONLY_PARM");
         backend_warnings++;
     }
 
@@ -411,6 +429,7 @@ int dumpcaps(RIG *rig, FILE *fout)
     else
     {
         strcpy(prntbuf, "None. This backend might be bogus!\n");
+        strcat(warnbuf, " MODE_LIST");
         backend_warnings++;
     }
 
@@ -423,6 +442,7 @@ int dumpcaps(RIG *rig, FILE *fout)
     else
     {
         strcpy(prntbuf, "None. This backend might be bogus!\n");
+        strcat(warnbuf, " VFO_LIST");
         backend_warnings++;
     }
 
@@ -515,6 +535,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " TX#1");
         backend_warnings++;
     }
 
@@ -526,6 +547,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " RX#1");
         backend_warnings++;
     }
 
@@ -537,6 +559,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " TX#2");
         backend_warnings++;
     }
 
@@ -548,6 +571,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " RX#2");
         backend_warnings++;
     }
 
@@ -559,6 +583,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " TX#3");
         backend_warnings++;
     }
 
@@ -570,6 +595,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " RX#3");
         backend_warnings++;
     }
 
@@ -581,6 +607,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " TX#4");
         backend_warnings++;
     }
 
@@ -592,6 +619,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " RX#4");
         backend_warnings++;
     }
 
@@ -603,6 +631,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " TX#5");
         backend_warnings++;
     }
 
@@ -614,6 +643,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " RX#5");
         backend_warnings++;
     }
 
@@ -637,6 +667,7 @@ int dumpcaps(RIG *rig, FILE *fout)
     if (i == 0)
     {
         fprintf(fout, " None! This backend might be bogus!");
+        strcat(warnbuf, " TUNING_STEPS");
         backend_warnings++;
     }
 
@@ -646,6 +677,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " TUNING_SANE");
         backend_warnings++;
     }
 
@@ -669,6 +701,7 @@ int dumpcaps(RIG *rig, FILE *fout)
     if (i == 0)
     {
         fprintf(fout, " None. This backend might be bogus!");
+        strcat(warnbuf, " FILTERS");
         backend_warnings++;
     }
 
@@ -682,7 +715,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
         if (pbnorm == 0)
         {
-//            continue;
+            continue;
         }
 
         sprintf_freq(freqbuf, sizeof(freqbuf), pbnorm);
@@ -856,6 +889,8 @@ int dumpcaps(RIG *rig, FILE *fout)
     fprintf(fout, "Can send DTMF:\t%c\n", caps->send_dtmf != NULL ? 'Y' : 'N');
     fprintf(fout, "Can recv DTMF:\t%c\n", caps->recv_dtmf != NULL ? 'Y' : 'N');
     fprintf(fout, "Can send Morse:\t%c\n", caps->send_morse != NULL ? 'Y' : 'N');
+    fprintf(fout, "Can stop Morse:\t%c\n", caps->stop_morse != NULL ? 'Y' : 'N');
+    fprintf(fout, "Can wait Morse:\t%c\n", caps->wait_morse != NULL ? 'Y' : 'N');
     fprintf(fout, "Can send Voice:\t%c\n",
             caps->send_voice_mem != NULL ? 'Y' : 'N');
 
@@ -887,7 +922,8 @@ int dumpcaps(RIG *rig, FILE *fout)
     fprintf(fout, "Can get power2mW:\t%c\n", caps->power2mW != NULL ? 'Y' : 'N');
     fprintf(fout, "Can get mW2power:\t%c\n", caps->mW2power != NULL ? 'Y' : 'N');
 
-    fprintf(fout, "\nOverall backend warnings: %d\n", backend_warnings);
+    fprintf(fout, "\nOverall backend warnings: %d %c %s\n", backend_warnings,
+            warnbuf[0] != 0 ? '=' : ' ', warnbuf);
 
     return backend_warnings;
 }
@@ -1001,7 +1037,8 @@ int range_sanity_check(const struct freq_range_list range_list[], int rx)
         }
         else
         {
-            if (!(range_list[i].low_power > 0 && range_list[i].high_power > 0))
+            if (!(range_list[i].low_power >= RIG_FREQ_NONE
+                    && range_list[i].high_power >= RIG_FREQ_NONE))
             {
                 return -3;
             }
@@ -1200,5 +1237,17 @@ int dumpconf(RIG *rig, FILE *fout)
     fprintf(fout, "model: %s\n", rig->caps->model_name);
     rig_token_foreach(rig, print_conf_list, (rig_ptr_t)rig);
 
+    return 0;
+}
+
+int dumpconf_list(RIG *rig, FILE *fout)
+{
+    rig_token_foreach(rig, print_conf_list2, (rig_ptr_t)rig);
+    return 0;
+}
+
+int dumpconf_list_rot(ROT *rot, FILE *fout)
+{
+    rot_token_foreach(rot, print_conf_list2, rot);
     return 0;
 }

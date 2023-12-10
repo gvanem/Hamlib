@@ -22,19 +22,15 @@
 #ifndef _INDI_WRAPPER_HPP
 #define _INDI_WRAPPER_HPP 1
 
-#ifdef HAVE_INDIBASE_LAYOUT    /* Another layout of 'libindi' headers */
-  #include <indibase/basedevice.h>
-  #include <indibase/baseclient.h>
-#else
-  #include <libindi/basedevice.h>
-  #include <libindi/baseclient.h>
-#endif
+#include <libindi/basedevice.h>
+#include <libindi/baseclient.h>
 
 #include <hamlib/rotator.h>
 
 class RotINDIClient : public INDI::BaseClient
 {
 public:
+    RotINDIClient() {};
     int setSpeed(int speedPercent);
     int move(int direction, int speedPercent);
     int stop();

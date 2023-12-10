@@ -19,23 +19,15 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <math.h>
 
 #include <hamlib/rig.h>
-#include <serial.h>
-#include <misc.h>
-#include <cal.h>
 #include <token.h>
 #include <register.h>
 
 #include "idx_builtin.h"
-#include "bandplan.h"
 
 #include "icm710.h"
 #include "icmarine.h"
@@ -65,7 +57,7 @@ static const struct icm710_priv_caps icm710_priv_caps =
 };
 
 
-const struct rig_caps icm710_caps =
+struct rig_caps icm710_caps =
 {
     RIG_MODEL(RIG_MODEL_IC_M710),
     .model_name = "IC-M710",
@@ -94,7 +86,6 @@ const struct rig_caps icm710_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 8 } },
     },
     .parm_gran =  { 0 },
@@ -260,7 +251,7 @@ int icm710_init(RIG *rig)
 {
     struct icm710_priv_data *priv;
     const struct icm710_priv_caps *priv_caps;
-    const struct rig_caps *caps;
+    struct rig_caps *caps;
 
     if (!rig || !rig->caps)
     {

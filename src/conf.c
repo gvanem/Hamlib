@@ -36,7 +36,6 @@
 #include <stdarg.h>
 #include <stdio.h>   /* Standard input/output definitions */
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include <hamlib/rig.h>
 #include "token.h"
@@ -63,12 +62,22 @@ static const struct confparams frontend_cfg_params[] =
         "0", RIG_CONF_NUMERIC, { .n = { 0, 1000, 1 } }
     },
     {
+        TOK_POST_PTT_DELAY, "post_ptt_delay", "Post ptt delay",
+        "Delay in ms after PTT is asserted",
+        "0", RIG_CONF_NUMERIC, { .n = { 0, 2000, 1 } } // 2000ms should be more than enough
+    },
+    {
         TOK_TIMEOUT, "timeout", "Timeout", "Timeout in ms",
         "0", RIG_CONF_NUMERIC, { .n = { 0, 10000, 1 } }
     },
     {
         TOK_RETRY, "retry", "Retry", "Max number of retry",
         "0", RIG_CONF_NUMERIC, { .n = { 0, 10, 1 } }
+    },
+    {
+        TOK_TIMEOUT_RETRY, "timeout_retry", "Number of retries for read timeouts",
+        "Set the # of retries for read timeouts that may occur with some serial interfaces",
+        "1", RIG_CONF_NUMERIC, { .n = { 0, 100, 1 } }
     },
     {
         TOK_RANGE_SELECTED, "Selected range list", "Range list#",
@@ -80,6 +89,11 @@ static const struct confparams frontend_cfg_params[] =
         "The tx/rx range list name",
         "Default", RIG_CONF_STRING
     },
+    {
+        TOK_DEVICE_ID, "device_id", "Device ID",
+        "User-specified device ID for multicast state data and commands",
+        "", RIG_CONF_STRING,
+    },
 
     {
         TOK_VFO_COMP, "vfo_comp", "VFO compensation",
@@ -87,9 +101,9 @@ static const struct confparams frontend_cfg_params[] =
         "0", RIG_CONF_NUMERIC, { .n = { 0.0, 1000.0, .001 } }
     },
     {
-        TOK_POLL_INTERVAL, "poll_interval", "Rig state poll interval in milliseconds",
-        "Polling interval in milliseconds for transceive emulation, value of 0 disables polling",
-        "0", RIG_CONF_NUMERIC, { .n = { 0, 1000000, 1 } }
+        TOK_POLL_INTERVAL, "poll_interval", "Rig state poll interval in ms",
+        "Polling interval in ms for transceive emulation, defaults to 1000, value of 0 disables polling",
+        "1000", RIG_CONF_NUMERIC, { .n = { 0, 1000000, 1 } }
     },
     {
         TOK_PTT_TYPE, "ptt_type", "PTT type",
@@ -98,7 +112,7 @@ static const struct confparams frontend_cfg_params[] =
     },
     {
         TOK_PTT_PATHNAME, "ptt_pathname", "PTT path name",
-        "Path name to the device file of the Push-To-Talk",
+        "Path to the device of the Push-To-Talk",
         "/dev/rig", RIG_CONF_STRING,
     },
     {
@@ -113,7 +127,7 @@ static const struct confparams frontend_cfg_params[] =
     },
     {
         TOK_DCD_PATHNAME, "dcd_pathname", "DCD path name",
-        "Path name to the device file of the Data Carrier Detect (or squelch)",
+        "Path to the device of the Data Carrier Detect (or squelch)",
         "/dev/rig", RIG_CONF_STRING,
     },
     {
@@ -168,8 +182,43 @@ static const struct confparams frontend_cfg_params[] =
     },
     {
         TOK_ASYNC, "async", "Asynchronous data transfer support",
-        "True enables asynchronous data transfer for backends that support it. This allows use of transceive and spectrum data.",
+        "True enables async data for rigs that support it to allow use of transceive and spectrum data",
         "0", RIG_CONF_CHECKBUTTON, { 0 }
+    },
+    {
+        TOK_TUNER_CONTROL_PATHNAME, "tuner_control_pathname", "Tuner script/program path name",
+        "Path to a program to control a tuner with 1 argument of 0/1 for Tuner Off/On",
+        "hamlib_tuner_control", RIG_CONF_STRING,
+    },
+    {
+        TOK_OFFSET_VFOA, "offset_vfoa", "Offset value in Hz",
+        "Add Hz to VFOA/Main frequency set",
+        "0", RIG_CONF_NUMERIC, { .n = {0, 1e12, 1}}
+    },
+    {
+        TOK_OFFSET_VFOB, "offset_vfob", "Offset value in Hz",
+        "Add Hz to VFOB/Sub frequency set",
+        "0", RIG_CONF_NUMERIC, { .n = {0, 1e12, 1}}
+    },
+    {
+        TOK_MULTICAST_DATA_ADDR, "multicast_data_addr", "Multicast data UDP address",
+        "Multicast data UDP address for publishing rig data and state, value of 0.0.0.0 disables multicast data publishing",
+        "224.0.0.1", RIG_CONF_STRING,
+    },
+    {
+        TOK_MULTICAST_DATA_PORT, "multicast_data_port", "Multicast data UDP port",
+        "Multicast data UDP port for publishing rig data and state",
+        "4532", RIG_CONF_NUMERIC, { .n = { 0, 1000000, 1 } }
+    },
+    {
+        TOK_MULTICAST_CMD_ADDR, "multicast_cmd_addr", "Multicast command server UDP address",
+        "Multicast command UDP address for sending commands to rig, value of 0.0.0.0 disables multicast command server",
+        "224.0.0.2", RIG_CONF_STRING,
+    },
+    {
+        TOK_MULTICAST_CMD_PORT, "multicast_cmd_port", "Multicast command server UDP port",
+        "Multicast data UDP port for sending commands to rig",
+        "4532", RIG_CONF_NUMERIC, { .n = { 0, 1000000, 1 } }
     },
 
     { RIG_CONF_END, NULL, }
@@ -178,44 +227,7 @@ static const struct confparams frontend_cfg_params[] =
 
 static const struct confparams frontend_serial_cfg_params[] =
 {
-    {
-        TOK_SERIAL_SPEED, "serial_speed", "Serial speed",
-        "Serial port baud rate",
-        "0", RIG_CONF_NUMERIC, { .n = { 300, 115200, 1 } }
-    },
-    {
-        TOK_DATA_BITS, "data_bits", "Serial data bits",
-        "Serial port data bits",
-        "8", RIG_CONF_NUMERIC, { .n = { 5, 8, 1 } }
-    },
-    {
-        TOK_STOP_BITS, "stop_bits", "Serial stop bits",
-        "Serial port stop bits",
-        "1", RIG_CONF_NUMERIC, { .n = { 0, 3, 1 } }
-    },
-    {
-        TOK_PARITY, "serial_parity", "Serial parity",
-        "Serial port parity",
-        "None", RIG_CONF_COMBO, { .c = {{ "None", "Odd", "Even", "Mark", "Space", NULL }} }
-    },
-    {
-        TOK_HANDSHAKE, "serial_handshake", "Serial handshake",
-        "Serial port handshake",
-        "None", RIG_CONF_COMBO, { .c = {{ "None", "XONXOFF", "Hardware", NULL }} }
-    },
-
-    {
-        TOK_RTS_STATE, "rts_state", "RTS state",
-        "Serial port set state of RTS signal for external powering",
-        "Unset", RIG_CONF_COMBO, { .c = {{ "Unset", "ON", "OFF", NULL }} }
-    },
-    {
-        TOK_DTR_STATE, "dtr_state", "DTR state",
-        "Serial port set state of DTR signal for external powering",
-        "Unset", RIG_CONF_COMBO, { .c = {{ "Unset", "ON", "OFF", NULL }} }
-    },
-
-    { RIG_CONF_END, NULL, }
+#include "serial_cfg_params.h"
 };
 
 
@@ -225,9 +237,9 @@ static const struct confparams frontend_serial_cfg_params[] =
  */
 static int frontend_set_conf(RIG *rig, token_t token, const char *val)
 {
-    const struct rig_caps *caps;
+    struct rig_caps *caps;
     struct rig_state *rs;
-    int val_i;
+    long val_i;
 
     caps = rig->caps;
     rs = &rig->state;
@@ -240,7 +252,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         break;
 
     case TOK_WRITE_DELAY:
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL;//value format error
         }
@@ -250,17 +262,25 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         break;
 
     case TOK_POST_WRITE_DELAY:
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL;//value format error
         }
 
         rs->rigport.post_write_delay = val_i;
-        rs->rigport_deprecated.timeout = val_i;
+        rs->rigport_deprecated.post_write_delay = val_i;
+        break;
+
+    case TOK_POST_PTT_DELAY:
+        if (1 != sscanf(val, "%ld", &val_i))
+        {
+	  return -RIG_EINVAL;
+        }
+        rs->post_ptt_delay = val_i;
         break;
 
     case TOK_TIMEOUT:
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL;//value format error
         }
@@ -270,7 +290,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         break;
 
     case TOK_RETRY:
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL;//value format error
         }
@@ -285,7 +305,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
             return -RIG_EINVAL;
         }
 
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL;//value format error
         }
@@ -300,7 +320,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
             return -RIG_EINVAL;
         }
 
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL;//value format error
         }
@@ -315,7 +335,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
             return -RIG_EINVAL;
         }
 
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL;//value format error
         }
@@ -365,6 +385,9 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
     case TOK_HANDSHAKE:
         if (rs->rigport.type.rig != RIG_PORT_SERIAL)
         {
+            rig_debug(RIG_DEBUG_ERR,
+                      "%s: setting handshake is invalid for non-serial port rig type\n",
+                      __func__);
             return -RIG_EINVAL;
         }
 
@@ -447,7 +470,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         break;
 
     case TOK_RANGE_SELECTED:
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL;//value format error
         }
@@ -499,26 +522,32 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         if (!strcmp(val, "RIG"))
         {
             rs->pttport.type.ptt = RIG_PTT_RIG;
+            caps->ptt_type = RIG_PTT_RIG;
         }
         else if (!strcmp(val, "RIGMICDATA"))
         {
             rs->pttport.type.ptt = RIG_PTT_RIG_MICDATA;
+            caps->ptt_type = RIG_PTT_RIG_MICDATA;
         }
         else if (!strcmp(val, "DTR"))
         {
             rs->pttport.type.ptt = RIG_PTT_SERIAL_DTR;
+            caps->ptt_type = RIG_PTT_SERIAL_DTR;
         }
         else if (!strcmp(val, "RTS"))
         {
             rs->pttport.type.ptt = RIG_PTT_SERIAL_RTS;
+            caps->ptt_type = RIG_PTT_SERIAL_RTS;
         }
         else if (!strcmp(val, "Parallel"))
         {
             rs->pttport.type.ptt = RIG_PTT_PARALLEL;
+            caps->ptt_type = RIG_PTT_PARALLEL;
         }
         else if (!strcmp(val, "CM108"))
         {
             rs->pttport.type.ptt = RIG_PTT_CM108;
+            caps->ptt_type = RIG_PTT_CM108;
         }
         else if (!strcmp(val, "GPIO"))
         {
@@ -527,10 +556,12 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         else if (!strcmp(val, "GPION"))
         {
             rs->pttport.type.ptt = RIG_PTT_GPION;
+            caps->ptt_type = RIG_PTT_GPION;
         }
         else if (!strcmp(val, "None"))
         {
             rs->pttport.type.ptt = RIG_PTT_NONE;
+            caps->ptt_type = RIG_PTT_NONE;
         }
         else
         {
@@ -549,12 +580,13 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         break;
 
     case TOK_PTT_BITNUM:
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL;//value format error
         }
 
         rs->pttport.parm.cm108.ptt_bitnum = val_i;
+        rs->rigport.parm.cm108.ptt_bitnum = val_i;
         rs->pttport_deprecated.parm.cm108.ptt_bitnum = val_i;
         break;
 
@@ -616,13 +648,21 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         strncpy(rs->dcdport_deprecated.pathname, val, HAMLIB_FILPATHLEN - 1);
         break;
 
+    case TOK_DEVICE_ID:
+        strncpy(rs->device_id, val, HAMLIB_RIGNAMSIZ - 1);
+        break;
+
 
     case TOK_VFO_COMP:
         rs->vfo_comp = atof(val);
         break;
 
     case TOK_POLL_INTERVAL:
-        rs->poll_interval = atof(val);
+        if (1 != sscanf(val, "%ld", &val_i))
+        {
+            return -RIG_EINVAL;
+        }
+        rs->poll_interval = val_i;
         // Make sure cache times out before next poll cycle
         rig_set_cache_timeout_ms(rig, HAMLIB_CACHE_ALL, atol(val));
         break;
@@ -636,7 +676,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         break;
 
     case TOK_AUTO_POWER_ON:
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL; //value format error
         }
@@ -645,7 +685,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         break;
 
     case TOK_AUTO_POWER_OFF:
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL; //value format error
         }
@@ -654,7 +694,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         break;
 
     case TOK_AUTO_DISABLE_SCREENSAVER:
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL; //value format error
         }
@@ -663,7 +703,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         break;
 
     case TOK_DISABLE_YAESU_BANDSELECT:
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL; //value format error
         }
@@ -672,7 +712,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         break;
 
     case TOK_PTT_SHARE:
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL; //value format error
         }
@@ -681,7 +721,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         break;
 
     case TOK_FLUSHX:
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL; //value format error
         }
@@ -690,7 +730,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         break;
 
     case TOK_TWIDDLE_TIMEOUT:
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL; //value format error
         }
@@ -699,7 +739,7 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         break;
 
     case TOK_TWIDDLE_RIT:
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL; //value format error
         }
@@ -708,12 +748,71 @@ static int frontend_set_conf(RIG *rig, token_t token, const char *val)
         break;
 
     case TOK_ASYNC:
-        if (1 != sscanf(val, "%d", &val_i))
+        if (1 != sscanf(val, "%ld", &val_i))
         {
             return -RIG_EINVAL; //value format error
         }
 
         rs->async_data_enabled = val_i ? 1 : 0;
+        break;
+
+    case TOK_TUNER_CONTROL_PATHNAME:
+        rs->tuner_control_pathname = strdup(val); // yeah -- need to free it
+        break;
+
+    case TOK_TIMEOUT_RETRY:
+        if (1 != sscanf(val, "%ld", &val_i))
+        {
+            return -RIG_EINVAL;
+        }
+
+        rs->rigport.timeout_retry = val_i;
+        break;
+
+    case TOK_OFFSET_VFOA:
+        if (1 != sscanf(val, "%ld", &val_i))
+        {
+            return -RIG_EINVAL; //value format error
+        }
+
+        rs->offset_vfoa = val_i;
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: offset_vfoa=%ld\n", __func__, val_i);
+        break;
+
+    case TOK_OFFSET_VFOB:
+        if (1 != sscanf(val, "%ld", &val_i))
+        {
+            return -RIG_EINVAL; //value format error
+        }
+
+        rs->offset_vfob = val_i;
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: offset_vfob=%ld\n", __func__, val_i);
+        break;
+
+    case TOK_MULTICAST_DATA_ADDR:
+        rs->multicast_data_addr = strdup(val);
+        break;
+
+    case TOK_MULTICAST_DATA_PORT:
+        if (1 != sscanf(val, "%ld", &val_i))
+        {
+            return -RIG_EINVAL;
+        }
+
+        rs->multicast_data_port = val_i;
+        break;
+
+    case TOK_MULTICAST_CMD_ADDR:
+        rs->multicast_cmd_addr = strdup(val);
+        break;
+
+    case TOK_MULTICAST_CMD_PORT:
+        if (1 != sscanf(val, "%ld", &val_i))
+        {
+            return -RIG_EINVAL;
+        }
+
+        rs->multicast_cmd_port = val_i;
         break;
 
     default:
@@ -747,6 +846,10 @@ static int frontend_get_conf2(RIG *rig, token_t token, char *val, int val_len)
 
     case TOK_POST_WRITE_DELAY:
         SNPRINTF(val, val_len, "%d", rs->rigport.post_write_delay);
+        break;
+
+    case TOK_POST_PTT_DELAY:
+        SNPRINTF(val, val_len, "%d", rs->post_ptt_delay);
         break;
 
     case TOK_TIMEOUT:
@@ -830,6 +933,9 @@ static int frontend_get_conf2(RIG *rig, token_t token, char *val, int val_len)
     case TOK_HANDSHAKE:
         if (rs->rigport.type.rig != RIG_PORT_SERIAL)
         {
+            rig_debug(RIG_DEBUG_ERR,
+                      "%s: getting handshake is invalid for non-serial port rig type\n",
+                      __func__);
             return -RIG_EINVAL;
         }
 
@@ -906,6 +1012,10 @@ static int frontend_get_conf2(RIG *rig, token_t token, char *val, int val_len)
         }
 
         strcpy(val, s);
+        break;
+
+    case TOK_DEVICE_ID:
+        SNPRINTF(val, val_len, "%s", rs->device_id);
         break;
 
     case TOK_VFO_COMP:
@@ -1064,6 +1174,26 @@ static int frontend_get_conf2(RIG *rig, token_t token, char *val, int val_len)
         SNPRINTF(val, val_len, "%d", rs->async_data_enabled);
         break;
 
+    case TOK_TIMEOUT_RETRY:
+        SNPRINTF(val, val_len, "%d", rs->rigport.timeout_retry);
+        break;
+
+    case TOK_MULTICAST_DATA_ADDR:
+        SNPRINTF(val, val_len, "%s", rs->multicast_data_addr);
+        break;
+
+    case TOK_MULTICAST_DATA_PORT:
+        SNPRINTF(val, val_len, "%d", rs->multicast_data_port);
+        break;
+
+    case TOK_MULTICAST_CMD_ADDR:
+        SNPRINTF(val, val_len, "%s", rs->multicast_cmd_addr);
+        break;
+
+    case TOK_MULTICAST_CMD_PORT:
+        SNPRINTF(val, val_len, "%d", rs->multicast_cmd_port);
+        break;
+
     default:
         return -RIG_EINVAL;
     }
@@ -1202,7 +1332,7 @@ const struct confparams *HAMLIB_API rig_confparam_lookup(RIG *rig,
  * \param rig   The rig handle
  * \param name  The name of the configuration parameter
  *
- * Simple lookup returning token id assicated with name.
+ * Simple lookup returning token id associated with name.
  *
  * \return the token id if found, otherwise RIG_CONF_END
  */
@@ -1239,11 +1369,20 @@ token_t HAMLIB_API rig_token_lookup(RIG *rig, const char *name)
  */
 int HAMLIB_API rig_set_conf(RIG *rig, token_t token, const char *val)
 {
+    struct rig_state *rs = &rig->state;
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     if (!rig || !rig->caps)
     {
         return -RIG_EINVAL;
+    }
+
+    // Some parameters can be ignored
+    if (token == TOK_HANDSHAKE && (rs->rigport.type.rig != RIG_PORT_SERIAL))
+    {
+        rig_debug(RIG_DEBUG_WARN,
+                  "%s: handshake is not valid for non-serial port rig\n", __func__);
+        return RIG_OK; // this allows rigctld to continue and just print a warning instead of error
     }
 
     if (rig_need_debug(RIG_DEBUG_VERBOSE))

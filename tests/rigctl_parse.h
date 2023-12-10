@@ -36,7 +36,9 @@
  */
 
 int dumpcaps(RIG *, FILE *);
+int dumpstate(RIG *, FILE *);
 int dumpconf(RIG *, FILE *);
+int dumpconf_list(RIG *, FILE *);
 
 /*
  * Prototypes
@@ -46,6 +48,7 @@ void version();
 void list_models();
 int dump_chan(FILE *, RIG *, channel_t *);
 int print_conf_list(const struct confparams *cfp, rig_ptr_t data);
+int print_conf_list2(const struct confparams *cfp, rig_ptr_t data);
 int set_conf(RIG *my_rig, char *conf_parms);
 
 typedef void (*sync_cb_t)(int);

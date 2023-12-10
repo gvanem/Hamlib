@@ -35,19 +35,69 @@
  * \note parameters are same as man page for each
  *
  */
-#include <errno.h>
-#include <time.h>
 #include <unistd.h>
-
-#include "config.h"
+#include <errno.h>
+#include <pthread.h>
+#include "hamlib/config.h"
 #include "sleep.h"
 
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
+extern double monotonic_seconds();
+
+int hl_usleep(rig_useconds_t usec)
+{
+    double sleep_time = usec / 1e6;
+    struct timespec tv1, tv2;
+    double start_at = monotonic_seconds();
+    double end_at = start_at + sleep_time;
+    double delay = sleep_time;
+    double lasterr = 0;
+
+    if (sleep_time > .001) { delay -= .0001; }
+    else if (sleep_time > .0001) { delay -= .00005; }
+
+    tv1.tv_sec = (time_t) delay;
+    tv1.tv_nsec = (long)((delay - tv1.tv_sec) * 1e+9);
+    tv2.tv_sec = 0;
+    tv2.tv_nsec = 10;
+//    rig_debug(RIG_DEBUG_CACHE,"usec=%ld, sleep_time=%f, tv1=%ld,%ld\n", usec, sleep_time, (long)tv1.tv_sec,
+//           (long)tv1.tv_nsec);
+
+#ifdef __WIN32__
+    timeBeginPeriod(1);
+    nanosleep(&tv1, NULL);
+
+    while ((lasterr = end_at - monotonic_seconds()) > 0)
+    {
+        nanosleep(&tv2, NULL);
+    }
+
+    timeEndPeriod(1);
+#else
+    nanosleep(&tv1, NULL);
+
+    while (((lasterr = end_at - monotonic_seconds()) > 0))
+    {
+        nanosleep(&tv2, NULL);
+    }
+
+#endif
+    return 0;
+}
+
+#if 0
 // In order to stop the usleep warnings in cppcheck we provide our own interface
 // So this will use system usleep or our usleep depending on availability of nanosleep
 // This version of usleep can handle > 1000000 usec values
 int hl_usleep(rig_useconds_t usec)
 {
     int retval = 0;
+    rig_debug(RIG_DEBUG_ERR, "%s: usec=%ld\n", __func__, usec);
+
+    if (usec <= 1000) { return 0; } // dont' sleep if only 1ms is requested -- speeds things up on Windows
 
     while (usec > 1000000)
     {
@@ -57,10 +107,20 @@ int hl_usleep(rig_useconds_t usec)
         usec -= 1000000;
     }
 
+#ifdef HAVE_NANOSLEEP
+    struct timespec t, tleft;
+    t.tv_sec = usec / 1e6;
+    t.tv_nsec = (usec - (t.tv_sec * 1e6)) * 1e3;
+    return nanosleep(&t, &tleft);
+#else
     return usleep(usec);
+#endif
 }
+#endif
 
-#if defined(HAVE_NANOSLEEP) && !defined(HAVE_SLEEP)
+
+#ifdef HAVE_NANOSLEEP
+#ifndef HAVE_SLEEP
 /**
  * \brief sleep
  * \param secs is seconds to sleep
@@ -79,4 +139,66 @@ unsigned int sleep(unsigned int secs)
     return 0;
 }
 #endif
+
+
+#if 0
+/**
+ * \brief microsecond sleep
+ * \param usec is microseconds to sleep
+ * This does not have the same 1000000 limit as POSIX usleep
+ */
+int usleep(rig_useconds_t usec)
+{
+    int retval;
+    unsigned long sec = usec / 1000000ul;
+    unsigned long nsec = usec * 1000ul - (sec * 1000000000ul);
+    struct timespec t;
+    t.tv_sec = sec;
+    t.tv_nsec = nsec;
+    retval = nanosleep(&t, NULL);
+
+    // EINTR is the only error return usleep should need
+    // since EINVAL should not be a problem
+    if (retval == -1) { return EINTR; }
+
+    return 0;
+}
+#endif
+
+#endif // HAVE_NANOSLEEP
+#ifdef __cplusplus
+}
+#endif
 /** @} */
+
+#ifdef TEST
+#include "misc.h"
+// cppcheck-suppress unusedFunction
+double get_elapsed_time(struct tm start, struct tm end) {
+    // Convert struct tm to time_t
+    time_t start_seconds = mktime(&start);
+    time_t end_seconds = mktime(&end);
+
+    double elapsed_time = difftime(end_seconds, start_seconds);
+    return elapsed_time;
+}
+
+
+int main()
+{
+    //struct tm start_time, end_time;
+    time_t rawtime;
+
+    for (int i = 0; i < 11; ++i)
+    {
+        char buf[256];
+        time(&rawtime);
+        hl_usleep(1000000 * 1000); // test 1s sleep
+        date_strget(buf, sizeof(buf), 0);
+        printf("%s\n", buf);
+        time(&rawtime);
+    }
+
+    return 0;
+}
+#endif

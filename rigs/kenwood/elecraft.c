@@ -24,11 +24,12 @@
  */
 
 #include <string.h>
-#include <stdlib.h>
+#include <stdio.h>
 
 #include "serial.h"
 #include "elecraft.h"
 #include "kenwood.h"
+#include "misc.h"
 
 
 static const struct elec_ext_id_str elec_ext_id_str_lst[] =
@@ -97,10 +98,18 @@ int elecraft_open(RIG *rig)
     char buf[KENWOOD_MAX_BUF_LEN];
     struct kenwood_priv_data *priv = rig->state.priv;
     char *model = "Unknown";
+    struct rig_state *rs = &rig->state;
 
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called, rig version=%s\n", __func__,
               rig->caps->version);
+
+    if (rs->auto_power_on && priv->poweron == 0)
+    {
+        rig_set_powerstat(rig, 1);
+        priv->poweron = 1;
+    }
+
 
     /* Actual read extension levels from radio.
      *
@@ -121,7 +130,6 @@ int elecraft_open(RIG *rig)
 
     if (rig->caps->rig_model == RIG_MODEL_XG3)   // XG3 doesn't have ID
     {
-        struct rig_state *rs = &rig->state;
         char *cmd = "V;";
         char data[32];
 
@@ -162,6 +170,29 @@ int elecraft_open(RIG *rig)
         if (err != RIG_OK)
         {
             return err;
+        }
+    }
+
+    priv->save_k2_ext_lvl = -1; // so we don't restore if not neeede
+
+    if (rig->caps->rig_model != RIG_MODEL_XG3)   // XG3 doesn't have extended
+    {
+        err = elecraft_get_extension_level(rig, "K2", &priv->save_k2_ext_lvl);
+
+        if (err != RIG_OK)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: error getting K2 ext_lvl: %s\n", __func__,
+                      rigerror(err));
+            return err;
+        }
+
+        // turn on k2 extended to get PC values in more resolution
+        err = kenwood_transaction(rig, "K22;", NULL, 0);
+
+        if (err != RIG_OK)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: error setting K22='%s'...continuing\n", __func__,
+                      rigerror(err));
         }
     }
 
@@ -287,7 +318,40 @@ int elecraft_open(RIG *rig)
 
         if (err != RIG_OK)
         {
+            rig_debug(RIG_DEBUG_ERR, "%s: Firmware RVM failed\n", __func__);
             return err;
+        }
+        err = elecraft_get_firmware_revision_level(rig, "RVD", priv->fw_rev,
+                (sizeof(k3_fw_rev) / sizeof(k3_fw_rev[0])));
+
+        if (err != RIG_OK)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: Firmware RVD failed\n", __func__);
+        }
+
+        if (priv->is_k3)
+        {
+        err = elecraft_get_firmware_revision_level(rig, "RVA", priv->fw_rev,
+                (sizeof(k3_fw_rev) / sizeof(k3_fw_rev[0])));
+
+        if (err != RIG_OK)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: Firmware RVA failed\n", __func__);
+        }
+        err = elecraft_get_firmware_revision_level(rig, "RVR", priv->fw_rev,
+                (sizeof(k3_fw_rev) / sizeof(k3_fw_rev[0])));
+
+        if (err != RIG_OK)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: Firmware RVR failed\n", __func__);
+        }
+        err = elecraft_get_firmware_revision_level(rig, "RVF", priv->fw_rev,
+                (sizeof(k3_fw_rev) / sizeof(k3_fw_rev[0])));
+
+        if (err != RIG_OK)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: Firmware RVF failed\n", __func__);
+        }
         }
 
         break;
@@ -310,8 +374,8 @@ int elecraft_open(RIG *rig)
         kenwood_get_trn(rig, &priv->trn_state);  /* ignore errors */
         /* Currently we cannot cope with AI mode so turn it off in
              case last client left it on */
-        kenwood_set_trn(rig, RIG_TRN_OFF); /* ignore status in case
-                                                                                        it's not supported */
+        kenwood_set_trn(rig,
+                        RIG_TRN_OFF); /* ignore status in case it's not supported */
     }
 
     // For rigs like K3X vfo emulation need to set VFO_A to start
@@ -326,7 +390,27 @@ int elecraft_open(RIG *rig)
     return RIG_OK;
 }
 
+int elecraft_close(RIG *rig)
+{
+    const struct kenwood_priv_data *priv = rig->state.priv;
 
+    if (priv->save_k2_ext_lvl >= 0)
+    {
+        int err;
+        char cmd[32];
+        sprintf(cmd, "K2%d;", priv->save_k2_ext_lvl);
+        err = kenwood_transaction(rig, cmd, NULL, 0);
+
+        if (err != RIG_OK)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: error restoring %s='%s'...continuing\n", __func__,
+                      cmd,
+                      rigerror(err));
+        }
+    }
+
+    return kenwood_close(rig);
+}
 
 /* Private helper functions */
 
@@ -410,11 +494,6 @@ int elecraft_get_extension_level(RIG *rig, const char *cmd, int *ext_level)
 
     for (i = 0; elec_ext_id_str_lst[i].level != EXT_LEVEL_NONE; i++)
     {
-        if (strcmp(elec_ext_id_str_lst[i].id, bufptr) != 0)
-        {
-            continue;
-        }
-
         if (strcmp(elec_ext_id_str_lst[i].id, bufptr) == 0)
         {
             *ext_level = elec_ext_id_str_lst[i].level;
@@ -434,6 +513,17 @@ int elecraft_get_firmware_revision_level(RIG *rig, const char *cmd,
     int err;
     char *bufptr;
     char buf[KENWOOD_MAX_BUF_LEN];
+    char rvp = cmd[3];
+    char *rv = "UNK";
+    switch(rvp)
+    {
+        case 'M': rv = "MCU";break;
+        case 'D': rv = "DSP";break;
+        case 'A': rv = "AUX";break;
+        case 'R': rv = "DVR";break;
+        case 'F': rv = "FPF";break;
+        default: rv = "???";break;
+    }
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -467,8 +557,8 @@ int elecraft_get_firmware_revision_level(RIG *rig, const char *cmd,
     /* Copy out */
     strncpy(fw_rev, bufptr, fw_rev_sz - 1);
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s: Elecraft firmware revision is %s\n", __func__,
-              fw_rev);
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: Elecraft %s firmware revision is %s\n", __func__,
+              rv, fw_rev);
 
     return RIG_OK;
 }

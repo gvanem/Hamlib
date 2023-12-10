@@ -19,20 +19,16 @@
  *
  */
 
-#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <math.h>
 #include <sys/time.h>
-#include <time.h>
 
 #include <hamlib/rotator.h>
 #include <num_stdio.h>
 
 #include "serial.h"
-#include "misc.h"
 #include "register.h"
 
 #include "meade.h"
@@ -413,7 +409,7 @@ static int meade_reset(ROT *rot, rot_reset_t reset)
  */
 static int meade_move(ROT *rot, int direction, int speed)
 {
-    struct meade_priv_data *priv = (struct meade_priv_data *)rot->state.priv;
+    const struct meade_priv_data *priv = (struct meade_priv_data *)rot->state.priv;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
     rig_debug(RIG_DEBUG_TRACE, "%s: Direction = %d, Speed = %d\n", __func__,
@@ -443,7 +439,7 @@ static int meade_move(ROT *rot, int direction, int speed)
 static const char *meade_get_info(ROT *rot)
 {
     static char buf[256]; // this is not thread-safe but not important either
-    struct meade_priv_data *priv = (struct meade_priv_data *)rot->state.priv;
+    const struct meade_priv_data *priv = (struct meade_priv_data *)rot->state.priv;
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     SNPRINTF(buf, sizeof(buf),

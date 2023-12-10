@@ -60,7 +60,6 @@
 
 #include <stdlib.h>
 #include <string.h>     /* String function definitions */
-#include <unistd.h>     /* UNIX standard function definitions */
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -246,7 +245,7 @@ enum ft897_digi
 #define FT897_VFO_ALL           (RIG_VFO_A|RIG_VFO_B)
 #define FT897_ANTS              0
 
-const struct rig_caps ft897_caps =
+struct rig_caps ft897_caps =
 {
     RIG_MODEL(RIG_MODEL_FT897),
     .model_name =     "FT-897",
@@ -274,7 +273,10 @@ const struct rig_caps ft897_caps =
     .has_set_level =  RIG_LEVEL_BAND_SELECT,
     .has_get_parm =   RIG_PARM_NONE,
     .has_set_parm =   RIG_PARM_NONE,
-    .level_gran =     { 0 },                     /* granularity */
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .parm_gran =      { 0 },
     .ctcss_list =     common_ctcss_list,
     .dcs_list =       common_dcs_list,   /* only 104 supported */
@@ -346,6 +348,7 @@ const struct rig_caps ft897_caps =
      * per testing by Rich Newsom, WA4SXZ
      */
     .filters =  {
+        {RIG_MODE_ALL, RIG_FLT_ANY},
 //        {RIG_MODE_SSB, kHz(2.2)},
 //        {RIG_MODE_CW, kHz(2.2)},
 //        {RIG_MODE_CWR, kHz(2.2)},
@@ -390,7 +393,7 @@ const struct rig_caps ft897_caps =
     .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
-const struct rig_caps ft897d_caps =
+struct rig_caps ft897d_caps =
 {
     RIG_MODEL(RIG_MODEL_FT897D),
     .model_name =     "FT-897D",
@@ -418,7 +421,10 @@ const struct rig_caps ft897d_caps =
     .has_set_level =  RIG_LEVEL_BAND_SELECT,
     .has_get_parm =   RIG_PARM_NONE,
     .has_set_parm =   RIG_PARM_NONE,
-    .level_gran =     { 0 },                     /* granularity */
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .parm_gran =      { 0 },
     .ctcss_list =     common_ctcss_list,
     .dcs_list =       common_dcs_list,   /* only 104 supported */
@@ -490,6 +496,7 @@ const struct rig_caps ft897d_caps =
      * per testing by Rich Newsom, WA4SXZ
      */
     .filters =  {
+        {RIG_MODE_ALL, RIG_FLT_ANY},
 //        {RIG_MODE_SSB, kHz(2.2)},
 //        {RIG_MODE_CW, kHz(2.2)},
 //        {RIG_MODE_CWR, kHz(2.2)},
@@ -576,7 +583,7 @@ int ft897_close(RIG *rig)
 
 /* ---------------------------------------------------------------------- */
 
-static inline long timediff(struct timeval *tv1, struct timeval *tv2)
+static inline long timediff(const struct timeval *tv1, const struct timeval *tv2)
 {
     struct timeval tv;
 
@@ -1053,7 +1060,7 @@ static int ft897_send_cmd(RIG *rig, int index)
 /*
  * The same for incomplete commands.
  */
-static int ft897_send_icmd(RIG *rig, int index, unsigned char *data)
+static int ft897_send_icmd(RIG *rig, int index, const unsigned char *data)
 {
     unsigned char cmd[YAESU_CMD_LENGTH];
 
@@ -1326,7 +1333,7 @@ int ft897_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
             return ft897_send_cmd(rig, FT897_NATIVE_CAT_SET_CTCSS_DCS_OFF);
         }
 
-   case RIG_FUNC_RIT:
+    case RIG_FUNC_RIT:
         if (status)
         {
             return ft897_send_cmd(rig, FT897_NATIVE_CAT_CLAR_ON);

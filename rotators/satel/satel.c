@@ -21,21 +21,14 @@
 
 #include "hamlib/rig.h"
 #include <strings.h>
-#include <hamlib/config.h>
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <math.h>
-#include <ctype.h>
 #include <stddef.h>
-#include <stdint.h>
 #include <stdbool.h>
 
 #include "hamlib/rotator.h"
 #include "serial.h"
-#include "misc.h"
 #include "register.h"
 
 #include "satel.h"
@@ -105,9 +98,9 @@ typedef struct satel_stat satel_stat_t;
 struct satel_stat
 {
     bool   motion_enabled;
-    int    mode;
-    time_t time;
-    int    absolute;
+//    int    mode;
+//    time_t time;
+//    int    absolute;
     int    az;
     int    el;
 };

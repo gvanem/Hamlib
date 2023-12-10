@@ -186,12 +186,15 @@ c:\Program Files\Microsoft Visual C++ Toolkit 2003\bin\link.exe /lib /machine:i3
 To do the same for Visual Studio 2017:
 
 cd lib\msvc
-c:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\Tools\MSVC\14.16.27023\bin\Hostx64\x86\bin\link.exe /lib /machine:i386 /def:libhamlib-4.def
+"c:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\Tools\MSVC\14.16.27023\bin\Hostx64\x86\bin\link.exe" /lib /machine:i386 /def:libhamlib-4.def
 
 and for VS 2019:
 
 cd lib\msvc
-c:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.25.28610\bin\Hostx64\x86\bin\link.exe /lib /machine:i386 /def:libhamlib-4.def
+"c:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.25.28610\bin\Hostx64\x86\bin\link.exe" /lib /machine:i386 /def:libhamlib-4.def
+
+cd lib/msvc
+"c:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.32.31326\bin\Hostx64\x86\link.exe" /lib /machine:i386 /def:libhamlib-4.def
 
 NOTE: feedback is requested on the previous two command examples!
 
@@ -229,9 +232,9 @@ make -j 4 install
 
 mkdir -p ${ZIP_DIR}/bin ${ZIP_DIR}/lib/msvc ${ZIP_DIR}/lib/gcc ${ZIP_DIR}/include ${ZIP_DIR}/doc
 cp -a src/libhamlib.def ${ZIP_DIR}/lib/msvc/libhamlib-4.def
-todos ${ZIP_DIR}/lib/msvc/libhamlib-4.def
+#todos ${ZIP_DIR}/lib/msvc/libhamlib-4.def
 cp -a ${INST_DIR}/include/hamlib ${ZIP_DIR}/include/.
-todos ${ZIP_DIR}/include/hamlib/*.h
+#todos ${ZIP_DIR}/include/hamlib/*.h
 
 # C++ binding is useless on w32 because of ABI
 for f in *class.h
@@ -239,7 +242,7 @@ do
     rm ${ZIP_DIR}/include/hamlib/${f}
 done
 
-for f in AUTHORS ChangeLog COPYING COPYING.LIB LICENSE README README.betatester README.w32-bin THANKS
+for f in AUTHORS ChangeLog COPYING COPYING.LIB LICENSE README.md README.betatester README.w32-bin THANKS
 do
     cp -a ${f} ${ZIP_DIR}/${f}.txt
     todos ${ZIP_DIR}/${f}.txt

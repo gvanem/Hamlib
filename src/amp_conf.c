@@ -35,13 +35,11 @@
 #include <stdarg.h>
 #include <stdio.h>   /* Standard input/output definitions */
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include <hamlib/amplifier.h>
 
 #include "amp_conf.h"
 #include "token.h"
-#include "misc.h"
 
 
 /*
@@ -79,34 +77,9 @@ static const struct confparams ampfrontend_cfg_params[] =
 
 static const struct confparams ampfrontend_serial_cfg_params[] =
 {
-    {
-        TOK_SERIAL_SPEED, "serial_speed", "Serial speed",
-        "Serial port baud rate",
-        "0", RIG_CONF_NUMERIC, { .n = { 300, 115200, 1 } }
-    },
-    {
-        TOK_DATA_BITS, "data_bits", "Serial data bits",
-        "Serial port data bits",
-        "8", RIG_CONF_NUMERIC, { .n = { 5, 8, 1 } }
-    },
-    {
-        TOK_STOP_BITS, "stop_bits", "Serial stop bits",
-        "Serial port stop bits",
-        "1", RIG_CONF_NUMERIC, { .n = { 0, 3, 1 } }
-    },
-    {
-        TOK_PARITY, "serial_parity", "Serial parity",
-        "Serial port parity",
-        "None", RIG_CONF_COMBO, { .c = {{ "None", "Odd", "Even", "Mark", "Space", NULL }} }
-    },
-    {
-        TOK_HANDSHAKE, "serial_handshake", "Serial handshake",
-        "Serial port handshake",
-        "None", RIG_CONF_COMBO, { .c = {{ "None", "XONXOFF", "Hardware", NULL }} }
-    },
-
-    { RIG_CONF_END, NULL, }
+#include "serial_cfg_params.h"
 };
+
 /** @} */ /* amplifier definitions */
 
 
@@ -139,7 +112,7 @@ int frontamp_set_conf(AMP *amp, token_t token, const char *val)
 
     rs = &amp->state;
 
-    ENTERFUNC2;
+    amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     switch (token)
     {
@@ -295,6 +268,64 @@ int frontamp_set_conf(AMP *amp, token_t token, const char *val)
         }
 
         break;
+    case TOK_RTS_STATE:
+        if (rs->ampport.type.rig != RIG_PORT_SERIAL)
+        {
+            return -RIG_EINVAL;
+        }
+
+        if (!strcmp(val, "Unset"))
+        {
+            rs->ampport.parm.serial.rts_state = RIG_SIGNAL_UNSET;
+            rs->ampport_deprecated.parm.serial.rts_state = RIG_SIGNAL_UNSET;
+        }
+        else if (!strcmp(val, "ON"))
+        {
+            rs->ampport.parm.serial.rts_state = RIG_SIGNAL_ON;
+            rs->ampport_deprecated.parm.serial.rts_state = RIG_SIGNAL_ON;
+        }
+        else if (!strcmp(val, "OFF"))
+        {
+            rs->ampport.parm.serial.rts_state = RIG_SIGNAL_OFF;
+            rs->ampport_deprecated.parm.serial.rts_state = RIG_SIGNAL_OFF;
+        }
+        else
+        {
+            return -RIG_EINVAL;
+        }
+
+        break;
+
+    case TOK_DTR_STATE:
+        if (rs->ampport.type.rig != RIG_PORT_SERIAL)
+        {
+            return -RIG_EINVAL;
+        }
+
+        if (!strcmp(val, "Unset"))
+        {
+            rs->ampport.parm.serial.dtr_state = RIG_SIGNAL_UNSET;
+            rs->ampport_deprecated.parm.serial.dtr_state = RIG_SIGNAL_UNSET;
+        }
+        else if (!strcmp(val, "ON"))
+        {
+            rs->ampport.parm.serial.dtr_state = RIG_SIGNAL_ON;
+            rs->ampport_deprecated.parm.serial.dtr_state = RIG_SIGNAL_ON;
+        }
+        else if (!strcmp(val, "OFF"))
+        {
+            rs->ampport.parm.serial.dtr_state = RIG_SIGNAL_OFF;
+            rs->ampport_deprecated.parm.serial.dtr_state = RIG_SIGNAL_OFF;
+        }
+        else
+        {
+            return -RIG_EINVAL;
+        }
+
+        break;
+
+
+
 
 #if 0
 
@@ -346,7 +377,7 @@ int frontamp_get_conf2(AMP *amp, token_t token, char *val, int val_len)
 
     rs = &amp->state;
 
-    ENTERFUNC2;
+    amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     switch (token)
     {
@@ -474,8 +505,6 @@ int frontamp_get_conf2(AMP *amp, token_t token, char *val, int val_len)
  */
 
 
-#ifdef XXREMOVEDXXC
-// Not referenced anywhere
 /**
  * \brief Executes cfunc on all the elements stored in the configuration
  * parameters table.
@@ -500,7 +529,7 @@ int HAMLIB_API amp_token_foreach(AMP *amp,
 {
     const struct confparams *cfp;
 
-    ENTERFUNC2;
+    amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     if (!amp || !amp->caps || !cfunc)
     {
@@ -536,7 +565,6 @@ int HAMLIB_API amp_token_foreach(AMP *amp,
 
     return RIG_OK;
 }
-#endif
 
 
 /**
@@ -563,7 +591,7 @@ const struct confparams *HAMLIB_API amp_confparam_lookup(AMP *amp,
     const struct confparams *cfp;
     token_t token;
 
-    ENTERFUNC2;
+    amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     if (!amp || !amp->caps)
     {
@@ -622,7 +650,7 @@ token_t HAMLIB_API amp_token_lookup(AMP *amp, const char *name)
 {
     const struct confparams *cfp;
 
-    ENTERFUNC2;
+    amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     cfp = amp_confparam_lookup(amp, name);
 
@@ -655,7 +683,7 @@ token_t HAMLIB_API amp_token_lookup(AMP *amp, const char *name)
  */
 int HAMLIB_API amp_set_conf(AMP *amp, token_t token, const char *val)
 {
-    ENTERFUNC2;
+    amp_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     if (!amp || !amp->caps)
     {
@@ -711,7 +739,7 @@ int HAMLIB_API amp_set_conf(AMP *amp, token_t token, const char *val)
  */
 int HAMLIB_API amp_get_conf2(AMP *amp, token_t token, char *val, int val_len)
 {
-    ENTERFUNC2;
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     if (!amp || !amp->caps || !val)
     {

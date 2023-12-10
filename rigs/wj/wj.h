@@ -23,6 +23,7 @@
 #define _WJ_H 1
 
 #include <hamlib/rig.h>
+#include "token.h"
 
 #define BACKEND_VER "20040912"
 
@@ -52,6 +53,6 @@ int wj_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width);
 int wj_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val);
 int wj_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
 
-extern const struct rig_caps wj8888_caps;
+extern struct rig_caps wj8888_caps;
 
 #endif /* _WJ_H */

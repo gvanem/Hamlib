@@ -25,11 +25,8 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include "hamlib/rig.h"
 #include "bandplan.h"
@@ -394,7 +391,7 @@ struct ft890_priv_data
  *
  */
 
-const struct rig_caps ft890_caps =
+struct rig_caps ft890_caps =
 {
     RIG_MODEL(RIG_MODEL_FT890),
     .model_name =         "FT-890",
@@ -422,6 +419,10 @@ const struct rig_caps ft890_caps =
     .has_set_level =      RIG_LEVEL_BAND_SELECT,
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .ctcss_list =         NULL,
     .dcs_list =           NULL,
     .preamp =             { RIG_DBLST_END, },
@@ -1874,7 +1875,7 @@ static int ft890_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
  *              rl      expected length of returned data in octets
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 
 static int ft890_get_update_data(RIG *rig, unsigned char ci, unsigned char rl)
@@ -1920,7 +1921,7 @@ static int ft890_get_update_data(RIG *rig, unsigned char ci, unsigned char rl)
  *              ci      Command index of the ncmd table
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 
 static int ft890_send_static_cmd(RIG *rig, unsigned char ci)
@@ -1963,7 +1964,7 @@ static int ft890_send_static_cmd(RIG *rig, unsigned char ci)
  *              p1-p4   Command parameters
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 
 static int ft890_send_dynamic_cmd(RIG *rig, unsigned char ci,
@@ -2024,7 +2025,7 @@ static int ft890_send_dynamic_cmd(RIG *rig, unsigned char ci,
  *              freq    freq_t frequency value
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  */
 
 static int ft890_send_dial_freq(RIG *rig, unsigned char ci, freq_t freq)
@@ -2087,7 +2088,7 @@ static int ft890_send_dial_freq(RIG *rig, unsigned char ci, freq_t freq)
  *              p2      P2 value -- CLAR_OFFSET_PLUS || CLAR_OFFSET_MINUS
  *
  * Returns:     RIG_OK if all called functions are successful,
- *              otherwise returns error from called functiion
+ *              otherwise returns error from called function
  *
  * Assumes:     rit doesn't exceed tuning limits of rig
  */

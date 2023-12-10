@@ -26,13 +26,11 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include "hamlib/rig.h"
 #include "bandplan.h"
-#include "idx_builtin.h"
 #include "tones.h"
 #include "newcat.h"
+#include "yaesu.h"
 #include "ftdx10.h"
 
 const struct newcat_priv_caps ftdx10_priv_caps =
@@ -132,12 +130,12 @@ int ftdx10_ext_tokens[] =
     TOK_BACKEND_NONE
 };
 
-const struct rig_caps ftdx10_caps =
+struct rig_caps ftdx10_caps =
 {
     RIG_MODEL(RIG_MODEL_FTDX10),
     .model_name =         "FTDX-10",
     .mfg_name =           "Yaesu",
-    .version =            NEWCAT_VER ".3",
+    .version =            NEWCAT_VER ".9",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -149,7 +147,7 @@ const struct rig_caps ftdx10_caps =
     .serial_data_bits =   8,
     .serial_stop_bits =   2,
     .serial_parity =      RIG_PARITY_NONE,
-    .serial_handshake =   RIG_HANDSHAKE_HARDWARE,
+    .serial_handshake =   RIG_HANDSHAKE_NONE,
     .write_delay =        FTDX10_WRITE_DELAY,
     .post_write_delay =   FTDX10_POST_WRITE_DELAY,
     .timeout =            2000,
@@ -158,14 +156,20 @@ const struct rig_caps ftdx10_caps =
     .has_set_func =       FTDX10_FUNCS,
     .has_get_level =      FTDX10_LEVELS,
     .has_set_level =      RIG_LEVEL_SET(FTDX10_LEVELS),
-    .has_get_parm =       RIG_PARM_NONE,
-    .has_set_parm =       RIG_PARM_NONE,
-    .level_gran = {
-        [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
-        [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 1050 }, .step = { .i = 10 } },
-        [LVL_KEYSPD] = { .min = { .i = 4 }, .max = { .i = 60 }, .step = { .i = 1 } },
-        [LVL_NOTCHF] = { .min = { .i = 1 }, .max = { .i = 3200 }, .step = { .i = 10 } },
+    .has_get_parm =       RIG_PARM_BANDSELECT,
+    .has_set_parm =       RIG_PARM_BANDSELECT,
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+        [LVL_MICGAIN] = { .min = { .f = 0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f/100.0f } },
+        [LVL_SQL] = { .min = { .f = 0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f/100.0f } },
+        [LVL_MONITOR_GAIN] = { .min = { .f = 0 }, .max = { .f = 1.0 }, .step = { .f = 1.0f/100.0f } },
+        [LVL_RFPOWER] = { .min = { .f = .05 }, .max = { .f = 1.0 }, .step = { .f = 1.0f/100.0f } },
     },
+    .parm_gran =  {
+        [PARM_BANDSELECT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.s = "BAND160M,BAND80M,BANDUNUSED,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BANDGEN,BANDMW"}}
+        },
+
     .ctcss_list =         common_ctcss_list,
     .dcs_list =           NULL,
     .preamp =             { 10, 20, RIG_DBLST_END, },
@@ -176,7 +180,8 @@ const struct rig_caps ftdx10_caps =
     .agc_level_count =    5,
     .agc_levels =         { RIG_AGC_OFF, RIG_AGC_FAST, RIG_AGC_MEDIUM, RIG_AGC_SLOW, RIG_AGC_AUTO },
     .vfo_ops =            FTDX10_VFO_OPS,
-    .targetable_vfo =     RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE | RIG_TARGETABLE_FUNC | RIG_TARGETABLE_LEVEL | RIG_TARGETABLE_COMMON,
+    .scan_ops =           RIG_SCAN_VFO,
+    .targetable_vfo =     RIG_TARGETABLE_FREQ | RIG_TARGETABLE_MODE | RIG_TARGETABLE_FUNC | RIG_TARGETABLE_LEVEL | RIG_TARGETABLE_COMMON | RIG_TARGETABLE_TONE,
     .transceive =         RIG_TRN_OFF, /* May enable later as the FTDX10 has an Auto Info command */
     .bank_qty =           0,
     .chan_desc_sz =       0,
@@ -184,6 +189,7 @@ const struct rig_caps ftdx10_caps =
     .swr_cal =            FTDX10_SWR_CAL,
     .chan_list =          {
         {   1,  99, RIG_MTYPE_MEM,  NEWCAT_MEM_CAP },
+        { 501, 510, RIG_MTYPE_BAND, NEWCAT_MEM_CAP },    /* 60M Channels, 5-01 - 5-10, if available */
         RIG_CHAN_END,
     },
 
@@ -311,5 +317,7 @@ const struct rig_caps ftdx10_caps =
     .wait_morse =         rig_wait_morse,
     .set_clock =          newcat_set_clock,
     .get_clock =          newcat_get_clock,
+    .scan =               newcat_scan,
+    .morse_qsize =        50,
     .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };

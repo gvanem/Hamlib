@@ -27,8 +27,6 @@
 #include "hamlib/rig.h"
 #include "token.h"
 
-#include "kit.h"
-
 #ifdef _WIN32
 #define USE_FTDI_DLL
 #elif defined(HAVE_LIBUSB) && (defined(HAVE_LIBUSB_H) || defined(HAVE_LIBUSB_1_0_LIBUSB_H))
@@ -188,7 +186,7 @@ static const struct confparams elektor507_cfg_params[] =
         "10000000", RIG_CONF_NUMERIC, { .n = { 0, MHz(30), 1 } }
     },
     {
-        TOK_XTALCAL, "xtal_cal", "Xtal Cal", "Cristal calibration",
+        TOK_XTALCAL, "xtal_cal", "Xtal Cal", "Crystal calibration",
         "132", RIG_CONF_NUMERIC, { .n = { 0, 255, 1 } }
     },
     { RIG_CONF_END, NULL, }
@@ -555,7 +553,7 @@ int elektor507_ftdi_write_data(RIG *rig, void *FTOutBuf,
  * http://www.b-kainka.de/sdrusb.html
  */
 
-const struct rig_caps elektor507_caps =
+struct rig_caps elektor507_caps =
 {
     RIG_MODEL(RIG_MODEL_ELEKTOR507),
     .model_name =       "Elektor SDR-USB",
@@ -1121,7 +1119,7 @@ int elektor507_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 
 int elektor507_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
-    struct elektor507_priv_data *priv = (struct elektor507_priv_data *)
+    const struct elektor507_priv_data *priv = (struct elektor507_priv_data *)
                                         rig->state.priv;
     int ret = 0;
 
@@ -1198,7 +1196,7 @@ int elektor507_set_ant(RIG *rig, vfo_t vfo, ant_t ant, value_t option)
 int elektor507_get_ant(RIG *rig, vfo_t vfo, ant_t dummy, value_t *option,
                        ant_t *ant_curr, ant_t *ant_tx, ant_t *ant_rx)
 {
-    struct elektor507_priv_data *priv = (struct elektor507_priv_data *)
+    const struct elektor507_priv_data *priv = (struct elektor507_priv_data *)
                                         rig->state.priv;
 
     *ant_curr = priv->ant;
@@ -1212,7 +1210,7 @@ int elektor507_get_ant(RIG *rig, vfo_t vfo, ant_t dummy, value_t *option,
  */
 static int cy_update_pll(RIG *rig, unsigned char IICadr)
 {
-    struct elektor507_priv_data *priv = (struct elektor507_priv_data *)
+    const struct elektor507_priv_data *priv = (struct elektor507_priv_data *)
                                         rig->state.priv;
     int P0, R40, R41, R42;
     unsigned char Div1N;

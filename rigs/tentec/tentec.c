@@ -19,18 +19,13 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
-#include "misc.h"
-#include "cal.h"
 #include "register.h"
 
 #include "tentec.h"
@@ -110,7 +105,7 @@ int tentec_init(RIG *rig)
 {
     struct tentec_priv_data *priv;
 
-    rig->state.priv = (struct tentec_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct tentec_priv_data *)calloc(1, sizeof(
                           struct tentec_priv_data));
 
     if (!rig->state.priv)
@@ -267,7 +262,7 @@ int tentec_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
  */
 int tentec_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
-    struct tentec_priv_data *priv = (struct tentec_priv_data *)rig->state.priv;
+    const struct tentec_priv_data *priv = (struct tentec_priv_data *)rig->state.priv;
 
     *freq = priv->freq;
 
@@ -387,7 +382,7 @@ int tentec_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
  */
 int tentec_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
-    struct tentec_priv_data *priv = (struct tentec_priv_data *)rig->state.priv;
+    const struct tentec_priv_data *priv = (struct tentec_priv_data *)rig->state.priv;
 
     *mode = priv->mode;
     *width = priv->width;
@@ -472,7 +467,7 @@ int tentec_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
  */
 int tentec_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 {
-    struct tentec_priv_data *priv = (struct tentec_priv_data *)rig->state.priv;
+    const struct tentec_priv_data *priv = (struct tentec_priv_data *)rig->state.priv;
     int retval, lvl_len;
     unsigned char lvlbuf[32];
 

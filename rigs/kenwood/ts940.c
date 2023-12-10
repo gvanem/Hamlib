@@ -19,10 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
-#include <stdlib.h>
-
 #include <hamlib/rig.h>
 #include "bandplan.h"
 #include "kenwood.h"
@@ -77,7 +73,7 @@ static struct kenwood_priv_caps  ts940_priv_caps  =
  *
  * TODO: protocol to be check with manual!
  */
-const struct rig_caps ts940_caps =
+struct rig_caps ts940_caps =
 {
     RIG_MODEL(RIG_MODEL_TS940),
     .model_name = "TS-940S",
@@ -115,6 +111,7 @@ const struct rig_caps ts940_caps =
     .vfo_ops =  TS940_VFO_OPS,
     .scan_ops =  TS940_SCAN_OPS,
     .transceive =  RIG_TRN_RIG,
+    // Unknown AGC levels
     .bank_qty =   0,
     .chan_desc_sz =  0,
 

@@ -65,24 +65,18 @@
  * This backend supports the Ten-Tec Orion (565) and Orion II (566) transceivers.
  * \n This backend tested mostly with firmware versions 1.372 and 2.062a
  */
-#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <ctype.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <time.h>
-#include <sys/time.h>
 #include <math.h>
 
 #include <hamlib/rig.h>
-#include "bandplan.h"
 #include "serial.h"
 #include "misc.h"
-#include "idx_builtin.h"
 #include "orion.h"
-#include <cal.h>
 
 #ifdef TT565_TIME
 /**
@@ -228,7 +222,7 @@ static int tt565_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 int tt565_init(RIG *rig)
 {
     struct tt565_priv_data *priv;
-    rig->state.priv = (struct tt565_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct tt565_priv_data *)calloc(1, sizeof(
                           struct tt565_priv_data));
 
     if (!rig->state.priv) { return -RIG_ENOMEM; } /* no memory available */
@@ -303,7 +297,7 @@ int tt565_open(RIG *rig)
  */
 static char which_receiver(const RIG *rig, vfo_t vfo)
 {
-    struct tt565_priv_data *priv = (struct tt565_priv_data *)rig->state.priv;
+    const struct tt565_priv_data *priv = (struct tt565_priv_data *)rig->state.priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -332,7 +326,7 @@ static char which_receiver(const RIG *rig, vfo_t vfo)
  */
 static char which_vfo(const RIG *rig, vfo_t vfo)
 {
-    struct tt565_priv_data *priv = (struct tt565_priv_data *)rig->state.priv;
+    const struct tt565_priv_data *priv = (struct tt565_priv_data *)rig->state.priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -400,7 +394,6 @@ int tt565_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
 #ifdef TT565_ASCII_FREQ
     /*  Use ASCII mode to set frequencies */
-    // cppcheck-suppress *
     SNPRINTF(cmdbuf, sizeof(cmdbuf), "*%cF%"PRIll EOM,
              which_vfo(rig, vfo),
              (int64_t)freq);
@@ -518,7 +511,7 @@ int tt565_set_vfo(RIG *rig, vfo_t vfo)
  */
 int tt565_get_vfo(RIG *rig, vfo_t *vfo)
 {
-    struct tt565_priv_data *priv = (struct tt565_priv_data *)rig->state.priv;
+    const struct tt565_priv_data *priv = (struct tt565_priv_data *)rig->state.priv;
 
     *vfo = priv->vfo_curr;
 
@@ -1213,20 +1206,23 @@ int tt565_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         if (rig->caps->rig_model == RIG_MODEL_TT599)
         {
             ii = (int)(val.f * 10);
-            if (ii > 9) ii=9; // cannot set NR level 10 apparently
+
+            if (ii > 9) { ii = 9; } // cannot set NR level 10 apparently
+
             SNPRINTF(cmdbuf, sizeof(cmdbuf), "*RMNN%c" EOM, ii);
         }
         else
         {
-        /* Noise Reduction (blanking) Float 0.0 - 1.0
-            For some reason NB setting is supported in 1.372, but
-           NR, NOTCH, and AN are not.
-           FOR NOW -- RIG_LEVEL_NR controls the Orion NB setting
-        */
-        SNPRINTF(cmdbuf, sizeof(cmdbuf), "*R%cNB%d" EOM,
-                 which_receiver(rig, vfo),
-                 (int)(val.f * 9));
+            /* Noise Reduction (blanking) Float 0.0 - 1.0
+                For some reason NB setting is supported in 1.372, but
+               NR, NOTCH, and AN are not.
+               FOR NOW -- RIG_LEVEL_NR controls the Orion NB setting
+            */
+            SNPRINTF(cmdbuf, sizeof(cmdbuf), "*R%cNB%d" EOM,
+                     which_receiver(rig, vfo),
+                     (int)(val.f * 9));
         }
+
         break;
 
     case RIG_LEVEL_VOXDELAY:
@@ -1305,8 +1301,6 @@ int tt565_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
         if (rig->caps->rig_model == RIG_MODEL_TT599)
         {
-            double fwd, ref;
-
             /* in Xmit, response is @STF99R10<cr> 99 watts forward,1.0 watt reflected
                 uu = fwd watts
                 vv = rev watts x 10
@@ -1324,6 +1318,8 @@ int tt565_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
             if (lvlbuf[2] == 'T')
             {
+                double fwd, ref;
+
                 ref = atof(strchr(lvlbuf + 2, 'R') + 1) / 10.0;   /* reflected power */
                 fwd = atof(strchr(lvlbuf + 2, 'F') + 1);          /* forward power */
 
@@ -1695,15 +1691,16 @@ int tt565_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_NR:
+
         /* RIG_LEVEL_NR controls Orion NB setting - TEMP */
         if (rig->caps->rig_model == RIG_MODEL_TT599)
         {
-        SNPRINTF(cmdbuf, sizeof(cmdbuf), "?RMNN" EOM);
+            SNPRINTF(cmdbuf, sizeof(cmdbuf), "?RMNN" EOM)
         }
         else
         {
-        SNPRINTF(cmdbuf, sizeof(cmdbuf), "?R%cNB" EOM,
-                 which_receiver(rig, vfo));
+            SNPRINTF(cmdbuf, sizeof(cmdbuf), "?R%cNB" EOM,
+                     which_receiver(rig, vfo));
         }
 
         lvl_len = sizeof(lvlbuf);
@@ -1720,6 +1717,7 @@ int tt565_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
                       __func__, lvlbuf);
             return -RIG_EPROTO;
         }
+
         sscanf(lvlbuf + 5, "%f", &val->f);
         val->f /= 10.0;
         break;
@@ -1816,7 +1814,7 @@ int tt565_set_mem(RIG *rig, vfo_t vfo, int ch)
  */
 int tt565_get_mem(RIG *rig, vfo_t vfo, int *ch)
 {
-    struct tt565_priv_data *priv = (struct tt565_priv_data *)rig->state.priv;
+    const struct tt565_priv_data *priv = (struct tt565_priv_data *)rig->state.priv;
 
     *ch = priv->ch;
     return RIG_OK;
@@ -1838,7 +1836,7 @@ int tt565_get_mem(RIG *rig, vfo_t vfo, int *ch)
  */
 int tt565_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
 {
-    struct tt565_priv_data *priv = (struct tt565_priv_data *)rig->state.priv;
+    const struct tt565_priv_data *priv = (struct tt565_priv_data *)rig->state.priv;
     char cmdbuf[TT565_BUFSIZE];
     int retval;
 

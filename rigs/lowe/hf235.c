@@ -19,8 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
@@ -45,7 +43,7 @@
  *
  */
 
-const struct rig_caps hf235_caps =
+struct rig_caps hf235_caps =
 {
     RIG_MODEL(RIG_MODEL_HF235),
     .model_name = "HF-235",

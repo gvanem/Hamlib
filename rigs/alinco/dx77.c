@@ -19,21 +19,17 @@
  *
  */
 
-#include <hamlib/config.h>
-
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
-
 
 #include <hamlib/rig.h>
 #include "idx_builtin.h"
 #include "alinco.h"
 #include <serial.h>
+#include "tones.h"
 #include <misc.h>
-#include <cal.h>
 
 /*
  * modes in use by the "2G" command
@@ -154,12 +150,12 @@ int dx77_get_mem(RIG *rig, vfo_t vfo, int *ch);
  *  - up/down
  *  - scan
  */
-const struct rig_caps dx77_caps =
+struct rig_caps dx77_caps =
 {
     RIG_MODEL(RIG_MODEL_DX77),
     .model_name =       "DX-77",
     .mfg_name =         "Alinco",
-    .version =          BACKEND_VER ".0",
+    .version =          BACKEND_VER ".1",
     .copyright =        "LGPL",
     .status =           RIG_STATUS_STABLE,
     .rig_type =         RIG_TYPE_TRANSCEIVER,
@@ -206,8 +202,19 @@ const struct rig_caps dx77_caps =
         RIG_CHAN_END,
     },
 
-    .rx_range_list1 =  { RIG_FRNG_END, },    /* FIXME: enter region 1 setting */
-    .tx_range_list1 =  { RIG_FRNG_END, },
+    .rx_range_list1 = {
+        {
+            .startf = kHz(500), .endf = MHz(30), .modes = DX77_OTHER_TX_MODES,
+            .low_power = -1, .high_power = -1, RIG_VFO_A, RIG_ANT_NONE
+        },
+        {
+            .startf = kHz(500), .endf = MHz(30), .modes = DX77_AM_TX_MODES,
+            .low_power = -1, .high_power = -1, RIG_VFO_A, RIG_ANT_NONE
+        },
+        RIG_FRNG_END,
+    },
+    .tx_range_list1 = {RIG_FRNG_END,},
+
     .rx_range_list2 =
     {
         {kHz(500), MHz(30), DX77_ALL_MODES, -1, -1, DX77_VFO},
@@ -327,7 +334,7 @@ int dx77_transaction(RIG *rig,
         return retval;
     }
 
-    if (!(data && data_len))
+    if (((data == NULL) && (data_len > 0)) || ((data != NULL) && (data_len == 0)))
     {
         rig_debug(RIG_DEBUG_ERR, "%s: data and datalen not both NULL??\n", __func__);
         return -RIG_EINTERNAL;
@@ -490,7 +497,6 @@ int dx77_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     }
 
     /* at least 6 digits */
-    // cppcheck-suppress *
     SNPRINTF(freqbuf, sizeof(freqbuf), AL CMD_RXFREQ "%06"PRIll EOM, (int64_t)freq);
 
     return dx77_transaction(rig, freqbuf, strlen(freqbuf), NULL, NULL);
@@ -1006,11 +1012,11 @@ int dx77_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         {
             lvl = 31;
         }
-        else if (val.i >= 6 && val.i < 20)
+        else if (val.i < 20)
         {
             lvl = val.i + 25;
         }
-        else if (val.i >= 20 && val.i <= 50)
+        else if (val.i <= 50)
         {
             lvl = val.i - 20;
         }
@@ -1254,7 +1260,7 @@ int dx77_set_parm(RIG *rig, setting_t parm, value_t val)
  */
 int dx77_set_ctcss_tone(RIG *rig, vfo_t vfo, tone_t tone)
 {
-    const struct rig_caps *caps;
+    struct rig_caps *caps;
     unsigned char tonebuf[BUFSZ];
     int i;
 

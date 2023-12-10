@@ -34,8 +34,6 @@
 #include "hamlib/rig.h"
 #include "token.h"
 
-#include "kit.h"
-
 /*
  * Compile this model only if libusb is available
  */
@@ -124,7 +122,7 @@ struct fifisdr_priv_instance_data
 
 
 /** FiFi-SDR receiver description. */
-const struct rig_caps fifisdr_caps =
+struct rig_caps fifisdr_caps =
 {
     RIG_MODEL(RIG_MODEL_FIFISDR),
     .model_name = "FiFi-SDR",
@@ -426,7 +424,7 @@ const char *fifisdr_get_info(RIG *rig)
 
 int fifisdr_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
-    struct fifisdr_priv_instance_data *priv = (struct fifisdr_priv_instance_data *)
+    const struct fifisdr_priv_instance_data *priv = (struct fifisdr_priv_instance_data *)
             rig->state.priv;
     int ret;
     double mhz;
@@ -452,7 +450,7 @@ int fifisdr_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 
 int fifisdr_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
-    struct fifisdr_priv_instance_data *priv = (struct fifisdr_priv_instance_data *)
+    const struct fifisdr_priv_instance_data *priv = (struct fifisdr_priv_instance_data *)
             rig->state.priv;
     int ret;
     uint32_t freq1121;
@@ -653,7 +651,7 @@ static int fifisdr_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         /* Transform Hamlib enum value to FiFi-SDR selector */
         fifi_agc = 0;
 
-        switch ((enum agc_level_e)val.i)
+        switch (val.i)
         {
         case RIG_AGC_OFF:       fifi_agc = 0;   break;
 

@@ -21,7 +21,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include "misc.h"
 #include "kpa.h"
 
 struct fault_list
@@ -68,7 +67,7 @@ int kpa_init(AMP *amp)
     }
 
     amp->state.priv = (struct kpa_priv_data *)
-                      malloc(sizeof(struct kpa_priv_data));
+                      calloc(1, sizeof(struct kpa_priv_data));
 
     if (!amp->state.priv)
     {
@@ -184,6 +183,7 @@ int kpa_transaction(AMP *amp, const char *cmd, char *response, int response_len)
  * Get Info
  * returns the model name string
  */
+// cppcheck-suppress *
 const char *kpa_get_info(AMP *amp)
 {
     const struct amp_caps *rc;
@@ -227,7 +227,7 @@ int kpa_get_freq(AMP *amp, freq_t *freq)
 
 int kpa_set_freq(AMP *amp, freq_t freq)
 {
-    char responsebuf[KPABUFSZ];
+    char responsebuf[KPABUFSZ] = "\0";
     int retval;
     unsigned long tfreq;
     int nargs;

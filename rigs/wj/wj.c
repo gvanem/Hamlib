@@ -19,20 +19,14 @@
  *
  */
 
-#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
 #include "misc.h"
-#include "cal.h"
 #include "register.h"
-#include "token.h"
 
 #include "wj.h"
 
@@ -214,7 +208,7 @@ int wj_init(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    rig->state.priv = (struct wj_priv_data *)malloc(sizeof(struct wj_priv_data));
+    rig->state.priv = (struct wj_priv_data *)calloc(1, sizeof(struct wj_priv_data));
 
     if (!rig->state.priv)
     {
@@ -283,7 +277,7 @@ int wj_set_conf(RIG *rig, token_t token, const char *val)
  */
 int wj_get_conf2(RIG *rig, token_t token, char *val, int val_len)
 {
-    struct wj_priv_data *priv = (struct wj_priv_data *)rig->state.priv;
+    const struct wj_priv_data *priv = (struct wj_priv_data *)rig->state.priv;
 
     switch (token)
     {
@@ -322,7 +316,7 @@ int wj_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
  */
 int wj_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
-    struct wj_priv_data *priv = (struct wj_priv_data *)rig->state.priv;
+    const struct wj_priv_data *priv = (struct wj_priv_data *)rig->state.priv;
     int retval;
 
     retval =  wj_transaction(rig, 1);
@@ -366,7 +360,7 @@ int wj_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
  */
 int wj_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
-    struct wj_priv_data *priv = (struct wj_priv_data *)rig->state.priv;
+    const struct wj_priv_data *priv = (struct wj_priv_data *)rig->state.priv;
     int retval;
 
     retval =  wj_transaction(rig, 1);

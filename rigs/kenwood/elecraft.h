@@ -23,6 +23,7 @@
 #define _ELECRAFT_H 1
 
 #include <hamlib/rig.h>
+#include "token.h"
 
 /* The Elecraft Programmer's Reference details the extension level that
  * a K2 or K3 may have in effect which modify certain commands.
@@ -74,6 +75,7 @@ extern const struct confparams elecraft_ext_levels[];
 
 /* Elecraft extension function declarations */
 int elecraft_open(RIG *rig);
+int elecraft_close(RIG *rig);
 
 /* S-meter calibration tables */
 

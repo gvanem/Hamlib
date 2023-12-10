@@ -24,15 +24,11 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
-#include <hamlibdatetime.h>
-
 #include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
 
@@ -66,9 +62,10 @@ extern int read_history();
 
 
 #include <hamlib/amplifier.h>
-#include "misc.h"
 
 #include "ampctl_parse.h"
+#include "amplist.h"
+#include "rig.h"
 
 /*
  * Prototypes
@@ -103,7 +100,7 @@ static struct option long_options[] =
     {0, 0, 0, 0}
 };
 
-#define MAXCONFLEN 1024
+#define MAXCONFLEN 2048
 
 int interactive = 1;    /* if no cmd on command line, switch to interactive */
 int prompt = 1;         /* Print prompt in ampctl */
@@ -301,12 +298,28 @@ int main(int argc, char *argv[])
         exit(2);
     }
 
-    retcode = set_conf(my_amp, conf_parms);
+    char *token=strtok(conf_parms,",");
 
-    if (retcode != RIG_OK)
+    while(token)
     {
-        fprintf(stderr, "Config parameter error: %s\n", rigerror(retcode));
-        exit(2);
+        char mytoken[100], myvalue[100];
+        token_t lookup;
+        sscanf(token,"%99[^=]=%99s", mytoken, myvalue);
+        //printf("mytoken=%s,myvalue=%s\n",mytoken, myvalue);
+        lookup = amp_token_lookup(my_amp,mytoken);
+        if (lookup == 0)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: no such token as '%s'\n", __func__, mytoken);
+            token = strtok(NULL, ",");
+            continue;
+        }
+        retcode = amp_set_conf(my_amp, amp_token_lookup(my_amp,mytoken), myvalue);
+        if (retcode != RIG_OK)
+        {
+            fprintf(stderr, "Config parameter error: %s\n", rigerror(retcode));
+            exit(2);
+        }
+        token = strtok(NULL, ",");
     }
 
     if (amp_file)
@@ -323,8 +336,6 @@ int main(int argc, char *argv[])
         my_amp->state.ampport_deprecated.parm.serial.rate = serial_rate;
     }
 
-#if 0
-
     /*
      * print out conf parameters
      */
@@ -332,8 +343,6 @@ int main(int argc, char *argv[])
     {
         amp_token_foreach(my_amp, print_conf_list, (rig_ptr_t)my_amp);
     }
-
-#endif
 
     /*
      * Print out capabilities, and exits immediately as we may be interested

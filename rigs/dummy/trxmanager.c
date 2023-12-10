@@ -19,21 +19,13 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>             /* String function definitions */
-#include <unistd.h>             /* UNIX standard function definitions */
-#include <math.h>
 
 #include <hamlib/rig.h>
 #include <serial.h>
-#include <misc.h>
-#include <cal.h>
-#include <token.h>
-#include <register.h>
-#include <network.h>
 
 #include "trxmanager.h"
 
@@ -136,6 +128,7 @@ struct rig_caps trxmanager_caps =
     .has_get_parm = RIG_PARM_NONE,
     .has_set_parm = RIG_PARM_NONE,
     .filters =  {
+        {RIG_MODE_ALL, RIG_FLT_ANY},
         RIG_FLT_END
     },
 
@@ -236,7 +229,7 @@ static int vfo_curr(RIG *rig, vfo_t vfo)
 static int read_transaction(RIG *rig, char *response, int response_len)
 {
     struct rig_state *rs = &rig->state;
-    char *delims = "\n";
+    const char *delims = "\n";
     int len;
 
     rig_debug(RIG_DEBUG_TRACE, "%s\n", __func__);
@@ -264,8 +257,8 @@ static int trxmanager_init(RIG *rig)
 
     rig_debug(RIG_DEBUG_TRACE, "%s version %s\n", __func__, BACKEND_VER);
 
-    rig->state.priv = (struct trxmanager_priv_data *)malloc(
-                          sizeof(struct trxmanager_priv_data));
+    rig->state.priv = (struct trxmanager_priv_data *)calloc(1,
+                      sizeof(struct trxmanager_priv_data));
 
     if (!rig->state.priv)
     {
@@ -483,7 +476,7 @@ static int trxmanager_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     char cmd[MAXCMDLEN];
     char response[MAXCMDLEN] = "";
     struct rig_state *rs = &rig->state;
-    struct trxmanager_priv_data *priv = (struct trxmanager_priv_data *)
+    const struct trxmanager_priv_data *priv = (struct trxmanager_priv_data *)
                                         rig->state.priv;
 
 
@@ -1221,7 +1214,7 @@ static int trxmanager_get_split_freq_mode(RIG *rig, vfo_t vfo, freq_t *freq,
 
 static const char *trxmanager_get_info(RIG *rig)
 {
-    struct trxmanager_priv_data *priv = (struct trxmanager_priv_data *)
+    const struct trxmanager_priv_data *priv = (struct trxmanager_priv_data *)
                                         rig->state.priv;
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 

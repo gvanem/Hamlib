@@ -22,12 +22,15 @@
 
 #include <hamlib/config.h>
 
+#include <stdlib.h>
 #include <stdio.h>   /* Standard input/output definitions */
 #include <string.h>  /* String function definitions */
 
 #include <hamlib/rig.h>
 #include <hamlib/rotator.h>
 #include <hamlib/amplifier.h>
+#include "../rigs/icom/icom.h"
+
 
 #include "sprintflst.h"
 #include "misc.h"
@@ -42,7 +45,7 @@ int check_buffer_overflow(char *str, int len, int nlen)
     if (len + 32 >= nlen) // make sure at least 32 bytes are available
     {
         rig_debug(RIG_DEBUG_ERR,
-                  "%s: buffer overflow, len=%u, nlen=%d, str='%s', len+32 must be >= nlen\n",
+                  "%s: buffer overflow, len=%d, nlen=%d, str='%s', len+32 must be >= nlen\n",
                   __func__, len, nlen, str);
     }
 
@@ -97,9 +100,9 @@ int rig_sprintf_mode(char *str, int nlen, rmode_t mode)
         {
             continue;    /* unknown, FIXME! */
         }
+        if (i > 0) strcat(str, " ");
 
         strcat(str, ms);
-        strcat(str, " ");
         len += strlen(ms) + 1;
         check_buffer_overflow(str, len, nlen);
     }
@@ -326,6 +329,7 @@ int sprintf_level_ext(char *str, int nlen, const struct confparams *extlevels)
 
         switch (extlevels->type)
         {
+        case RIG_CONF_INT:
         case RIG_CONF_CHECKBUTTON:
         case RIG_CONF_COMBO:
         case RIG_CONF_NUMERIC:
@@ -384,7 +388,7 @@ int rig_sprintf_level_gran(char *str, int nlen, setting_t level,
         if (RIG_LEVEL_IS_FLOAT(rig_idx2setting(i)))
         {
             len += sprintf(str + len,
-                           "%s(%g..%g/%g) ",
+                           "%s(%f..%f/%f) ",
                            ms,
                            gran[i].min.f,
                            gran[i].max.f,
@@ -443,7 +447,7 @@ int rot_sprintf_level_gran(char *str, int nlen, setting_t level,
         if (ROT_LEVEL_IS_FLOAT(rig_idx2setting(i)))
         {
             len += sprintf(str + len,
-                           "%s(%g..%g/%g) ",
+                           "%s(%f..%f/%f) ",
                            ms,
                            gran[i].min.f,
                            gran[i].max.f,
@@ -562,11 +566,22 @@ int rig_sprintf_parm_gran(char *str, int nlen, setting_t parm,
         if (RIG_PARM_IS_FLOAT(rig_idx2setting(i)))
         {
             len += sprintf(str + len,
-                           "%s(%g..%g/%g) ",
+                           "%s(%.g..%.g/%.g) ",
                            ms,
                            gran[i].min.f,
                            gran[i].max.f,
                            gran[i].step.f);
+        }
+        else if (RIG_PARM_IS_STRING(rig_idx2setting(i)))
+        {
+            if (gran[i].step.s)
+            {
+            rig_debug(RIG_DEBUG_ERR, "%s: BAND_SELECT?\n", __func__);
+            len += sprintf(str + len,
+                "%s(%s) ",
+                ms,
+                gran[i].step.s);
+            }
         }
         else
         {
@@ -621,7 +636,7 @@ int rot_sprintf_parm_gran(char *str, int nlen, setting_t parm,
         if (ROT_PARM_IS_FLOAT(rig_idx2setting(i)))
         {
             len += sprintf(str + len,
-                           "%s(%g..%g/%g) ",
+                           "%s(%f..%f/%f) ",
                            ms,
                            gran[i].min.f,
                            gran[i].max.f,
@@ -857,6 +872,9 @@ char *get_rig_conf_type(enum rig_conf_e type)
 
     case RIG_CONF_BINARY:
         return "BINARY";
+
+    case RIG_CONF_INT:
+        return "INT";
     }
 
     return "UNKNOWN";
@@ -875,7 +893,7 @@ int print_ext_param(const struct confparams *cfp, rig_ptr_t ptr)
     switch (cfp->type)
     {
     case RIG_CONF_NUMERIC:
-        fprintf((FILE *)ptr, "\t\tRange: %g..%g/%g\n", cfp->u.n.min, cfp->u.n.max,
+        fprintf((FILE *)ptr, "\t\tRange: %f..%f/%f\n", cfp->u.n.min, cfp->u.n.max,
                 cfp->u.n.step);
         break;
 
@@ -895,4 +913,62 @@ int print_ext_param(const struct confparams *cfp, rig_ptr_t ptr)
     }
 
     return 1;       /* process them all */
+}
+
+int rig_sprintf_agc_levels(RIG *rig, char *str, int lenstr)
+{
+    const struct icom_priv_caps *priv_caps =
+        (const struct icom_priv_caps *) rig->caps->priv;
+
+    int len = 0;
+    int i;
+    char tmpbuf[256];
+
+    str[len] = 0;
+
+    if (priv_caps && RIG_BACKEND_NUM(rig->caps->rig_model) == RIG_ICOM
+            && priv_caps->agc_levels_present)
+    {
+        for (i = 0; i <= HAMLIB_MAX_AGC_LEVELS
+                && priv_caps->agc_levels[i].level != RIG_AGC_LAST
+                ;i++)
+        {
+            if (strlen(str) > 0) { strcat(str, " "); }
+
+            sprintf(tmpbuf, "%d=%s", priv_caps->agc_levels[i].icom_level,
+                    rig_stragclevel(priv_caps->agc_levels[i].level));
+
+            if (strlen(str) + strlen(tmpbuf) < lenstr - 1)
+            {
+                strncat(str, tmpbuf, lenstr - 1);
+            }
+            else
+            {
+                rig_debug(RIG_DEBUG_ERR, "%s: buffer overrun!!  len=%d > maxlen=%d\n",
+                          __func__, (int)(strlen(str) + strlen(tmpbuf)), lenstr - 1);
+            }
+        }
+    }
+    else
+    {
+        for (i = 0; i < HAMLIB_MAX_AGC_LEVELS && i < rig->caps->agc_level_count; i++)
+        {
+            if (strlen(str) > 0) { strcat(str, " "); }
+
+            sprintf(tmpbuf, "%d=%s", rig->caps->agc_levels[i],
+                    rig_stragclevel(rig->caps->agc_levels[i]));
+
+            if (strlen(str) + strlen(tmpbuf) < lenstr - 1)
+            {
+                strncat(str, tmpbuf, lenstr - 1);
+            }
+            else
+            {
+                rig_debug(RIG_DEBUG_ERR, "%s: buffer overrun!!  len=%d > maxlen=%d\n",
+                          __func__, (int)(strlen(str) + strlen(tmpbuf)), lenstr - 1);
+            }
+        }
+    }
+
+    return strlen(str);
 }

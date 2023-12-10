@@ -24,10 +24,6 @@
 
 #include "hamlib/rig.h"
 
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif
-
 #define BACKEND_VER "20220113"
 
 #define EOM "\x0d"
@@ -40,9 +36,9 @@
 // RET_LEN is # of max channels times the per-channel response length
 #define BARRETT_RET_LEN 24*1000
 
-extern const struct rig_caps barrett_caps;
-extern const struct rig_caps barrett950_caps;
-extern const struct rig_caps barrett4050_caps;
+extern struct rig_caps barrett_caps;
+extern struct rig_caps barrett950_caps;
+extern struct rig_caps barrett4050_caps;
 
 struct barrett_priv_data {
     char cmd_str[BARRETT_DATA_LEN];       /* command string buffer */
@@ -69,6 +65,9 @@ extern int barrett_set_split_vfo(RIG *rig, vfo_t rxvfo, split_t split,
 
 extern int barrett_get_split_vfo(RIG *rig, vfo_t rxvfo, split_t *split,
                                  vfo_t *txvfo);
+
+extern int barrett_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
+extern int barrett_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val);
 
 
 

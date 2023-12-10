@@ -24,10 +24,6 @@
 
 #include "hamlib/rig.h"
 
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif
-
 #define BACKEND_VER "20211228"
 
 #define EOM "\x0d"
@@ -38,8 +34,8 @@
 // But that would 9999*41 or 406KB so didn't do that right now
 #define CODAN_DATA_LEN 64
 
-extern const struct rig_caps envoy_caps;
-extern const struct rig_caps ngs_caps;
+extern struct rig_caps envoy_caps;
+extern struct rig_caps ngs_caps;
 
 struct codan_priv_data {
     char cmd_str[CODAN_DATA_LEN];       /* command string buffer */

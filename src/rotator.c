@@ -65,6 +65,7 @@
 #include "network.h"
 #include "rot_conf.h"
 #include "token.h"
+#include "serial.h"
 
 
 #ifndef DOC_HIDDEN
@@ -108,7 +109,7 @@ static struct opened_rot_l *opened_rot_list = { NULL };
 static int add_opened_rot(ROT *rot)
 {
     struct opened_rot_l *p;
-    p = (struct opened_rot_l *)malloc(sizeof(struct opened_rot_l));
+    p = (struct opened_rot_l *)calloc(1, sizeof(struct opened_rot_l));
 
     if (!p)
     {
@@ -269,11 +270,16 @@ ROT *HAMLIB_API rot_init(rot_model_t rot_model)
     {
     case RIG_PORT_SERIAL:
         strncpy(rs->rotport.pathname, DEFAULT_SERIAL_PORT, HAMLIB_FILPATHLEN - 1);
-        rs->rotport.parm.serial.rate = caps->serial_rate_max;   /* fastest ! */
-        rs->rotport.parm.serial.data_bits = caps->serial_data_bits;
-        rs->rotport.parm.serial.stop_bits = caps->serial_stop_bits;
-        rs->rotport.parm.serial.parity = caps->serial_parity;
-        rs->rotport.parm.serial.handshake = caps->serial_handshake;
+        rs->rotport.parm.serial.rate = rs->rotport2.parm.serial.rate =
+                                           caps->serial_rate_max;   /* fastest ! */
+        rs->rotport.parm.serial.data_bits = rs->rotport2.parm.serial.data_bits =
+                                                caps->serial_data_bits;
+        rs->rotport.parm.serial.stop_bits = rs->rotport2.parm.serial.stop_bits =
+                                                caps->serial_stop_bits;
+        rs->rotport.parm.serial.parity = rs->rotport2.parm.serial.parity =
+                                             caps->serial_parity;
+        rs->rotport.parm.serial.handshake = rs->rotport2.parm.serial.handshake =
+                                                caps->serial_handshake;
         break;
 
     case RIG_PORT_PARALLEL:
@@ -350,7 +356,7 @@ ROT *HAMLIB_API rot_init(rot_model_t rot_model)
  * \return RIG_OK if the operation has been successful, otherwise a **negative
  * value** if an error occurred (in which case, cause is set appropriately).
  *
- * \retval RIG_OK Communication channel succesfully opened.
+ * \retval RIG_OK Communication channel successfully opened.
  * \retval RIG_EINVAL \a rot is NULL or inconsistent.
  * \retval RIG_ENIMPL Communication port type is not implemented yet.
  *
@@ -379,6 +385,7 @@ int HAMLIB_API rot_open(ROT *rot)
     }
 
     rs->rotport.fd = -1;
+    rs->rotport2.fd = -1;
 
     // determine if we have a network address
     if (sscanf(rs->rotport.pathname, "%d.%d.%d.%d:%d", &net1, &net2, &net3, &net4,
@@ -389,6 +396,14 @@ int HAMLIB_API rot_open(ROT *rot)
         rs->rotport.type.rig = RIG_PORT_NETWORK;
     }
 
+    if (sscanf(rs->rotport2.pathname, "%d.%d.%d.%d:%d", &net1, &net2, &net3, &net4,
+               &port) == 5)
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s: using network address %s\n", __func__,
+                  rs->rotport2.pathname);
+        rs->rotport2.type.rig = RIG_PORT_NETWORK;
+    }
+
     switch (rs->rotport.type.rig)
     {
     case RIG_PORT_SERIAL:
@@ -397,6 +412,18 @@ int HAMLIB_API rot_open(ROT *rot)
         if (status != 0)
         {
             return status;
+        }
+
+        // RT21 has 2nd serial port elevation
+        // so if a 2nd pathname is provided we'll open it
+        if (rot->caps->rot_model == ROT_MODEL_RT21 && rs->rotport2.pathname[0] != 0)
+        {
+            status = serial_open(&rs->rotport2);
+
+            if (status != 0)
+            {
+                return status;
+            }
         }
 
         break;
@@ -488,6 +515,22 @@ int HAMLIB_API rot_open(ROT *rot)
                    sizeof(rot->state.rotport_deprecated));
             return status;
         }
+    }
+    if(rs->rotport.parm.serial.dtr_state == RIG_SIGNAL_ON)
+    {
+        ser_set_dtr(&rs->rotport, 1);
+    }
+    else
+    {
+        ser_set_dtr(&rs->rotport, 0);
+    }
+    if(rs->rotport.parm.serial.rts_state == RIG_SIGNAL_ON)
+    {
+        ser_set_rts(&rs->rotport, 1);
+    }
+    else
+    {
+        ser_set_rts(&rs->rotport, 0);
     }
 
     memcpy(&rot->state.rotport_deprecated, &rot->state.rotport,
@@ -635,7 +678,7 @@ int HAMLIB_API rot_cleanup(ROT *rot)
  * \brief Set the azimuth and elevation of the rotator.
  *
  * \param rot The #ROT handle.
- * \param azimuth The azimuth to set in decimal degress.
+ * \param azimuth The azimuth to set in decimal degrees.
  * \param elevation The elevation to set in decimal degrees.
  *
  * Sets the azimuth and elevation of the rotator.
@@ -933,7 +976,7 @@ int HAMLIB_API rot_move(ROT *rot, int direction, int speed)
  *
  * \return A pointer to static memory containing an ASCII nul terminated
  * string (C string) if the operation has been successful, otherwise NULL if
- * \a rot is NULL or inconsisten or the rot_caps#get_info() capability is not
+ * \a rot is NULL or inconsistent or the rot_caps#get_info() capability is not
  * available.
  */
 const char *HAMLIB_API rot_get_info(ROT *rot)

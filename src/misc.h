@@ -23,6 +23,8 @@
 #define _MISC_H 1
 
 #include <hamlib/rig.h>
+#include <hamlib/config.h>
+
 
 /*
  */
@@ -48,18 +50,19 @@
    *
    * typedef ptw32_handle_t pthread_t;
    *
-   * Hence this doesn't work with MSVC (only gcc):
-   *   pthread_cancel ((pthread_t)id);   // cast of struct to struct is not allowed.
+   * Hence this doesn't work with MSVC / clang-cl:
+   *   pthread_cancel ((pthread_t)pt_var);   // cast of struct to struct is not allowed.
+   *   if (pt_var != 0)                      // invalid operands to binary expression ('pthread_t' (aka '__ptw32_handle_t') and 'int')
    *
    * So for Windows, this PTHREAD_ID() macro will return something unique
-   * since 'id->p' comes from a calloc() call in ptw32_new.c.
+   * since 'pt->p' comes from a calloc() call in ptw32_new.c.
    */
   #if defined(_WIN32)
-    #define PTHREAD_ID(id)          (*(unsigned long*)&(id))
-    #define PTHREAD_ID_CLEAR(id)    memset (&(id), '\0', sizeof(id))
+    #define PTHREAD_ID(pt_var)          (*(unsigned long*)&(pt_var))
+    #define PTHREAD_ID_CLEAR(pt_var)    memset (&(pt_var), '\0', sizeof(pt_var))
   #else
-    #define PTHREAD_ID(id)          (*(unsigned long*)&(id))
-    #define PTHREAD_ID_CLEAR(id)    PTHREAD_ID(id) = 0
+    #define PTHREAD_ID(pt_var)          pt_var
+    #define PTHREAD_ID_CLEAR(pt_var)    PTHREAD_ID(pt_var) = 0
   #endif
 
 #else
@@ -135,17 +138,23 @@ extern int no_restore_ai;
 #  include <sys/time.h>
 #endif
 
-extern HAMLIB_EXPORT(int)       rig_check_cache_timeout(const struct timeval *tv, int timeout);
+extern HAMLIB_EXPORT(int) rig_check_cache_timeout(const struct timeval *tv,
+                                                  int timeout);
+
 extern HAMLIB_EXPORT(void)      rig_force_cache_timeout(struct timeval *tv);
+
 extern HAMLIB_EXPORT(setting_t) rig_idx2setting(int i);
 
 extern HAMLIB_EXPORT(int)       hl_usleep(rig_useconds_t usec);
+
 extern HAMLIB_EXPORT(double)    elapsed_ms(struct timespec *start, int start_flag);
+
 extern HAMLIB_EXPORT(vfo_t)     vfo_fixup(RIG *rig, vfo_t vfo, split_t split);
 extern HAMLIB_EXPORT(vfo_t)     vfo_fixup2a(RIG *rig, vfo_t vfo, split_t split, const char *func, const int line);
 #define vfo_fixup(r,v,s)        vfo_fixup2a(r,v,s,__func__,__LINE__)
 
 extern HAMLIB_EXPORT(int)       parse_hoststr(char *hoststr, int hoststr_len, char host[256], char port[6]);
+
 extern HAMLIB_EXPORT(uint32_t)  CRC32_function(uint8_t *buf, uint32_t len);
 extern HAMLIB_EXPORT(char *)    date_strget(char *buf, int buflen, int localtime);
 
@@ -200,16 +209,18 @@ void errmsg(int err, char *s, const char *func, const char *file, int line);
   #define rig_debug_filename(file) (strrchr(file, '/') ? strrchr(file, '/') + 1 : file)
 #endif
 
-//
-// Use this instead of snprintf for automatic detection of buffer limit
-//
-#define SNPRINTF(s, n, ...) do {                                              \
-                              snprintf (s, n, ##__VA_ARGS__);                 \
-                              if (strlen(s) > n - 1)                          \
-                                 fprintf (stderr,                             \
-                                   "****** %s(%d): buffer overflow ******\n", \
-                                   __func__, __LINE__);                       \
-                            } while (0)
+#if 0
+  //
+  // Use this instead of snprintf for automatic detection of buffer limit
+  //
+  #define SNPRINTF(s, n, ...) do {                                              \
+                                snprintf (s, n, ##__VA_ARGS__);                 \
+                                if (strlen(s) > n - 1)                          \
+                                   fprintf (stderr,                             \
+                                     "****** %s(%d): buffer overflow ******\n", \
+                                     __func__, __LINE__);                       \
+                              } while (0)
+#endif
 
 #define ERRMSG(err, s) errmsg(err,  s, __func__, rig_debug_filename(__FILE__), __LINE__)
 
@@ -224,14 +235,6 @@ void errmsg(int err, char *s, const char *func, const char *file, int line);
                      rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):%s entered\n",          \
                                rig_debug_filename(__FILE__), __LINE__, __func__); \
                    } while (0)
-
-// Measuring elapsed time -- local variable inside function when macro is used
-#define ELAPSED1  struct timespec __begin;  \
-                  elapsed_ms(&__begin, HAMLIB_ELAPSED_SET)
-
-#define ELAPSED2  rig_debug(RIG_DEBUG_TRACE, "%.*s%d:%s: elapsed=%.0lfms\n", \
-                            rig->state.depth, spaces(), rig->state.depth,    \
-                            __func__, elapsed_ms(&__begin, HAMLIB_ELAPSED_GET))
 
 #define fprintf_flush(file, fmt, ...)         \
         do {                                  \
@@ -292,9 +295,16 @@ typedef enum settings_value_e
 } settings_value_t;
 
 
-extern HAMLIB_EXPORT(int) rig_settings_save(char *setting, void *value, settings_value_t valuet);
+extern HAMLIB_EXPORT(int) rig_settings_save(const char *setting, void *value, settings_value_t valuet);
 extern HAMLIB_EXPORT(int) rig_settings_load(char *setting, void *value, settings_value_t valuet);
 extern HAMLIB_EXPORT(int) rig_settings_load_all(char *settings_file);
+
+extern int check_level_param(RIG *rig, setting_t level, value_t val, gran_t **gran);
+
+// Takes rig-specific band result and maps it the bandlist int the rig's backend
+extern HAMLIB_EXPORT(hamlib_band_t) rig_get_band(RIG *rig, freq_t freq, int band);
+extern HAMLIB_EXPORT(const char*)   rig_get_band_str(RIG *rig, hamlib_band_t band, int which);
+extern HAMLIB_EXPORT(int)           rig_get_band_rig(RIG *rig, freq_t freq, const char *band);
 
 __END_DECLS
 

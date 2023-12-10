@@ -27,12 +27,14 @@
 
 #include <hamlib/config.h>
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <strings.h>
 #include <ctype.h>
 #include <errno.h>
+#include <getopt.h>
 
 #ifdef HAVE_LIBREADLINE
 #  if defined(HAVE_READLINE_READLINE_H)
@@ -60,7 +62,8 @@ extern int read_history();
 #endif                              /* HAVE_READLINE_HISTORY */
 
 #include <hamlib/amplifier.h>
-#include "serial.h"
+#include "amplist.h"
+#include "iofunc.h"
 #include "misc.h"
 #include "sprintflst.h"
 
@@ -155,6 +158,7 @@ declare_proto_amp(dump_state);
 declare_proto_amp(dump_caps);
 declare_proto_amp(get_info);
 declare_proto_amp(reset);
+declare_proto_amp(set_level);
 declare_proto_amp(get_level);
 declare_proto_amp(set_powerstat);
 declare_proto_amp(get_powerstat);
@@ -170,6 +174,7 @@ struct test_table test_list[] =
     { 'F', "set_freq",      ACTION(set_freq),       ARG_IN, "Frequency(Hz)" },
     { 'f', "get_freq",      ACTION(get_freq),       ARG_OUT, "Frequency(Hz)" },
     { 'l', "get_level",     ACTION(get_level),      ARG_IN1 | ARG_OUT2, "Level", "Level Value" },
+    { 'L', "set_level",     ACTION(set_level),      ARG_IN, "Level", "Level Value" },
     { 'w', "send_cmd",      ACTION(send_cmd),       ARG_IN1 | ARG_IN_LINE | ARG_OUT2, "Cmd", "Reply" },
     { 0x8f, "dump_state",   ACTION(dump_state),     ARG_OUT },
     { '1', "dump_caps",     ACTION(dump_caps), },
@@ -230,7 +235,7 @@ void hash_add_model(int id,
 {
     struct mod_lst *s;
 
-    s = (struct mod_lst *)malloc(sizeof(struct mod_lst));
+    s = (struct mod_lst *)calloc(1, sizeof(struct mod_lst));
 
     s->id = id;
     SNPRINTF(s->mfg_name, sizeof(s->mfg_name), "%s", mfg_name);
@@ -442,6 +447,7 @@ static int next_word(char *buffer, int argc, char *argv[], int newline)
 
     return ret;
 }
+
 
 extern int interactive;
 extern int prompt;
@@ -854,7 +860,7 @@ int ampctl_parse(AMP *my_amp, FILE *fin, FILE *fout, char *argv[], int argc)
 
         rp_getline("\nAmplifier command: ");
 
-        /* EOF (Ctl-D) received on empty input line, bail out gracefully. */
+        /* EOF (Ctrl-D) received on empty input line, bail out gracefully. */
         if (!input_line)
         {
             fprintf_flush(fout, "\n");
@@ -938,7 +944,7 @@ int ampctl_parse(AMP *my_amp, FILE *fin, FILE *fout, char *argv[], int argc)
             char cmd_name[MAXNAMSIZ];
 
             /* if there is no terminating '\0' character in the source string,
-             * srncpy() doesn't add one even if the supplied length is less
+             * strncpy() doesn't add one even if the supplied length is less
              * than the destination array.  Truncate the source string here.
              */
             if (strlen(parsed_input[0] + 1) >= MAXNAMSIZ)
@@ -1020,7 +1026,7 @@ int ampctl_parse(AMP *my_amp, FILE *fin, FILE *fout, char *argv[], int argc)
             }
             else
             {
-                char pmptstr[(strlen(cmd_entry->arg1) + 3)];
+                char *pmptstr = alloca (strlen(cmd_entry->arg1) + 3);
                 x = 0;
 
                 strcpy(pmptstr, cmd_entry->arg1);
@@ -1078,7 +1084,7 @@ int ampctl_parse(AMP *my_amp, FILE *fin, FILE *fout, char *argv[], int argc)
             }
             else
             {
-                char pmptstr[(strlen(cmd_entry->arg1) + 3)];
+                char *pmptstr = alloca(strlen(cmd_entry->arg1) + 3);
                 x = 0;
 
                 strcpy(pmptstr, cmd_entry->arg1);
@@ -1086,7 +1092,7 @@ int ampctl_parse(AMP *my_amp, FILE *fin, FILE *fout, char *argv[], int argc)
 
                 rp_getline(pmptstr);
 
-                if (!(strcmp(input_line, "")))
+                if (!input_line || !(strcmp(input_line, "")))
                 {
                     fprintf(fout, "? for help, q to quit.\n");
                     fflush(fout);
@@ -1139,7 +1145,7 @@ int ampctl_parse(AMP *my_amp, FILE *fin, FILE *fout, char *argv[], int argc)
             }
             else
             {
-                char pmptstr[(strlen(cmd_entry->arg2) + 3)];
+                char *pmptstr = alloca(strlen(cmd_entry->arg2) + 3);
                 x = 0;
 
                 strcpy(pmptstr, cmd_entry->arg2);
@@ -1147,7 +1153,7 @@ int ampctl_parse(AMP *my_amp, FILE *fin, FILE *fout, char *argv[], int argc)
 
                 rp_getline(pmptstr);
 
-                if (!(strcmp(input_line, "")))
+                if (!input_line || !(strcmp(input_line, "")))
                 {
                     fprintf(fout, "? for help, q to quit.\n");
                     fflush(fout);
@@ -1200,7 +1206,7 @@ int ampctl_parse(AMP *my_amp, FILE *fin, FILE *fout, char *argv[], int argc)
             }
             else
             {
-                char pmptstr[(strlen(cmd_entry->arg3) + 3)];
+                char *pmptstr = alloca(strlen(cmd_entry->arg3) + 3);
                 x = 0;
 
                 strcpy(pmptstr, cmd_entry->arg3);
@@ -1261,7 +1267,7 @@ int ampctl_parse(AMP *my_amp, FILE *fin, FILE *fout, char *argv[], int argc)
             }
             else
             {
-                char pmptstr[(strlen(cmd_entry->arg4) + 3)];
+                char *pmptstr = alloca(strlen(cmd_entry->arg4) + 3);
                 x = 0;
 
                 strcpy(pmptstr, cmd_entry->arg4);
@@ -1466,6 +1472,8 @@ void usage_amp(FILE *fout)
             nbspaces -= fprintf(fout, ", %s", test_list[i].arg4);
         }
 
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: nbspace left=%d\n", __func__, nbspaces);
+
         fprintf(fout, ")\n");
     }
 
@@ -1478,7 +1486,6 @@ void usage_amp(FILE *fout)
 }
 
 
-#if 0
 int print_conf_list(const struct confparams *cfp, rig_ptr_t data)
 {
     AMP *amp = (AMP *) data;
@@ -1523,7 +1530,7 @@ int print_conf_list(const struct confparams *cfp, rig_ptr_t data)
 
     return 1;  /* != 0, we want them all ! */
 }
-#endif
+
 
 static int hash_model_list(const struct amp_caps *caps, void *data)
 {
@@ -1578,7 +1585,9 @@ void list_models()
 int set_conf(AMP *my_amp, char *conf_parms)
 {
     char *p, *n;
+    int token;
 
+    amp_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
     p = conf_parms;
 
     while (p && *p != '\0')
@@ -1601,11 +1610,19 @@ int set_conf(AMP *my_amp, char *conf_parms)
             *n++ = '\0';
         }
 
-        ret = amp_set_conf(my_amp, amp_token_lookup(my_amp, p), q);
+        token = amp_token_lookup(my_amp, p);
 
-        if (ret != RIG_OK)
+        if (token != 0)
         {
-            return ret;
+            ret = amp_set_conf(my_amp, token, q);
+            if (ret != RIG_OK)
+            {
+                return ret;
+            }
+        }
+        else
+        {
+            rig_debug(RIG_DEBUG_WARN, "%s: invalid token %s for this amp\n", __func__, p);
         }
 
         p = n;
@@ -1651,6 +1668,94 @@ declare_proto_amp(set_freq)
 
     CHKSCN1ARG(sscanf(arg1, "%"SCNfreq, &freq));
     return amp_set_freq(amp, freq);
+}
+
+
+/*
+ * RIG_CONF_ extparm's type:
+ *   NUMERIC: val.f
+ *   COMBO: val.i, starting from 0
+ *   STRING: val.s
+ *   CHECKBUTTON: val.i 0/1
+ *
+ * 'L'
+ */
+declare_proto_amp(set_level)
+{
+    setting_t level;
+    value_t val;
+
+    if (!strcmp(arg1, "?"))
+    {
+        char s[SPRINTF_MAX_SIZE];
+        rig_sprintf_level(s, sizeof(s), amp->state.has_set_level);
+        fputs(s, fout);
+
+        if (amp->caps->set_ext_level)
+        {
+            sprintf_level_ext(s, sizeof(s), amp->caps->extlevels);
+            fputs(s, fout);
+        }
+
+        fputc('\n', fout);
+        return (RIG_OK);
+    }
+
+    level = rig_parse_level(arg1);
+
+    // some Java apps send comma in international setups so substitute period
+    char *p = strchr(arg2, ',');
+
+    if (p) { *p = '.'; }
+
+    if (!amp_has_set_level(amp, level))
+    {
+        const struct confparams *cfp;
+
+        cfp = amp_ext_lookup(amp, arg1);
+
+        if (!cfp)
+        {
+            return (-RIG_ENAVAIL);   /* no such parameter */
+        }
+
+        switch (cfp->type)
+        {
+        case RIG_CONF_BUTTON:
+            /* arg is ignored */
+            val.i = 0; // avoid passing uninitialized data
+            break;
+
+        case RIG_CONF_CHECKBUTTON:
+        case RIG_CONF_COMBO:
+            CHKSCN1ARG(sscanf(arg2, "%d", &val.i));
+            break;
+
+        case RIG_CONF_NUMERIC:
+            CHKSCN1ARG(sscanf(arg2, "%f", &val.f));
+            break;
+
+        case RIG_CONF_STRING:
+            val.cs = arg2;
+            break;
+
+        default:
+            return (-RIG_ECONF);
+        }
+
+        return (amp_set_ext_level(amp, cfp->token, val));
+    }
+
+    if (RIG_LEVEL_IS_FLOAT(level))
+    {
+        CHKSCN1ARG(sscanf(arg2, "%f", &val.f));
+    }
+    else
+    {
+        CHKSCN1ARG(sscanf(arg2, "%d", &val.i));
+    }
+
+    return (amp_set_level(amp, level, val));
 }
 
 /* 'l' */

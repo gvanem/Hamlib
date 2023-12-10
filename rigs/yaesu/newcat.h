@@ -50,7 +50,7 @@
 typedef char ncboolean;
 
 /* shared function version */
-#define NEWCAT_VER "20220607"
+#define NEWCAT_VER "20231204"
 
 /* Hopefully large enough for future use, 128 chars plus '\0' */
 #define NEWCAT_DATA_LEN                 129
@@ -128,6 +128,8 @@ struct newcat_priv_data
     char last_if_response[NEWCAT_DATA_LEN];
     int poweron; /* to prevent powering on more than once */
     int question_mark_response_means_rejected; /* the question mark response has multiple meanings */
+    char front_rear_status; /* e.g. FTDX5000 EX103 status */
+    int ftdx101_st_missing; /* is ST command gone?  assume not until proven otherwise */
 };
 
 /*
@@ -194,6 +196,8 @@ int newcat_set_level(RIG * rig, vfo_t vfo, setting_t level, value_t val);
 int newcat_get_level(RIG * rig, vfo_t vfo, setting_t level, value_t * val);
 int newcat_set_func(RIG * rig, vfo_t vfo, setting_t func, int status);
 int newcat_get_func(RIG * rig, vfo_t vfo, setting_t func, int *status);
+int newcat_set_parm(RIG * rig, setting_t parm, value_t val);
+int newcat_get_parm(RIG * rig, setting_t parm, value_t *val);
 int newcat_set_mem(RIG * rig, vfo_t vfo, int ch);
 int newcat_get_mem(RIG * rig, vfo_t vfo, int *ch);
 int newcat_vfo_op(RIG * rig, vfo_t vfo, vfo_op_t op);
@@ -203,6 +207,8 @@ int newcat_get_rit(RIG * rig, vfo_t vfo, shortfreq_t * rit);
 int newcat_set_rit(RIG * rig, vfo_t vfo, shortfreq_t rit);
 int newcat_get_xit(RIG * rig, vfo_t vfo, shortfreq_t * xit);
 int newcat_set_xit(RIG * rig, vfo_t vfo, shortfreq_t xit);
+int newcat_get_clarifier_frequency(RIG *rig, vfo_t vfo, shortfreq_t *freq);
+int newcat_set_clarifier_frequency(RIG *rig, vfo_t vfo, shortfreq_t freq);
 int newcat_power2mW(RIG * rig, unsigned int *mwpower, float power, freq_t freq, rmode_t mode);
 int newcat_mW2power(RIG * rig, float *power, unsigned int mwpower, freq_t freq, rmode_t mode);
 int newcat_set_split_vfo(RIG * rig, vfo_t vfo, split_t split, vfo_t tx_vfo);
@@ -236,7 +242,7 @@ int newcat_set_clock(RIG *rig, int year, int month, int day, int hour, int min,
                      int sec, double msec, int utc_offset);
 int newcat_get_clock(RIG *rig, int *year, int *month, int *day, int *hour,
                      int *min, int *sec, double *msec, int *utc_offset);
-
+int newcat_scan(RIG *rig, vfo_t vfo, scan_t scan, int ch);
 
 #define TOKEN_BACKEND(t) (t)
 
@@ -248,5 +254,11 @@ int newcat_get_clock(RIG *rig, int *year, int *month, int *day, int *hour,
 #define TOK_CONTOUR_FREQ   TOKEN_BACKEND(105)
 #define TOK_CONTOUR_LEVEL  TOKEN_BACKEND(106)
 #define TOK_CONTOUR_WIDTH  TOKEN_BACKEND(107)
+#define TOK_MAXPOWER_HF    TOKEN_BACKEND(108)
+#define TOK_MAXPOWER_6M    TOKEN_BACKEND(109)
+#define TOK_MAXPOWER_4M    TOKEN_BACKEND(110)
+#define TOK_MAXPOWER_AM    TOKEN_BACKEND(111)
+#define TOK_MAXPOWER_VHF   TOKEN_BACKEND(112)
+#define TOK_MAXPOWER_UHF   TOKEN_BACKEND(113)
 
 #endif /* _NEWCAT_H */

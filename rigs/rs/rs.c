@@ -19,13 +19,10 @@
  *
  */
 
-#include <hamlib/config.h>
-
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -35,6 +32,7 @@
 
 #include "rs.h"
 #include "gp2000.h"
+#include "ek89x.h"
 
 
 #define BUFSZ 64
@@ -99,7 +97,6 @@ int rs_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     char freqbuf[32];
     int retval;
 
-    // cppcheck-suppress *
     SNPRINTF(freqbuf, sizeof(freqbuf), BOM "FREQ %"PRIll EOM, (int64_t)freq);
     retval = rs_transaction(rig, freqbuf, strlen(freqbuf), NULL, NULL);
 
@@ -396,6 +393,7 @@ DECLARE_INITRIG_BACKEND(rs)
     rig_register(&esmc_caps);
     rig_register(&eb200_caps);
     rig_register(&xk2100_caps);
+    rig_register(&ek89x_caps);
 
     return RIG_OK;
 }

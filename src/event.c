@@ -64,23 +64,19 @@ typedef struct rig_poll_routine_priv_data_s
     rig_poll_routine_args args;
 } rig_poll_routine_priv_data;
 
-// TODO: Where to start/stop rig poll routine?
-
 void *rig_poll_routine(void *arg)
 {
     rig_poll_routine_args *args = (rig_poll_routine_args *)arg;
     RIG *rig = args->rig;
     struct rig_state *rs = &rig->state;
-    int result;
     int update_occurred;
 
-    vfo_t vfo = RIG_VFO_NONE, vfo_prev = RIG_VFO_NONE;
-    freq_t freq_main = 0, freq_sub = 0, freq_main_prev = 0, freq_sub_prev = 0;
-    rmode_t mode_main = RIG_MODE_NONE, mode_sub = RIG_MODE_NONE,
-            mode_main_prev = RIG_MODE_NONE, mode_sub_prev = RIG_MODE_NONE;
-    pbwidth_t width_main = 0, width_sub = 0, width_main_prev = 0,
-              width_sub_prev = 0;
-    split_t split, split_prev = -1;
+    vfo_t vfo = RIG_VFO_NONE, tx_vfo = RIG_VFO_NONE;
+    freq_t freq_main_a = 0, freq_main_b = 0, freq_main_c = 0, freq_sub_a = 0, freq_sub_b = 0, freq_sub_c = 0;
+    rmode_t mode_main_a = 0, mode_main_b = 0, mode_main_c = 0, mode_sub_a = 0, mode_sub_b = 0, mode_sub_c = 0;
+    pbwidth_t width_main_a = 0, width_main_b = 0, width_main_c = 0, width_sub_a = 0, width_sub_b = 0, width_sub_c = 0;
+    ptt_t ptt = RIG_PTT_OFF;
+    split_t split = RIG_SPLIT_OFF;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): Starting rig poll routine thread\n",
               __FILE__, __LINE__);
@@ -88,151 +84,146 @@ void *rig_poll_routine(void *arg)
     // Rig cache time should be equal to rig poll interval (should be set automatically by rigctld at least)
     rig_set_cache_timeout_ms(rig, HAMLIB_CACHE_ALL, rs->poll_interval);
 
+    // Attempt to detect changes with the interval below (in milliseconds)
+    int change_detection_interval = 50;
+    int interval_count = 0;
+
     update_occurred = 0;
+
+    network_publish_rig_poll_data(rig);
 
     while (rs->poll_routine_thread_run)
     {
-        if (rig->caps->get_vfo)
+        if (rig->state.current_vfo != vfo)
         {
-            result = rig_get_vfo(rig, &vfo);
-
-            if (result != RIG_OK)
-            {
-                rig_debug(RIG_DEBUG_ERR, "%s(%d): rig_get_vfo error %s\n", __FILE__, __LINE__,
-                          rigerror(result));
-            }
-
-            if (vfo != vfo_prev)
-            {
-                rig_fire_vfo_event(rig, vfo);
-            }
-
-            if (vfo != vfo_prev)
-            {
-                rig_debug(RIG_DEBUG_CACHE,
-                          "%s(%d) vfo=%s was %s\n", __FILE__, __LINE__,
-                          rig_strvfo(vfo), rig_strvfo(vfo_prev));
-                update_occurred = 1;
-                vfo_prev = vfo;
-            }
+            vfo = rig->state.current_vfo;
+            update_occurred = 1;
         }
-
-        if (rig->caps->get_freq)
+        if (rig->state.tx_vfo != tx_vfo)
         {
-            result = rig_get_freq(rig, RIG_VFO_A, &freq_main);
-
-            if (result != RIG_OK)
-            {
-                rig_debug(RIG_DEBUG_ERR, "%s(%d): rig_get_freqA error %s\n", __FILE__, __LINE__,
-                          rigerror(result));
-            }
-
-            result = rig_get_freq(rig, RIG_VFO_B, &freq_sub);
-
-            if (result != RIG_OK)
-            {
-                rig_debug(RIG_DEBUG_ERR, "%s(%d): rig_get_freqB error %s\n", __FILE__, __LINE__,
-                          rigerror(result));
-            }
-
-            if (freq_main != freq_main_prev)
-            {
-                rig_fire_freq_event(rig, RIG_VFO_A, freq_main);
-            }
-
-            if (freq_sub != freq_sub_prev)
-            {
-                rig_fire_freq_event(rig, RIG_VFO_B, freq_sub);
-            }
-
-            if (freq_main != freq_main_prev || freq_sub != freq_sub_prev)
-            {
-                rig_debug(RIG_DEBUG_CACHE,
-                          "%s(%d) freq_main=%.0f was %.0f, freq_sub=%.0f was %.0f\n", __FILE__, __LINE__,
-                          freq_main, freq_main_prev, freq_sub, freq_sub_prev);
-                update_occurred = 1;
-                freq_main_prev = freq_main;
-                freq_sub_prev = freq_sub;
-            }
+            tx_vfo = rig->state.tx_vfo;
+            update_occurred = 1;
         }
-
-        if (rig->caps->get_mode)
+        if (rig->state.cache.freqMainA != freq_main_a)
         {
-            result = rig_get_mode(rig, RIG_VFO_A, &mode_main, &width_main);
-
-            if (result != RIG_OK)
-            {
-                rig_debug(RIG_DEBUG_ERR, "%s(%d): rig_get_modeA error %s\n", __FILE__, __LINE__,
-                          rigerror(result));
-            }
-
-            result = rig_get_mode(rig, RIG_VFO_B, &mode_sub, &width_sub);
-
-            if (result != RIG_OK)
-            {
-                rig_debug(RIG_DEBUG_ERR, "%s(%d): rig_get_modeB error %s\n", __FILE__, __LINE__,
-                          rigerror(result));
-            }
-
-            if (mode_main != mode_main_prev || width_main != width_main_prev)
-            {
-                rig_fire_mode_event(rig, RIG_VFO_A, mode_main, width_main);
-            }
-
-            if (mode_sub != mode_sub_prev || width_sub != width_sub_prev)
-            {
-                rig_fire_mode_event(rig, RIG_VFO_B, mode_sub, width_sub);
-            }
-
-            if (mode_main != mode_main_prev || mode_sub != mode_sub_prev)
-            {
-                rig_debug(RIG_DEBUG_CACHE, "%s(%d) mode_main=%s was %s, mode_sub=%s was %s\n",
-                          __FILE__, __LINE__, rig_strrmode(mode_main), rig_strrmode(mode_main_prev),
-                          rig_strrmode(mode_sub), rig_strrmode(mode_sub_prev));
-                update_occurred = 1;
-                mode_main_prev = mode_main;
-                mode_sub_prev = mode_sub;
-            }
-
-            if (width_main != width_main_prev || width_sub != width_sub_prev)
-            {
-                rig_debug(RIG_DEBUG_CACHE,
-                          "%s(%d) width_main=%ld was %ld, width_sub=%ld was %ld\n", __FILE__, __LINE__,
-                          width_main, width_main_prev, width_sub, width_sub_prev);
-                update_occurred = 1;
-                width_main_prev = width_main;
-                width_sub_prev = width_sub;
-            }
+            freq_main_a = rig->state.cache.freqMainA;
+            update_occurred = 1;
         }
-
-        if (rig->caps->get_split_vfo)
+        if (rig->state.cache.freqMainB != freq_main_b)
         {
-            vfo_t tx_vfo;
-            result = rig_get_split_vfo(rig, RIG_VFO_A, &split, &tx_vfo);
-
-            if (result != RIG_OK)
-            {
-                rig_debug(RIG_DEBUG_ERR, "%s(%d): rig_get_modeA error %s\n", __FILE__, __LINE__,
-                          rigerror(result));
-            }
-
-            if (split != split_prev)
-            {
-                rig_debug(RIG_DEBUG_CACHE, "%s(%d) split=%d was %d\n", __FILE__, __LINE__,
-                          split,
-                          split_prev);
-                update_occurred = 1;
-                split_prev = split;
-            }
+            freq_main_b = rig->state.cache.freqMainB;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.freqMainC != freq_main_c)
+        {
+            freq_main_b = rig->state.cache.freqMainC;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.freqSubA != freq_sub_a)
+        {
+            freq_sub_a = rig->state.cache.freqSubA;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.freqSubB != freq_sub_b)
+        {
+            freq_sub_b = rig->state.cache.freqSubB;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.freqSubC != freq_sub_c)
+        {
+            freq_sub_c = rig->state.cache.freqSubC;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.ptt != ptt)
+        {
+            ptt = rig->state.cache.ptt;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.split != split)
+        {
+            split = rig->state.cache.split;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.modeMainA != mode_main_a)
+        {
+            mode_main_a = rig->state.cache.modeMainA;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.modeMainB != mode_main_b)
+        {
+            mode_main_b = rig->state.cache.modeMainB;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.modeMainC != mode_main_c)
+        {
+            mode_main_c = rig->state.cache.modeMainC;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.modeSubA != mode_sub_a)
+        {
+            mode_sub_a = rig->state.cache.modeSubA;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.modeSubB != mode_sub_b)
+        {
+            mode_sub_b = rig->state.cache.modeSubB;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.modeSubC != mode_sub_c)
+        {
+            mode_sub_c = rig->state.cache.modeSubC;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.widthMainA != width_main_a)
+        {
+            width_main_a = rig->state.cache.widthMainA;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.widthMainB != width_main_b)
+        {
+            width_main_b = rig->state.cache.widthMainB;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.widthMainC != width_main_c)
+        {
+            width_main_c = rig->state.cache.widthMainC;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.widthSubA != width_sub_a)
+        {
+            width_sub_a = rig->state.cache.widthSubA;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.widthSubB != width_sub_b)
+        {
+            width_sub_b = rig->state.cache.widthSubB;
+            update_occurred = 1;
+        }
+        if (rig->state.cache.widthSubC != width_sub_c)
+        {
+            width_sub_c = rig->state.cache.widthSubC;
+            update_occurred = 1;
         }
 
         if (update_occurred)
         {
             network_publish_rig_poll_data(rig);
+            update_occurred = 0;
+            interval_count = 0;
         }
 
-        hl_usleep(rs->poll_interval * 1000);
+        hl_usleep(change_detection_interval * 1000);
+        interval_count++;
+
+        // Publish updates every poll_interval if no changes have been detected
+        if (interval_count >= (rs->poll_interval / change_detection_interval))
+        {
+            interval_count = 0;
+            network_publish_rig_poll_data(rig);
+        }
     }
+
+    network_publish_rig_poll_data(rig);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): Stopping rig poll routine thread\n",
               __FILE__,
@@ -291,6 +282,8 @@ int rig_poll_routine_start(RIG *rig)
         RETURNFUNC(-RIG_EINTERNAL);
     }
 
+    network_publish_rig_poll_data(rig);
+
     RETURNFUNC(RIG_OK);
 }
 
@@ -322,7 +315,7 @@ int rig_poll_routine_stop(RIG *rig)
 
     poll_routine_priv = (rig_poll_routine_priv_data *) rs->poll_routine_priv_data;
 
-    if (PTHREAD_ID(poll_routine_priv->thread_id))
+    if (PTHREAD_ID(poll_routine_priv->thread_id) != 0)
     {
         int err = pthread_join(poll_routine_priv->thread_id, NULL);
 
@@ -335,6 +328,8 @@ int rig_poll_routine_stop(RIG *rig)
 
         PTHREAD_ID_CLEAR(poll_routine_priv->thread_id);
     }
+
+    network_publish_rig_poll_data(rig);
 
     free(rs->poll_routine_priv_data);
     rs->poll_routine_priv_data = NULL;
@@ -593,10 +588,16 @@ int rig_fire_freq_event(RIG *rig, vfo_t vfo, freq_t freq)
 {
     ENTERFUNC;
 
-    rig_debug(RIG_DEBUG_TRACE, "Event: freq changed to %"PRIll"Hz on %s\n",
-              (int64_t)freq, rig_strvfo(vfo));
+    rig_debug(RIG_DEBUG_TRACE, "Event: freq changed to %"PRIll"Hz on %s\n", (int64_t)freq, rig_strvfo(vfo));
 
     rig_set_cache_freq(rig, vfo, freq);
+    // This doesn't work well for Icom rigs -- no way to tell which VFO we're on
+    // Should work for most other rigs using AI1; mode
+    if (RIG_BACKEND_NUM(rig->caps->rig_model) != RIG_ICOM)
+    {
+        rig->state.use_cached_freq = 1;
+    }
+
 
     network_publish_rig_transceive_data(rig);
 
@@ -617,6 +618,12 @@ int rig_fire_mode_event(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
               rig_strrmode(mode), width, rig_strvfo(vfo));
 
     rig_set_cache_mode(rig, vfo, mode, width);
+    // This doesn't work well for Icom rigs -- no way to tell which VFO we're on
+    // Should work for most other rigs using AI1; mode
+    if (RIG_BACKEND_NUM(rig->caps->rig_model) != RIG_ICOM)
+    {
+        rig->state.use_cached_mode = 1;
+    }
 
     network_publish_rig_transceive_data(rig);
 
@@ -772,7 +779,7 @@ int rig_fire_spectrum_event(RIG *rig, struct rig_spectrum_line *line)
 
     if (rig_need_debug(RIG_DEBUG_TRACE))
     {
-        char *spectrum_debug = alloca (line->spectrum_data_length * 4);
+        char *spectrum_debug = alloca(line->spectrum_data_length * 4);
         print_spectrum_line(spectrum_debug, sizeof(spectrum_debug), line);
         rig_debug(RIG_DEBUG_TRACE, "%s: ASCII Spectrum Scope: %s\n", __func__,
                   spectrum_debug);

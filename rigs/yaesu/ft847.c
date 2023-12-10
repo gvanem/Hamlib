@@ -44,11 +44,8 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -382,12 +379,12 @@ static tone_t ft650_ctcss_list[] =
  * Notice that some rigs share the same functions.
  */
 
-const struct rig_caps ft847_caps =
+struct rig_caps ft847_caps =
 {
     RIG_MODEL(RIG_MODEL_FT847),
     .model_name = "FT-847",
     .mfg_name =  "Yaesu",
-    .version =  "20220525.0",
+    .version =  "20230512.0",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -411,7 +408,10 @@ const struct rig_caps ft847_caps =
     .has_set_level =  RIG_LEVEL_BAND_SELECT,
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
-    .level_gran =  { 0 },      /* granularity */
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .parm_gran =  { 0 },
     .ctcss_list =  ft847_ctcss_list,
     .dcs_list =  common_dcs_list,
@@ -537,12 +537,12 @@ const struct rig_caps ft847_caps =
  * Notice that some rigs share the same functions.
  */
 
-const struct rig_caps ft650_caps =
+struct rig_caps ft650_caps =
 {
     RIG_MODEL(RIG_MODEL_FT650),
     .model_name = "FT-650",
     .mfg_name =  "Yaesu",
-    .version =  "20220525.0",
+    .version =  "20230512.0",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -566,7 +566,10 @@ const struct rig_caps ft650_caps =
     //.has_set_level =  RIG_LEVEL_BAND_SELECT,
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
-    .level_gran =  { 0 },      /* granularity */
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .parm_gran =  { 0 },
     //.ctcss_list =  ft847_ctcss_list,
     .preamp =   { RIG_DBLST_END, }, /* no preamp/att in CAT */
@@ -621,6 +624,11 @@ const struct rig_caps ft650_caps =
         RIG_FRNG_END,
     }, /* tx range end */
 
+    .tuning_steps =  {
+        {RIG_MODE_ALL, 1},
+        RIG_TS_END,
+    },
+
     /* mode/filter list, .remember =  order matters! */
     .filters =  {
         {RIG_MODE_SSB | RIG_MODE_CW, kHz(2.4)},
@@ -667,12 +675,12 @@ const struct rig_caps ft650_caps =
     .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
-const struct rig_caps mchfqrp_caps =
+struct rig_caps mchfqrp_caps =
 {
     RIG_MODEL(RIG_MODEL_MCHFQRP),
     .model_name = "mcHF QRP",
     .mfg_name =  "M0NKA",
-    .version =  "20220525.0",
+    .version =  "20230512.0",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -696,7 +704,10 @@ const struct rig_caps mchfqrp_caps =
     .has_set_level =  RIG_LEVEL_BAND_SELECT,
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
-    .level_gran =  { 0 },      /* granularity */
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .parm_gran =  { 0 },
     .ctcss_list =  ft847_ctcss_list,
     .dcs_list =  common_dcs_list,
@@ -837,12 +848,12 @@ improvements. This version was made in May 1998. Later serial numbers (e.g.,
 8L09nnnn) all seem to have incorporated the earlier improvements plus new
 ones...."
  */
-const struct rig_caps ft847uni_caps =
+struct rig_caps ft847uni_caps =
 {
     RIG_MODEL(RIG_MODEL_FT847UNI),
     .model_name = "FT-847UNI",
     .mfg_name =  "Yaesu",
-    .version =  "20210221.0",
+    .version =  "20230511.0",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -866,7 +877,10 @@ const struct rig_caps ft847uni_caps =
     .has_set_level =  RIG_LEVEL_BAND_SELECT,
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
-    .level_gran =  { 0 },      /* granularity */
+    .level_gran =
+    {
+#include "level_gran_yaesu.h"
+    },
     .parm_gran =  { 0 },
     .ctcss_list =  ft847_ctcss_list,
     .dcs_list =  common_dcs_list,
@@ -1123,7 +1137,7 @@ static int opcode_vfo(RIG *rig, unsigned char *cmd, int cmd_index, vfo_t vfo)
     /* If the sat_mode is not enabled,
      * then leave the OpCode untouched (MAIN VFO) */
 
-    if (p->sat_mode == RIG_SPLIT_ON)
+    if (p->sat_mode == RIG_SPLIT_ON || vfo == RIG_VFO_SUB)
     {
         switch (vfo)
         {

@@ -19,9 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
-#include <stdlib.h>
 
 #include <hamlib/rig.h>
 #include "idx_builtin.h"
@@ -52,7 +49,7 @@
  *
  * TODO: BFO
  */
-const struct rig_caps wj8888_caps =
+struct rig_caps wj8888_caps =
 {
     RIG_MODEL(RIG_MODEL_WJ8888),
     .model_name = "WJ-8888",
@@ -85,7 +82,6 @@ const struct rig_caps wj8888_caps =
     .preamp =   { RIG_DBLST_END },
     .attenuator =   { RIG_DBLST_END },
     .level_gran = {
-        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 0x7f } },
     },
     .max_rit =  Hz(0),

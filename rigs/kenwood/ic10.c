@@ -21,19 +21,15 @@
  *
  */
 
-#include <hamlib/config.h>
-
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 #include <ctype.h>   /* character class tests */
 
 #include "hamlib/rig.h"
 #include "serial.h"
 #include "misc.h"
-#include "register.h"
 
 #include "kenwood.h"
 #include "ic10.h"
@@ -80,6 +76,11 @@ int ic10_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
     int retry_cmd = 0;
     struct rig_state *rs;
 
+    if (cmd == NULL)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: cmd==NULL?\n", __func__);
+        return -RIG_EARG;
+    }
     rig_debug(RIG_DEBUG_TRACE,
               "%s: called cmd='%s', len=%d, data=%p, data_len=%p\n", __func__, cmd, cmd_len,
               data, data_len);
@@ -99,7 +100,7 @@ transaction:
     if (!data)
     {
         char buffer[50];
-        struct kenwood_priv_data *priv = rig->state.priv;
+        const struct kenwood_priv_data *priv = rig->state.priv;
 
         if (RIG_OK != (retval = write_block(&rs->rigport,
                                             (unsigned char *) priv->verify_cmd, strlen(priv->verify_cmd))))
@@ -150,7 +151,7 @@ transaction:
  */
 static int get_ic10_if(RIG *rig, char *data)
 {
-    struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
+    const struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
     int i, data_len, retval = RIG_EINVAL;
 
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
@@ -165,9 +166,8 @@ static int get_ic10_if(RIG *rig, char *data)
             continue;
         }
 
-        if (retval == RIG_OK &&
-                (data_len < priv->if_len ||
-                 data[0] != 'I' || data[1] != 'F'))
+        if (data_len < priv->if_len ||
+                 data[0] != 'I' || data[1] != 'F')
         {
             rig_debug(RIG_DEBUG_WARN, "%s: unexpected answer %s, len=%d\n",
                       __func__, data, data_len);
@@ -221,7 +221,7 @@ int ic10_set_vfo(RIG *rig, vfo_t vfo)
  */
 int ic10_get_vfo(RIG *rig, vfo_t *vfo)
 {
-    struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
+    const struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
     char vfobuf[50];
     unsigned char c;
     int retval, iflen;
@@ -288,7 +288,7 @@ int ic10_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
 
 int ic10_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *txvfo)
 {
-    struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
+    const struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
     char infobuf[50];
     int retval, iflen;
 
@@ -317,7 +317,7 @@ int ic10_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *txvfo)
  */
 int ic10_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
-    struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
+    const struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
     char modebuf[50];
     unsigned char c;
     int retval, iflen;
@@ -469,7 +469,6 @@ int ic10_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
         return -RIG_EINVAL;
     }
 
-    // cppcheck-suppress *
     SNPRINTF(freqbuf, sizeof(freqbuf), "F%c%011"PRIll";", vfo_letter,
              (int64_t)freq);
     retval = ic10_transaction(rig, freqbuf, strlen(freqbuf), NULL, 0);
@@ -532,9 +531,9 @@ int ic10_get_ant(RIG *rig, vfo_t vfo, ant_t dummy, value_t *option,
  */
 int ic10_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
 {
-    struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
+    const struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
     char infobuf[50];
-    int retval, iflen;
+    int retval, iflen, offset;
 
     retval = get_ic10_if(rig, infobuf);
 
@@ -548,8 +547,16 @@ int ic10_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
 
     /* IFggmmmkkkhhh snnnzrx yytdfcp */
     /* IFggmmmkkkhhhxxxxxrrrrrssxcctmfcp */
+    /* IFggmmmkkkhhhxxxxxrrrrrssxcctmfcp####  what should be if p13/p14/p15 included  */
+    /* IF00014074000     +00000000003000000 ; QRP QDX bad IF command -- 36 bytes instead of 33 */
+    /* QRP QDX should be 37 bytes but used only 1 byte for p14 instead of 2 bytes */
+    /* 12345678901234567890123456789012345678 */
+    offset = 5;
 
-    *ptt = infobuf[iflen - 5] == '0' ? RIG_PTT_OFF : RIG_PTT_ON;
+    if (iflen == 36) { offset = 8; } // QRP QDX gets completely bogus length
+    else if (iflen == 37) { offset = 9; } // just in case somebody does this add p13/p14x2/p15
+
+    *ptt = infobuf[iflen - offset] == '0' ? RIG_PTT_OFF : RIG_PTT_ON;
 
     return RIG_OK;
 }
@@ -593,7 +600,7 @@ int ic10_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
  */
 int ic10_get_mem(RIG *rig, vfo_t vfo, int *ch)
 {
-    struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
+    const struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
     char membuf[50];
     int retval, iflen;
 
@@ -1148,7 +1155,7 @@ const char *ic10_get_info(RIG *rig)
  */
 int ic10_decode_event(RIG *rig)
 {
-    struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
+    const struct kenwood_priv_caps *priv = (struct kenwood_priv_caps *)rig->caps->priv;
     char asyncbuf[128], c;
     int retval, async_len = 128, iflen;
     vfo_t vfo;

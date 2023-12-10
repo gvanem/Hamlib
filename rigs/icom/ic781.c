@@ -19,8 +19,6 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 
 #include "hamlib/rig.h"
@@ -57,7 +55,7 @@ static const struct icom_priv_caps ic781_priv_caps =
     ic737_ts_sc_list
 };
 
-const struct rig_caps ic781_caps =
+struct rig_caps ic781_caps =
 {
     RIG_MODEL(RIG_MODEL_IC781),
     .model_name = "IC-781",
@@ -85,7 +83,10 @@ const struct rig_caps ic781_caps =
     .has_set_level =  RIG_LEVEL_NONE,
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
-    .level_gran =  { 0 },
+    .level_gran =
+    {
+#include "level_gran_icom.h"
+    },
     .parm_gran =  { 0 },
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
@@ -132,8 +133,8 @@ const struct rig_caps ic781_caps =
         {MHz(6.9), kHz(7499.99), IC781_AM_TX_MODES, 2000, 75000, IC781_VFO_ALL},
         {MHz(9.9), MHz(1049999), IC781_OTHER_TX_MODES, 5000, 150000, IC781_VFO_ALL},
         {MHz(9.9), MHz(1049999), IC781_AM_TX_MODES, 2000, 75000, IC781_VFO_ALL},
-        {MHz(13.9), kHz(14.49999), IC781_OTHER_TX_MODES, 5000, 150000, IC781_VFO_ALL},
-        {MHz(13.9), kHz(14.49999), IC781_AM_TX_MODES, 2000, 75000, IC781_VFO_ALL},
+        {MHz(13.9), MHz(14.49999), IC781_OTHER_TX_MODES, 5000, 150000, IC781_VFO_ALL},
+        {MHz(13.9), MHz(14.49999), IC781_AM_TX_MODES, 2000, 75000, IC781_VFO_ALL},
         {kHz(17900), kHz(18499.99), IC781_OTHER_TX_MODES, 5000, 150000, IC781_VFO_ALL},
         {kHz(17900), kHz(18499.99), IC781_AM_TX_MODES, 2000, 75000, IC781_VFO_ALL},
         {MHz(20.9), kHz(21499.99), IC781_OTHER_TX_MODES, 5000, 150000, IC781_VFO_ALL},
@@ -174,7 +175,7 @@ const struct rig_caps ic781_caps =
     .set_mode =  icom_set_mode,
     .get_mode =  icom_get_mode,
     .set_vfo =  icom_set_vfo,
-    .get_vfo =  icom_get_vfo,
+//    .get_vfo =  icom_get_vfo,
     .set_split_vfo =  icom_set_split_vfo,
     .set_split_freq =  icom_set_split_freq,
     .get_split_freq =  icom_get_split_freq,

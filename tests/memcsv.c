@@ -21,20 +21,12 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <ctype.h>
-#include <errno.h>
-
-#include <getopt.h>
 
 #include <hamlib/rig.h>
 #include "misc.h"
-#include "sprintflst.h"
 
 
 /*
@@ -49,6 +41,7 @@ char csv_sep = ','; /* CSV separator */
  * Prototypes
  */
 static int dump_csv_chan(RIG *rig,
+                         vfo_t vfo,
                          channel_t **chan,
                          int channel_num,
                          const chan_t *chan_list,
@@ -68,7 +61,7 @@ static int  tokenize_line(char *line,
                           size_t siz,
                           char delim);
 
-static int find_on_list(char **list, char *what);
+static int find_on_list(char **list, const char *what);
 
 int csv_save(RIG *rig, const char *outfilename);
 int csv_load(RIG *rig, const char *infilename);
@@ -279,6 +272,7 @@ static char *mystrtok(char *s, char delim)
     }
     else
     {
+        return NULL;
     }
 
     if (str && str[ pos + 1 ] == '\0')
@@ -547,12 +541,18 @@ void dump_csv_name(const channel_cap_t *mem_caps, FILE *f)
         fprintf(f, "flags%c", csv_sep);
     }
 
+    if (mem_caps->tag)
+    {
+        fprintf(f, "tag%c", csv_sep);
+    }
+
     fprintf(f, "\n");
 }
 
 
 /* Caution! Keep the function consistent with dump_csv_name and set_channel_data! */
 int dump_csv_chan(RIG *rig,
+                  vfo_t vfo,
                   channel_t **chan_pp,
                   int channel_num,
                   const chan_t *chan_list,
@@ -699,7 +699,14 @@ int dump_csv_chan(RIG *rig,
 
     if (mem_caps->flags)
     {
-        fprintf(f, "%x%c", chan.flags, csv_sep);
+        if (chan.tag[0] != 0)  // then we need the seperator
+            fprintf(f, "%x%c", chan.flags, csv_sep);
+        else
+            fprintf(f, "%x", chan.flags);
+    }
+    if (chan.tag[0] != 0)
+    {
+        fprintf(f, "%s", chan.tag);
     }
 
     fprintf(f, "\n");
@@ -1020,7 +1027,7 @@ int set_channel_data(RIG *rig,
     \return string position on the list on success,
            -1 if string not found or if string is empty
 */
-int find_on_list(char **list, char *what)
+int find_on_list(char **list, const char *what)
 {
     int i = 0;
 

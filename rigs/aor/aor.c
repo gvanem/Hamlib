@@ -19,14 +19,9 @@
  *
  */
 
-#include <hamlib/config.h>
-
+#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
-#include <ctype.h>
+#include <string.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
@@ -179,7 +174,6 @@ static int format_freq(char *buf, int buf_len, freq_t freq)
 
     f = f * 100 + lowhz;
 
-    // cppcheck-suppress *
     SNPRINTF(buf, buf_len, "RF%010"PRIll, f);
     return strlen(buf);
 }
@@ -276,8 +270,8 @@ int aor_set_vfo(RIG *rig, vfo_t vfo)
     case RIG_VFO_MEM: vfocmd = "MR" EOM; break;
 
     default:
-        rig_debug(RIG_DEBUG_ERR, "aor_set_vfo: unsupported vfo %d\n",
-                  vfo);
+        rig_debug(RIG_DEBUG_ERR, "aor_set_vfo: unsupported vfo %s\n",
+                  rig_strvfo(vfo));
         return -RIG_EINVAL;
     }
 
@@ -545,8 +539,9 @@ int parse8k_aor_mode(RIG *rig, char aormode, char aorwidth, rmode_t *mode,
 int aor_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
     struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
-    char ackbuf[BUFSZ], *mdp;
-    char *mdp2;
+    char ackbuf[BUFSZ];
+    char ackbuf2[BUFSZ];
+    char *mdp, *mdp2;
     int ack_len, ack2_len, retval;
 
 
@@ -573,7 +568,6 @@ int aor_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
     if (rig->caps->rig_model == RIG_MODEL_AR5000 ||
             rig->caps->rig_model == RIG_MODEL_AR5000A)
     {
-        char ackbuf2[BUFSZ];
         retval = aor_transaction(rig, "BW" EOM, 3, ackbuf2, &ack2_len);
 
         if (retval != RIG_OK)
@@ -724,7 +718,7 @@ int aor_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
         if (rig->caps->rig_model == RIG_MODEL_AR8000)
         {
-            sscanf(ackbuf + 2, "%x", &val->i);
+            sscanf(ackbuf + 2, "%x", &val->u);
             val->i &= ~0x80; /* mask squelch status */
         }
         else if (rig->caps->rig_model == RIG_MODEL_AR8200 ||
@@ -734,7 +728,7 @@ int aor_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         }
         else
         {
-            sscanf(ackbuf + 3, "%x", &val->i);
+            sscanf(ackbuf + 3, "%x", &val->u);
         }
 
         break;
@@ -765,7 +759,7 @@ int aor_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
         if (att > HAMLIB_MAXDBLSTSIZ || rs->attenuator[att - 1] == 0)
         {
-            rig_debug(RIG_DEBUG_ERR, "Unsupported att %s %d\n",
+            rig_debug(RIG_DEBUG_ERR, "Unsupported att %s %u\n",
                       __func__, att);
             return -RIG_EPROTO;
         }
@@ -943,7 +937,7 @@ int aor_scan(RIG *rig, vfo_t vfo, scan_t scan, int ch)
  */
 int aor_set_mem(RIG *rig, vfo_t vfo, int ch)
 {
-    struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
+    const struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
     char membuf[BUFSZ];
     int mem_num;
     char bank_base;
@@ -977,7 +971,7 @@ int aor_set_mem(RIG *rig, vfo_t vfo, int ch)
  */
 int aor_get_mem(RIG *rig, vfo_t vfo, int *ch)
 {
-    struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
+    const struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
     int mem_len, retval;
     char membuf[BUFSZ];
 
@@ -1156,7 +1150,7 @@ static int parse_chan_line(RIG *rig, channel_t *chan, char *basep,
         char *tag2p;
         tagp = strstr(basep, "MD");
 
-        if (!tagp && mem_caps->mode && mem_caps->width)
+        if (!tagp)
         {
             rig_debug(RIG_DEBUG_WARN, "%s: no MD in returned string: '%s'\n",
                       __func__, basep);
@@ -1244,7 +1238,7 @@ static int parse_chan_line(RIG *rig, channel_t *chan, char *basep,
 
 int aor_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
-    struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
+    const struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
     char aorcmd[BUFSZ];
     int chan_len;
     char chanbuf[BUFSZ];
@@ -1350,7 +1344,7 @@ int aor_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 
 int aor_get_chan_all_cb(RIG *rig, vfo_t vfo, chan_cb_t chan_cb, rig_ptr_t arg)
 {
-    struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
+    const struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
     int i, j, retval;
     chan_t *chan_list = rig->state.chan_list;
     channel_t *chan;
@@ -1369,7 +1363,7 @@ int aor_get_chan_all_cb(RIG *rig, vfo_t vfo, chan_cb_t chan_cb, rig_ptr_t arg)
      * future data for channel channel_num
      */
     chan = NULL;
-    retval = chan_cb(rig, &chan, chan_next, chan_list, arg);
+    retval = chan_cb(rig, vfo, &chan, chan_next, chan_list, arg);
 
     if (retval != RIG_OK)
     {
@@ -1419,7 +1413,7 @@ int aor_get_chan_all_cb(RIG *rig, vfo_t vfo, chan_cb_t chan_cb, rig_ptr_t arg)
              * provide application with channel data,
              * and ask for a new channel structure
              */
-            chan_cb(rig, &chan, chan_next, chan_list, arg);
+            chan_cb(rig, vfo, &chan, chan_next, chan_list, arg);
 
             if (j >= LINES_PER_MA - 1)
             {
@@ -1462,7 +1456,7 @@ const char *aor_get_info(RIG *rig)
         return NULL;
     }
 
-    if (retval > 2) { idbuf[2] = '\0'; }
+    // never executed -- if (retval > 2) { idbuf[2] = '\0'; }
 
     retval = aor_transaction(rig, "VR" EOM, 3, frmbuf, &frm_len);
 

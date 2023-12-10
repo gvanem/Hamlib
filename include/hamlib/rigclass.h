@@ -37,7 +37,7 @@ public:
     explicit Rig(rig_model_t rig_model);
 
     virtual ~Rig();
-#if (__cplusplus >= 201103L)
+#if __cplusplus >= 201103L
     Rig(const Rig&) = delete;
     Rig& operator=(const Rig&) = delete;
 #else
@@ -46,7 +46,7 @@ public:
 #endif
 
 
-    const struct rig_caps *caps;
+    struct rig_caps *caps;
 
     // This method opens the communication port to the rig
     void open(void);
@@ -177,22 +177,27 @@ public:
     void reset(reset_t reset);
 
     // callbacks available in your derived object
+// cppcheck-suppress unusedFunction
     virtual int FreqEvent(vfo_t, freq_t, rig_ptr_t) const
     {
         return RIG_OK;
     }
+// cppcheck-suppress unusedFunction
     virtual int ModeEvent(vfo_t, rmode_t, pbwidth_t, rig_ptr_t) const
     {
         return RIG_OK;
     }
+// cppcheck-suppress unusedFunction
     virtual int VFOEvent(vfo_t, rig_ptr_t) const
     {
         return RIG_OK;
     }
+// cppcheck-suppress unusedFunction
     virtual int PTTEvent(vfo_t, ptt_t, rig_ptr_t) const
     {
         return RIG_OK;
     }
+// cppcheck-suppress unusedFunction
     virtual int DCDEvent(vfo_t, dcd_t, rig_ptr_t) const
     {
         return RIG_OK;
@@ -262,18 +267,18 @@ public:
 
     explicit RigException(const char *msg, int err)
         : message(msg), errorno(err)
-    { }
+    {}
 
     explicit RigException(int err)
         : message(rigerror(err)), errorno(err)
-    { }
+    {}
 
     explicit RigException(const char *msg)
         : message(msg), errorno(-RIG_EINTERNAL)
-    { }
+    {}
 
     virtual ~RigException()
-    { }
+    {}
 
     void print() const
     {
@@ -287,6 +292,7 @@ public:
 //! @endcond
 
 
+// cppcheck-suppress unusedFunction
 inline void THROW(const RigException *e)
 {
 #if defined(__GNUG__)
@@ -298,6 +304,7 @@ inline void THROW(const RigException *e)
 #elif defined(_MSC_VER)
     throw* e;
 #elif defined(__SUNPRO_CC)
+// cppcheck-suppress cstyleCast
     genericerror(1, ((e != 0) ? (char *)(e->message) : ""));
 #else
 

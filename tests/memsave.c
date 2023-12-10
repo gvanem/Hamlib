@@ -18,22 +18,15 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
-#include <hamlib/config.h>
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <ctype.h>
 
 #include <hamlib/rig.h>
-#include "misc.h"
 
 #ifdef HAVE_XML2
 #  include <libxml/parser.h>
 #  include <libxml/tree.h>
 
 static int dump_xml_chan(RIG *rig,
+                         vfo_t vfo,
                          channel_t **chan,
                          int channel_num,
                          const chan_t *chan_list,
@@ -59,7 +52,7 @@ int xml_save(RIG *rig, const char *outfilename)
         printf("About to save data, enter cloning mode: %s\n",
                rig->caps->clone_combo_get);
 
-    retval = rig_get_chan_all_cb(rig, RIG_VFO_NONE, dump_xml_chan, (rig_ptr_t)root);
+    retval = rig_get_chan_all_cb(rig, RIG_VFO_NONE, dump_xml_chan, root);
 
     if (retval != RIG_OK)
     {
@@ -88,6 +81,7 @@ int xml_parm_save(RIG *rig, const char *outfilename)
 
 #ifdef HAVE_XML2
 int dump_xml_chan(RIG *rig,
+                  vfo_t vfo,
                   channel_t **chan_pp,
                   int chan_num,
                   const chan_t *chan_list,
@@ -148,13 +142,13 @@ int dump_xml_chan(RIG *rig,
 
     if (mem_caps->vfo)
     {
-        SNPRINTF(attrbuf, sizeof(attrbuf), "%d", chan.vfo);
+        SNPRINTF(attrbuf, sizeof(attrbuf), "%u", chan.vfo);
         xmlNewProp(node, (unsigned char *) "vfo", (unsigned char *) attrbuf);
     }
 
     if (mem_caps->ant && chan.ant != RIG_ANT_NONE)
     {
-        SNPRINTF(attrbuf, sizeof(attrbuf), "%d", chan.ant);
+        SNPRINTF(attrbuf, sizeof(attrbuf), "%u", chan.ant);
         xmlNewProp(node, (unsigned char *) "ant", (unsigned char *) attrbuf);
     }
 
@@ -162,6 +156,7 @@ int dump_xml_chan(RIG *rig,
     {
         // cppcheck-suppress *
         char *fmt = "%"PRIll;
+        // cppcheck-suppress *
         SNPRINTF(attrbuf, sizeof(attrbuf), fmt, (int64_t)chan.freq);
         xmlNewProp(node, (unsigned char *) "freq", (unsigned char *) attrbuf);
     }
@@ -245,31 +240,31 @@ int dump_xml_chan(RIG *rig,
 
     if (mem_caps->funcs)
     {
-        SNPRINTF(attrbuf, sizeof(attrbuf), "%" PRIull, chan.funcs);
+        SNPRINTF(attrbuf, sizeof(attrbuf), "%llx", chan.funcs);
         xmlNewProp(node, (unsigned char *) "funcs", (unsigned char *) attrbuf);
     }
 
     if (mem_caps->ctcss_tone && chan.ctcss_tone != 0)
     {
-        SNPRINTF(attrbuf, sizeof(attrbuf), "%d", chan.ctcss_tone);
+        SNPRINTF(attrbuf, sizeof(attrbuf), "%u", chan.ctcss_tone);
         xmlNewProp(node, (unsigned char *) "ctcss_tone", (unsigned char *) attrbuf);
     }
 
     if (mem_caps->ctcss_sql && chan.ctcss_sql != 0)
     {
-        SNPRINTF(attrbuf, sizeof(attrbuf), "%d", chan.ctcss_sql);
+        SNPRINTF(attrbuf, sizeof(attrbuf), "%u", chan.ctcss_sql);
         xmlNewProp(node, (unsigned char *) "ctcss_sql", (unsigned char *) attrbuf);
     }
 
     if (mem_caps->dcs_code && chan.dcs_code != 0)
     {
-        SNPRINTF(attrbuf, sizeof(attrbuf), "%d", chan.dcs_code);
+        SNPRINTF(attrbuf, sizeof(attrbuf), "%u", chan.dcs_code);
         xmlNewProp(node, (unsigned char *) "dcs_code", (unsigned char *) attrbuf);
     }
 
     if (mem_caps->dcs_sql && chan.dcs_sql != 0)
     {
-        SNPRINTF(attrbuf, sizeof(attrbuf), "%d", chan.dcs_sql);
+        SNPRINTF(attrbuf, sizeof(attrbuf), "%u", chan.dcs_sql);
         xmlNewProp(node, (unsigned char *) "dcs_sql", (unsigned char *) attrbuf);
     }
 
@@ -283,6 +278,12 @@ int dump_xml_chan(RIG *rig,
     {
         SNPRINTF(attrbuf, sizeof(attrbuf), "%x", chan.flags);
         xmlNewProp(node, (unsigned char *) "flags", (unsigned char *) attrbuf);
+    }
+
+    if (mem_caps->tag != 0)
+    {
+        SNPRINTF(attrbuf, sizeof(attrbuf), "%s", chan.tag);
+        xmlNewProp(node, (unsigned char *) "tag", (unsigned char *) attrbuf);
     }
 
     return 0;

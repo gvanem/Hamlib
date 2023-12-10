@@ -19,17 +19,11 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 
 #include <hamlib/rig.h>
-#include "serial.h"
-#include "misc.h"
-#include "idx_builtin.h"
 
 #include "icom.h"
-#include "icom_defs.h"
 #include "frame.h"
 
 
@@ -77,7 +71,7 @@ static struct icom_priv_caps perseus_priv_caps =
  * PERSEUS Receiver CAT Interface Reference Manual (Revision EN03) :
  *  http://microtelecom.it/perseus/PERSEUS_CI-V_Interface-EN03.pdf
  */
-const struct rig_caps perseus_caps =
+struct rig_caps perseus_caps =
 {
     RIG_MODEL(RIG_MODEL_PERSEUS),
     .model_name = "Perseus",

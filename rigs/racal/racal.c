@@ -19,18 +19,12 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
-#include <math.h>
 
 #include "hamlib/rig.h"
 #include "serial.h"
-#include "misc.h"
-#include "cal.h"
 #include "register.h"
 #include "token.h"
 
@@ -74,7 +68,7 @@ const struct confparams racal_cfg_params[] =
 static int racal_transaction(RIG *rig, const char *cmd, char *data,
                              int *data_len)
 {
-    struct racal_priv_data *priv = (struct racal_priv_data *)rig->state.priv;
+    const struct racal_priv_data *priv = (struct racal_priv_data *)rig->state.priv;
     struct rig_state *rs = &rig->state;
     char cmdbuf[BUFSZ + 1];
     int retval;
@@ -126,7 +120,7 @@ int racal_init(RIG *rig)
         return -RIG_EINVAL;
     }
 
-    rig->state.priv = (struct racal_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct racal_priv_data *)calloc(1, sizeof(
                           struct racal_priv_data));
 
     if (!rig->state.priv)
@@ -192,7 +186,7 @@ int racal_set_conf(RIG *rig, token_t token, const char *val)
  */
 int racal_get_conf2(RIG *rig, token_t token, char *val, int val_len)
 {
-    struct racal_priv_data *priv = (struct racal_priv_data *)rig->state.priv;
+    const struct racal_priv_data *priv = (struct racal_priv_data *)rig->state.priv;
 
     switch (token)
     {
@@ -281,7 +275,7 @@ int racal_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
  */
 int racal_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
-    struct racal_priv_data *priv = (struct racal_priv_data *)rig->state.priv;
+    const struct racal_priv_data *priv = (struct racal_priv_data *)rig->state.priv;
     int ra_mode;
     char buf[BUFSZ];
 

@@ -20,11 +20,9 @@
  *
  */
 
-#include <hamlib/config.h>
 
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
-#include <unistd.h>  /* UNIX standard function definitions */
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif
@@ -148,7 +146,8 @@ ars_init(ROT *rot)
         return -RIG_EINVAL;
     }
 
-    rot->state.priv = (struct ars_priv_data *)malloc(sizeof(struct ars_priv_data));
+    rot->state.priv = (struct ars_priv_data *)calloc(1,
+                      sizeof(struct ars_priv_data));
 
     if (!rot->state.priv)
     {
@@ -607,7 +606,7 @@ static int comparunsigned(const void *a, const void *b)
 int
 ars_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
 {
-    struct ars_priv_data *priv = (struct ars_priv_data *)rot->state.priv;
+    const struct ars_priv_data *priv = (struct ars_priv_data *)rot->state.priv;
     struct rot_state *rs = &rot->state;
     hamlib_port_t *pport = &rs->rotport;
     int i, num_sample;

@@ -22,23 +22,17 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <stdio.h>   /* Standard input/output definitions */
 #include <string.h>  /* String function definitions */
 #include <unistd.h>  /* UNIX standard function definitions */
-#include <fcntl.h>   /* File control definitions */
-#include <errno.h>   /* Error number definitions */
 #include <math.h>
 
 #include "hamlib/rig.h"
 #include "iofunc.h"
 #include "misc.h"
 #include "token.h"
-#include "register.h"
 #include "cal.h"
-#include "flexradio.h"
 
 /*
  * This backend is a two layer rig control: DttSP core over a mundane tuner
@@ -161,7 +155,7 @@ static const struct hamlib_vs_dttsp
             {  50, 40 }, /* +40 */ \
     } }
 
-const struct rig_caps dttsp_rig_caps =
+struct rig_caps dttsp_rig_caps =
 {
     RIG_MODEL(RIG_MODEL_DTTSP),
     .model_name =     "DttSP IPC",
@@ -247,7 +241,7 @@ const struct rig_caps dttsp_rig_caps =
 /*
  * The same as the previous IPC, but of type RIG_PORT_UDP_NETWORK
  */
-const struct rig_caps dttsp_udp_rig_caps =
+struct rig_caps dttsp_udp_rig_caps =
 {
     RIG_MODEL(RIG_MODEL_DTTSP_UDP),
     .model_name =     "DttSP UDP",
@@ -668,14 +662,10 @@ int dttsp_cleanup(RIG *rig)
     if (priv && priv->tuner)
     {
         rig_cleanup(priv->tuner);
+        priv->tuner = NULL;
     }
 
-    priv->tuner = NULL;
-
-    if (rig->state.priv)
-    {
-        free(rig->state.priv);
-    }
+    free(rig->state.priv);
 
     rig->state.priv = NULL;
 

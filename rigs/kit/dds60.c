@@ -19,13 +19,10 @@
  *
  */
 
-#include <hamlib/config.h>
-
 #include <stdlib.h>
 #include <stdio.h>
 #include "hamlib/rig.h"
 
-#include "kit.h"
 #include "parallel.h"
 #include "token.h"
 
@@ -96,7 +93,7 @@ static int dds60_get_conf(RIG *rig, token_t token, char *val);
  * The receiver is controlled via the parallel port (D0,D1,D2).
  */
 
-const struct rig_caps dds60_caps =
+struct rig_caps dds60_caps =
 {
     RIG_MODEL(RIG_MODEL_DDS60),
     .model_name = "DDS-60",
@@ -171,7 +168,7 @@ int dds60_init(RIG *rig)
 {
     struct dds60_priv_data *priv;
 
-    rig->state.priv = (struct dds60_priv_data *)malloc(sizeof(
+    rig->state.priv = (struct dds60_priv_data *)calloc(1, sizeof(
                           struct dds60_priv_data));
 
     if (!rig->state.priv)
@@ -369,7 +366,7 @@ int dds60_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     frg = (unsigned long)(((double)freq + priv->if_mix_freq) /
                           osc_ref * 4294967296.0 + 0.5);
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s: word %lu, X6 multipler %d, phase %.2f\n",
+    rig_debug(RIG_DEBUG_VERBOSE, "%s: word %lu, X6 multiplier %d, phase %.2f\n",
               __func__, frg, priv->multiplier, priv->phase_step * PHASE_INCR);
 
     control = priv->multiplier ? 0x01 : 0x00;

@@ -32,8 +32,6 @@
  * implement dual VFO & split capability
  */
 
-#include <hamlib/config.h>
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -125,12 +123,12 @@ static int tt538_set_func(RIG *rig, vfo_t vfo, setting_t func, int status);
  * Protocol is documented at
  *      http://www.rfsquared.com/
  */
-const struct rig_caps tt538_caps =
+struct rig_caps tt538_caps =
 {
     RIG_MODEL(RIG_MODEL_TT538),
     .model_name = "TT-538 Jupiter",
     .mfg_name =  "Ten-Tec",
-    .version =  "20191209.0",
+    .version =  "20221205.0",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -231,7 +229,7 @@ const struct rig_caps tt538_caps =
     .hamlib_check_rig_caps = HAMLIB_CHECK_RIG_CAPS
 };
 
-/* Filter table for 538 reciver support. */
+/* Filter table for 538 receiver support. */
 static int tt538_rxFilter[] =
 {
     8000, 6000, 5700, 5400, 5100, 4800, 4500, 4200, 3900, 3600, 3300,
@@ -293,7 +291,7 @@ int tt538_init(RIG *rig)
 {
     struct tt538_priv_data *priv;
 
-    rig->state.priv = (struct tt538_priv_data *) malloc(sizeof(
+    rig->state.priv = (struct tt538_priv_data *) calloc(1, sizeof(
                           struct tt538_priv_data));
 
     if (!rig->state.priv)
@@ -317,7 +315,7 @@ int tt538_init(RIG *rig)
 
 static char which_vfo(const RIG *rig, vfo_t vfo)
 {
-    struct tt538_priv_data *priv = (struct tt538_priv_data *)rig->state.priv;
+    const struct tt538_priv_data *priv = (struct tt538_priv_data *)rig->state.priv;
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -342,7 +340,7 @@ static char which_vfo(const RIG *rig, vfo_t vfo)
 int tt538_get_vfo(RIG *rig, vfo_t *vfo)
 {
 
-    struct tt538_priv_data *priv = (struct tt538_priv_data *) rig->state.priv;
+    const struct tt538_priv_data *priv = (struct tt538_priv_data *) rig->state.priv;
     *vfo = priv->vfo_curr;
     return RIG_OK;
 }
@@ -444,20 +442,20 @@ int tt538_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 
 int tt538_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
-    char    bytes[4];
+    unsigned char bytes[4];
     unsigned char cmdbuf[16];
 
     /* Freq is 4 bytes long, MSB sent first. */
-    bytes[3] = ((int) freq >> 24) & 0xff;
-    bytes[2] = ((int) freq >> 16) & 0xff;
-    bytes[1] = ((int) freq >>  8) & 0xff;
-    bytes[0] = (int) freq        & 0xff;
+    bytes[3] = ((unsigned int) freq >> 24) & 0xff;
+    bytes[2] = ((unsigned int) freq >> 16) & 0xff;
+    bytes[1] = ((unsigned int) freq >>  8) & 0xff;
+    bytes[0] = ((unsigned int) freq) & 0xff;
 
     SNPRINTF((char *) cmdbuf, sizeof(cmdbuf), "*%c%c%c%c%c" EOM,
              which_vfo(rig, vfo),
              bytes[3], bytes[2], bytes[1], bytes[0]);
 
-    return tt538_transaction(rig, (char *) cmdbuf, strlen((char *)cmdbuf), NULL,
+    return tt538_transaction(rig, (char *) cmdbuf, 6,  NULL,
                              NULL);
 }
 
@@ -636,7 +634,7 @@ int tt538_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     unsigned char cmdbuf[32], respbuf[32], ttmode;
     int resp_len, retval;
 
-    struct tt538_priv_data *priv = (struct tt538_priv_data *) rig->state.priv;
+    const struct tt538_priv_data *priv = (struct tt538_priv_data *) rig->state.priv;
 
     /* Query mode for both VFOs. */
     SNPRINTF((char *) cmdbuf, sizeof(cmdbuf), "?M" EOM);
@@ -716,7 +714,7 @@ int tt538_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     width = tt538_filter_number((int) width);
 
     SNPRINTF((char *) cmdbuf, sizeof(cmdbuf), "*W%c" EOM, (unsigned char) width);
-    return tt538_transaction(rig, (char *) cmdbuf, strlen((char *)cmdbuf), NULL,
+    return tt538_transaction(rig, (char *) cmdbuf, 4, NULL,
                              NULL);
 
     return RIG_OK;
@@ -1006,6 +1004,7 @@ int tt538_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 {
     char    cc, cmdbuf[32], c1, c2;
     int retval;
+    int len;
 
     switch (level)
     {
@@ -1023,20 +1022,24 @@ int tt538_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         }
 
         SNPRINTF(cmdbuf, sizeof(cmdbuf), "*G%c" EOM, cc);
+        len = 4;
         break;
 
     case RIG_LEVEL_AF:
         SNPRINTF(cmdbuf, sizeof(cmdbuf), "*U%c" EOM, (int)(127 * val.f));
+        len = 4;
         break;
 
     case RIG_LEVEL_RF:
         SNPRINTF(cmdbuf, sizeof(cmdbuf), "*I%c" EOM, (int)(127 * val.f));
+        len = 4;
         break;
 
     case RIG_LEVEL_IF:
         c1 = val.i >> 8;
         c2 = val.i & 0xff;
         SNPRINTF(cmdbuf, sizeof(cmdbuf), "*P%c%c" EOM, c1, c2);
+        len = 5;
         break;
 
     case RIG_LEVEL_ATT:
@@ -1050,10 +1053,12 @@ int tt538_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         }
 
         SNPRINTF(cmdbuf, sizeof(cmdbuf), "*J%c" EOM, cc);
+        len = 4;
         break;
 
     case RIG_LEVEL_SQL:
         SNPRINTF(cmdbuf, sizeof(cmdbuf), "*H%c" EOM, (int)(127 * val.f));
+        len = 4;
         break;
 
     default:
@@ -1062,7 +1067,7 @@ int tt538_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         return -RIG_EINVAL;
     }
 
-    retval = tt538_transaction(rig, cmdbuf, strlen((char *)cmdbuf), NULL, NULL);
+    retval = tt538_transaction(rig, cmdbuf, len, NULL, NULL);
 
     if (retval != RIG_OK)
     {
