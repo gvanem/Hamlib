@@ -67,3 +67,8 @@ libs/
 obj/
 .project
 .cproject
+Hamlib-4++_imp.lib
+Hamlib-4.lib
+Hamlib-4_imp.lib
+HamlibLua.lib
+misc.lib
