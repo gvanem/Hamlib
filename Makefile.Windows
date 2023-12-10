@@ -1643,7 +1643,6 @@ $(OBJ_DIR)/Hamlib.def: $(Hamlib_STAT_LIB) $(THIS_FILE) | $(OBJ_DIR)
 	$(file >> $@, LIBRARY $(Hamlib_DLL))
 	$(file >> $@, EXPORTS)
 	$(file >> $@,$(Hamlib_extra_symbols))
-	$(file >> $@,$(Hamlib_extras_pthreads))
 	$(file >> $@,$(Hamlib_DATA_symbols))
 	$(call extract_code_symbols, $@, $<)
 
@@ -2236,6 +2235,8 @@ define Hamlib_extra_symbols
   multicast_init
   multicast_send
   netrigctl_get_vfo_mode
+  network_multicast_publisher_start
+  network_multicast_publisher_stop
   port_open
   print_ext_param
   qrb
@@ -2248,15 +2249,6 @@ define Hamlib_extra_symbols
   vfo_fixup2a
   write_block
 endef
-
-ifeq ($(USE_PTHREADS),1)
-  define Hamlib_extras_pthreads
-    network_multicast_publisher_start
-    network_multicast_publisher_stop
-  endef
-else
-  Hamlib_extras_pthreads =
-endif
 
 define Hamlib_DATA_symbols
   cookie_use        DATA
