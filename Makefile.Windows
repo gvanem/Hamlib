@@ -7,6 +7,7 @@ THIS_FILE := Makefile.Windows
 DATE      := $(shell date +%d-%B-%Y)
 ABI_VER   := 4
 comma     := ,
+MAKEFLAGS += ---warn-undefined-variables
 
 #
 # From 'configure.ac' and 'AC_INIT()':
@@ -26,7 +27,6 @@ USE_LIBUSB        ?= 1
 USE_LIBUSRP       ?= 1
 USE_LIBXML2       ?= 1
 USE_LUAJIT        ?= 1
-USE_GV_DEBUG      ?= 1
 USE_MP_COMPILE    ?= 1
 USE_VERBOSE_DEBUG ?= 0
 
@@ -102,11 +102,6 @@ MOVE  = mv --force
 COPY  = cp --preserve=timestamps --update
 
 #
-# Warn on undefined variables in GNU-make.
-#
-MAKEFLAGS += ---warn-undefined-variables
-
-#
 # 'clang-cl' may not like stuff in '%CL'.
 # Just remove it.
 #
@@ -119,15 +114,23 @@ define Usage
   Specify CC=clang-cl - use clang-cl
 endef
 
-ifeq ($(USER),gv)
-  RC_PRIVATE  = "The privat build of <gvanem@yahoo.no>."
-  ON_APPVEYOR = 0
-else ifneq ($(APPVEYOR_PROJECT_NAME),)
-  RC_PRIVATE  = "Built on Appveyor."
+ifneq ($(APPVEYOR_PROJECT_NAME),)
+  #
+  # TODO:
+  #   build with 'LIBUSB_ROOT = ./CI/libusb', 'LIBXML2_ROOT = ./CI/libxml2' etc.
+  #   when running via 'appveyor.yml'
+  #
   ON_APPVEYOR = 1
 else
-  RC_PRIVATE  = ""
   ON_APPVEYOR = 0
+endif
+
+ifeq ($(USER),gv)
+  RC_PRIVATE = "The privat build of <gvanem@yahoo.no>."
+else ifneq ($(ON_APPVEYOR),)
+  RC_PRIVATE = "Built on Appveyor."
+else
+  RC_PRIVATE = ""
 endif
 
 OBJ_DIR = objects
@@ -170,12 +173,20 @@ ifeq ($(CC),clang-cl)
   endif
 
 else
-  RCFLAGS  += -D_MSC_VER
+  RCFLAGS += -D_MSC_VER
+  CFLAGS  += -W3
+
   #
   # Due to an old 'cl' compiler on Appveyor
   #
-  ifeq ($(ON_APPVEYOR),0)
-    CFLAGS   += -W3 -diagnostics:caret
+  ifeq ($(ON_APPVEYOR),1)
+    #
+    # Fix for this harmless warning
+    #   C4047: '==': 'RIG *' differs in levels of indirection from 'int'
+    #
+    CFLAGS += -wd4047
+  else
+    CFLAGS   += -diagnostics:caret
     CXXFLAGS += -std:c++17 -Zc:__cplusplus
   endif
 endif
@@ -481,18 +492,6 @@ simulators_OBJ = $(call c_to_obj, $(simulators_SRC))
 # Various simulator programs:
 #
 TEST_PROGS += $(call c_to_exe. $(simulators_SRC))
-
-ifneq ($(APPVEYOR_PROJECT_NAME),)
-  #
-  # TODO:
-  #   build with 'LIBUSB_ROOT = ./CI/libusb', 'LIBXML2_ROOT = ./CI/libxml2' etc.
-  #  when running via 'appveyor.yml'
-  #
-endif
-
-ifeq ($(USE_GV_DEBUG),1)
-  CFLAGS += -DUSE_GV_DEBUG
-endif
 
 ifeq ($(USE_LIBXML2),1)
   TEST_PROGS += bin/rigmem.exe
@@ -814,15 +813,22 @@ hamlib_C_SRC += $(addprefix rigs/kit/, \
                   dwt.c                \
                   elektor304.c         \
                   elektor507.c         \
-                  fifisdr.c            \
-                  funcube.c            \
                   hiqsdr.c             \
                   kit.c                \
                   miniVNA.c            \
                   pcrotor.c            \
-                  rs_hfiq.c            \
-                  si570avrusb.c        \
-                  usrp.c)
+                  rs_hfiq.c)
+
+ifeq ($(USE_LIBUSB),1)
+  hamlib_C_SRC += $(addprefix rigs/kit/, \
+                    fifisdr.c            \
+                    funcube.c            \
+                    si570avrusb.c)
+endif
+
+ifeq ($(USE_LIBUSRP),1)
+  hamlib_C_SRC += rigs/kit/usrp.c
+endif
 
 hamlib_C_SRC += $(addprefix rigs/lowe/, \
                   hf235.c               \
@@ -886,14 +892,6 @@ hamlib_C_SRC += $(addprefix rigs/tentec/, \
                   tentec2.c               \
                   tt550.c)
 
-#
-# 'v4l*.c' == "Video For Linux", and not for Windows.
-#
-hamlib_C_SRC += $(addprefix rigs/tuner/, \
-                  tuner.c                \
-                  v4l.c                  \
-                  v4l2.c)
-
 hamlib_C_SRC += $(addprefix rigs/uniden/, \
                   bc245.c                 \
                   bc250.c                 \
@@ -910,14 +908,7 @@ hamlib_C_SRC += $(addprefix rigs/winradio/, \
                   g303.c                    \
                   g305.c                    \
                   g313-win.c                \
-                  winradio.c                \
-                  wr1000.c                  \
-                  wr1500.c                  \
-                  wr1550.c                  \
-                  wr3100.c                  \
-                  wr3150.c                  \
-                  wr3500.c                  \
-                  wr3700.c)
+                  winradio.c)
 
 hamlib_C_SRC += $(addprefix rigs/wj/, \
                   wj.c                \
@@ -1044,6 +1035,29 @@ ifeq ($(USE_GNURADIO),1)
 
   hamlib_CC_SRC += gnuradio/gnuradio.cc
 endif
+
+#
+# These are not for Windows;
+# Mostly for Linux interfacing via 'ioctl()' functions.
+#
+
+hamlib_C_not_for_win_SRC = $(addprefix rigs/winradio/, \
+                             wr1000.c                  \
+                             wr1550.c                  \
+                             wr1500.c                  \
+                             wr3700.c                  \
+                             wr3500.c                  \
+                             wr3150.c                  \
+                             wr3100.c)
+
+hamlib_C_not_for_win_SRC += $(addprefix rigs/tuner/, \
+                              v4l.c                  \
+                              v4l2.c)
+
+#
+# But this is!
+#
+hamlib_C_SRC += rigs/tuner/tuner.c
 
 #
 # Various support code for Hamlib's internal use:
@@ -1235,7 +1249,7 @@ bin tmp $(OBJ_DIR) $(OBJ_DIR)/sys:
 # Install the Python 'colorama' package when running on AppVeyor:
 #
 install_colorama:
-ifneq ($(APPVEYOR_PROJECT_NAME),)
+ifeq ($(ON_APPVEYOR),1)
 	$(call green_msg, Installing 'colorama' ...)
 	$(PYTHON) -m pip install colorama
 endif
