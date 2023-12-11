@@ -42,7 +42,7 @@
  * Moved all variables and static functions into 'lib/win-misc.c'.
  * Removed a lot of dead code, variables and macros.
  */
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(GCC_MAKE_DEPEND)
 #error "This header is for '_WIN32' only. Revise your '-I' path"
 #endif
 
