@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import sys
+import sys, os
 
 # Change this path to match your "make install" path
-sys.path.append('/usr/local/lib/python3.10/site-packages')
+if sys.platform == "win32":
+  bin_path = os.path.dirname(__file__) + '/../bin'
+  print ("adding '%s' to PYTHONPATH" % bin_path)
+  sys.path.append(bin_path)
+else:
+  sys.path.append('/usr/local/lib/python3.10/site-packages')
 
 ## Uncomment to run this script from an in-tree build (or adjust to the
 ## build directory) without installing the bindings.
