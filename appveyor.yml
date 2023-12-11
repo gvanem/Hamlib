@@ -34,9 +34,9 @@ test_script:
   # List all supported Radios, Rotators and Amplifiers
   #
   - echo ---------------------------------------------------------------------------------------------------
-  - rigctl.exe --list
+  - bin\rigctl.exe --list
   - echo ---------------------------------------------------------------------------------------------------
-  - rotctl.exe --list
+  - bin\rotctl.exe --list
   - echo ---------------------------------------------------------------------------------------------------
-  - ampctl.exe --list
+  - bin\ampctl.exe --list
 

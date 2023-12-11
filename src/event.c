@@ -315,7 +315,7 @@ int rig_poll_routine_stop(RIG *rig)
 
     poll_routine_priv = (rig_poll_routine_priv_data *) rs->poll_routine_priv_data;
 
-    if (PTHREAD_ID(poll_routine_priv->thread_id) != 0)
+    if (poll_routine_priv->thread_id != 0)
     {
         int err = pthread_join(poll_routine_priv->thread_id, NULL);
 
@@ -326,7 +326,7 @@ int rig_poll_routine_stop(RIG *rig)
             // just ignore it
         }
 
-        PTHREAD_ID_CLEAR(poll_routine_priv->thread_id);
+        poll_routine_priv->thread_id = 0;
     }
 
     network_publish_rig_poll_data(rig);

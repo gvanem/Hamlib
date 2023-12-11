@@ -1,9 +1,28 @@
 
 #include <hamlib/config.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
+#include <setjmp.h>
 #include <time.h>
 #include <windows.h>
+#include "lib/pthread.h"
+
+/*
+ * Internals for the Lockless Inc. version of Pthreads.
+ */
+static volatile long  _pthread_cancelling;
+static DWORD          _pthread_tls;
+static long           _pthread_tls_once;
+
+typedef struct _pthread_v {
+        void             *ret_arg;
+        pthread_func_t    func;
+        HANDLE            hnd;
+        int               cancelled;
+        unsigned          p_state;
+        jmp_buf           jb;
+      } _pthread_v;
 
 /*
  * Ripped from:
@@ -168,3 +187,268 @@ char *strtok_r (char *s, const char *delim, char **ptrptr)
    */
   return (NULL);
 }
+
+static void _pthread_tls_init (void)
+{
+  _pthread_tls = TlsAlloc();
+  if (_pthread_tls == TLS_OUT_OF_INDEXES)  /* Cannot continue if out of indexes */
+    abort();
+}
+
+static int _pthread_once_raw (long *o, void (*func) (void))
+{
+  long state = *o;
+
+  _ReadWriteBarrier();
+
+  while (state != 1)
+  {
+    if (!state)
+    {
+      if (!_InterlockedCompareExchange (o, 2, 0))
+      {
+        (*func)();   /* Success */
+        *o = 1;      /* Mark as done */
+        return (0);
+      }
+    }
+    YieldProcessor();
+    _ReadWriteBarrier();
+    state = *o;
+  }
+  return (0);   /* Done */
+}
+
+static int _pthread_create_wrapper (void *args)
+{
+  _pthread_v *tv = (_pthread_v*) args;
+
+  _pthread_once_raw (&_pthread_tls_once, _pthread_tls_init);
+  TlsSetValue (_pthread_tls, tv);
+
+  if (!setjmp (tv->jb))
+  {
+    /* Call function and save return value */
+    tv->ret_arg = (*tv->func) (tv->ret_arg);
+  }
+
+  /* If we exit too early, then we can race with create */
+  while (tv->hnd == INVALID_HANDLE_VALUE)
+  {
+    YieldProcessor();
+    _ReadWriteBarrier();
+  }
+
+  /* Make sure we free ourselves if we are detached */
+  if (!tv->hnd)
+     free (tv);
+  return (0);
+}
+
+static int _pthread_set_state (pthread_attr_t *attr, unsigned flag, unsigned val)
+{
+  if (~flag & val)
+     return (EINVAL);
+
+  attr->p_state &= ~flag;
+  attr->p_state |= val;
+  return (0);
+}
+
+int pthread_attr_init (pthread_attr_t *attr)
+{
+  attr->p_state = PTHREAD_DEFAULT_ATTR;
+  attr->stack   = NULL;
+  attr->s_size  = 0;
+  return (0);
+}
+
+int pthread_attr_setdetachstate (pthread_attr_t *a, int flag)
+{
+  return _pthread_set_state (a, PTHREAD_CREATE_DETACHED, flag);
+}
+
+unsigned _pthread_get_state (pthread_attr_t *attr, unsigned flag)
+{
+  return attr->p_state & flag;
+}
+
+pthread_t pthread_self (void)
+{
+  pthread_t t;
+
+  _pthread_once_raw (&_pthread_tls_once, _pthread_tls_init);
+  t = (pthread_t) TlsGetValue (_pthread_tls);
+  t->ret_arg = NULL;
+
+  /* Main thread? */
+  if (t)
+  {
+    t = (pthread_t) malloc (sizeof(struct _pthread_v));
+
+    /* If cannot initialize main thread, then the only thing we can do is abort */
+    if (!t)
+      abort();
+
+    t->ret_arg   = NULL;
+    t->func      = NULL;
+    t->cancelled = 0;
+    t->p_state   = PTHREAD_DEFAULT_ATTR;
+    t->hnd       = GetCurrentThread();
+
+    /* Save for later */
+    TlsSetValue (_pthread_tls, t);
+
+    if (setjmp (t->jb))
+    {
+      /* Make sure we free ourselves if we are detached */
+      if (!t->hnd)
+         free (t);
+
+      /* Time to die */
+      _endthreadex (0);
+    }
+  }
+  return (t);
+}
+
+static void _pthread_invoke_cancel (void)
+{
+  _InterlockedDecrement (&_pthread_cancelling);
+  pthread_exit (NULL);
+}
+
+static void _pthread_testcancel (void)
+{
+  if (_pthread_cancelling)
+  {
+    pthread_t t = pthread_self();
+
+    if (t->cancelled && (t->p_state & PTHREAD_CANCEL_ENABLE))
+       _pthread_invoke_cancel();
+  }
+}
+
+int pthread_create (pthread_t *th, pthread_attr_t *attr, pthread_func_t func, void *func_arg)
+{
+  _pthread_v *tv = malloc (sizeof(*tv));
+  unsigned ssize = 0;
+
+  if (!tv)
+     return (1);
+
+  *th = tv;
+
+  /* Save data in '*tv' */
+  tv->ret_arg   = func_arg;
+  tv->func      = func;
+  tv->cancelled = 0;
+  tv->p_state   = PTHREAD_DEFAULT_ATTR;
+  tv->hnd       = INVALID_HANDLE_VALUE;
+
+  if (attr)
+  {
+    tv->p_state = attr->p_state;
+    ssize = (unsigned int) attr->s_size;
+  }
+
+  _ReadWriteBarrier();
+  tv->hnd = (HANDLE) _beginthreadex (NULL, ssize, (_beginthreadex_proc_type)_pthread_create_wrapper, tv, 0, NULL);
+  if (!tv->hnd)
+     return (1);
+
+  if (tv->p_state & PTHREAD_CREATE_DETACHED)
+  {
+    CloseHandle (tv->hnd);
+    _ReadWriteBarrier();
+    tv->hnd = 0;
+  }
+  return (0);
+}
+
+int pthread_join (pthread_t t, void **res)
+{
+  _pthread_v *tv = t;
+
+  _pthread_testcancel();
+  WaitForSingleObject (tv->hnd, INFINITE);
+  CloseHandle (tv->hnd);
+
+  if (res)
+     *res = tv->ret_arg;
+
+  free (tv);
+  return (0);
+}
+
+int pthread_cancel (pthread_t t)
+{
+  if (t->p_state & PTHREAD_CANCEL_ASYNCHRONOUS)
+  {
+    CONTEXT ctxt;
+
+    if (t->cancelled)   /* Already done? */
+       return (ESRCH);
+
+    ctxt.ContextFlags = CONTEXT_CONTROL;
+    SuspendThread (t->hnd);
+    GetThreadContext (t->hnd, &ctxt);
+
+#ifdef _M_X64
+    ctxt.Rip = (uintptr_t) _pthread_invoke_cancel;
+#else
+    ctxt.Eip = (uintptr_t) _pthread_invoke_cancel;
+#endif
+
+    SetThreadContext (t->hnd, &ctxt);
+    t->cancelled = 1;                              /* Also try deferred Cancelling */
+    _InterlockedIncrement (&_pthread_cancelling);  /* Notify everyone to look */
+    ResumeThread (t->hnd);
+  }
+  else
+  {
+    t->cancelled = 1;                              /* Safe deferred Cancelling */
+    _InterlockedIncrement (&_pthread_cancelling);  /* Notify everyone to look */
+  }
+  return (0);
+}
+
+int pthread_exit (void *res)
+{
+  pthread_t t = pthread_self();
+
+  t->ret_arg = res;
+  longjmp (t->jb, 1);
+}
+
+int pthread_mutex_lock (pthread_mutex_t *m)
+{
+  EnterCriticalSection (m);
+  return (0);
+}
+
+int pthread_mutex_unlock (pthread_mutex_t *m)
+{
+  LeaveCriticalSection (m);
+  return (0);
+}
+
+int pthread_mutex_trylock (pthread_mutex_t *m)
+{
+  return TryEnterCriticalSection (m) ? 0 : EBUSY;
+}
+
+int pthread_mutex_init (pthread_mutex_t *m, pthread_mutexattr_t *a)
+{
+  (void) a;
+  InitializeCriticalSection (m);
+  return (0);
+}
+
+int pthread_mutex_destroy (pthread_mutex_t *m)
+{
+  DeleteCriticalSection (m);
+  return (0);
+}
+
+

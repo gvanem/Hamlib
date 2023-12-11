@@ -40,31 +40,6 @@
                                            pthread_mutex_unlock(&rig->state.mutex_set_transaction); \
                                          } while (0)
 
-  /*
-   * In pthreads-win32 ver 2.8.1 (and later), 'pthread_t' is a structure:
-   *
-   *  typedef struct {
-   *    void        *p;      // Pointer to actual object
-   *    unsigned int x;      // Extra information - reuse count etc
-   *  } ptw32_handle_t;
-   *
-   * typedef ptw32_handle_t pthread_t;
-   *
-   * Hence this doesn't work with MSVC / clang-cl:
-   *   pthread_cancel ((pthread_t)pt_var);   // cast of struct to struct is not allowed.
-   *   if (pt_var != 0)                      // invalid operands to binary expression ('pthread_t' (aka '__ptw32_handle_t') and 'int')
-   *
-   * So for Windows, this PTHREAD_ID() macro will return something unique
-   * since 'pt->p' comes from a calloc() call in ptw32_new.c.
-   */
-  #if defined(_WIN32)
-    #define PTHREAD_ID(pt_var)          (*(unsigned long*)&(pt_var))
-    #define PTHREAD_ID_CLEAR(pt_var)    memset (&(pt_var), '\0', sizeof(pt_var))
-  #else
-    #define PTHREAD_ID(pt_var)          pt_var
-    #define PTHREAD_ID_CLEAR(pt_var)    PTHREAD_ID(pt_var) = 0
-  #endif
-
 #else
   #define set_transaction_active(rig)    (rig)->state.transaction_active = 1
   #define set_transaction_inactive(rig)  (rig)->state.transaction_active = 0

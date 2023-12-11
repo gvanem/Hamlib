@@ -1408,7 +1408,7 @@ int network_multicast_publisher_stop(RIG *rig)
         RETURNFUNC(RIG_OK);
     }
 
-    if (PTHREAD_ID(mcast_publisher_priv->thread_id) != 0)
+    if (mcast_publisher_priv->thread_id != 0)
     {
         int err = pthread_join(mcast_publisher_priv->thread_id, NULL);
 
@@ -1419,7 +1419,7 @@ int network_multicast_publisher_stop(RIG *rig)
             // just ignore it
         }
 
-        PTHREAD_ID_CLEAR(mcast_publisher_priv->thread_id);
+        mcast_publisher_priv->thread_id = 0;
     }
 
     multicast_publisher_close_data_pipe(mcast_publisher_priv);
@@ -1577,7 +1577,7 @@ int network_multicast_receiver_stop(RIG *rig)
         close(mcast_receiver_priv->args.socket_fd);
     }
 
-    if (PTHREAD_ID(mcast_receiver_priv->thread_id) != 0)
+    if (mcast_receiver_priv->thread_id != 0)
     {
         int err = pthread_join(mcast_receiver_priv->thread_id, NULL);
 
@@ -1588,7 +1588,7 @@ int network_multicast_receiver_stop(RIG *rig)
             // just ignore it
         }
 
-        PTHREAD_ID_CLEAR(mcast_receiver_priv->thread_id);
+        mcast_receiver_priv->thread_id = 0;
     }
 
     if (mcast_receiver_priv->args.socket_fd >= 0)

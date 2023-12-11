@@ -7997,7 +7997,7 @@ static int async_data_handler_stop(RIG *rig)
 
     if (async_data_handler_priv != NULL)
     {
-        if (PTHREAD_ID(async_data_handler_priv->thread_id) != 0)
+        if (async_data_handler_priv->thread_id != 0)
         {
             // all cleanup is done in this function so we can kill thread
             // Windows was taking 30 seconds to stop without this
@@ -8011,7 +8011,7 @@ static int async_data_handler_stop(RIG *rig)
                 // just ignore the error
             }
 
-            PTHREAD_ID_CLEAR(async_data_handler_priv->thread_id);
+            async_data_handler_priv->thread_id = 0;
         }
 
         free(rs->async_data_handler_priv_data);
@@ -8050,7 +8050,7 @@ static int morse_data_handler_stop(RIG *rig)
     //HAMLIB_TRACE;
     if (morse_data_handler_priv != NULL)
     {
-        if (PTHREAD_ID(morse_data_handler_priv->thread_id) != 0)
+        if (morse_data_handler_priv->thread_id != 0)
         {
             // all cleanup is done in this function so we can kill thread
             // Windows was taking 30 seconds to stop without this
@@ -8064,7 +8064,7 @@ static int morse_data_handler_stop(RIG *rig)
                 // just ignore the error
             }
 
-            PTHREAD_ID_CLEAR(morse_data_handler_priv->thread_id);
+            morse_data_handler_priv->thread_id = 0;
         }
 
         free(rs->morse_data_handler_priv_data);

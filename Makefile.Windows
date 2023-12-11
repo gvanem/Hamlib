@@ -82,7 +82,6 @@ LIBUSRP_ROOT     ?= f:/gv/dx-radio/Osmocom-SDR/libusrp/host
 LIBINDI_ROOT     ?= f:/ProgramFiler/Stellarium/src/src/external/libindi
 LIBGD_ROOT       ?= $(VCPKG_ROOT)/installed/$(CPU)-windows
 LIBREADLINE_ROOT ?= $(VCPKG_ROOT)/installed/$(CPU)-windows-static
-PTHREAD_ROOT     ?= f:/MinGW32/src/pthreads-w32-3-0/PTHREADS-BUILT-$(CPU)
 
 #
 # For Python stuff besides the '$(Hamlib_PYD)' target:
@@ -145,7 +144,7 @@ CFLAGS = -nologo -MD -Zi -O2          \
          -I./src                      \
          -I./security                 \
          -I./tests                    \
-         -I$(PTHREAD_ROOT)/include
+         -I./$(OBJ_DIR)
 
 LDFLAGS  = -nologo -debug -incremental:no -verbose -machine:$(CPU) -nodefaultlib:uuid.lib
 RCFLAGS  = -nologo -I.
@@ -172,8 +171,7 @@ endif
 #
 # External libraries for '$(Hamlib_DLL)':
 #
-PTHREAD_LIB    = $(PTHREAD_ROOT)/lib/libpthreadVC3.lib
-Hamlib_EX_LIBS = $(PTHREAD_LIB)
+Hamlib_EX_LIBS =
 Hamlib_OS_LIBS = advapi32.lib iphlpapi.lib kernel32.lib winmm.lib $(WS2_32_LIB)
 
 #
@@ -231,7 +229,7 @@ Hamlib_EX_LIBS += $(READLINE_LIB)
 #
 # Use '$(Hamlib_DLL)' for all C programs.
 #
-C_PROG_LIBS = $(misc_LIB) $(Hamlib_IMP_LIB) $(PTHREAD_LIB) $(READLINE_LIB)
+C_PROG_LIBS = $(misc_LIB) $(Hamlib_IMP_LIB) $(READLINE_LIB)
 
 #
 # Use '$(HAMLIBpp_DLL) and '$(Hamlib_DLL)' for all C++ programs.
@@ -269,8 +267,6 @@ endif
 ifeq ($(USE_VERBOSE_DEBUG),1)
   CFLAGS += -DDEBUG_HOSED -DDEBUG_VERBOSE -DHASH_BLOOM
 endif
-
-CFLAGS += -I./$(OBJ_DIR)
 
 c_to_obj = $(addprefix $(OBJ_DIR)/, \
              $(notdir $(1:.c=.obj)))
@@ -475,7 +471,6 @@ ifneq ($(APPVEYOR_PROJECT_NAME),)
   #  when running via 'appveyor.yml'
   #
 endif
-
 
 ifeq ($(USE_GV_DEBUG),1)
   CFLAGS += -DUSE_GV_DEBUG
@@ -1203,8 +1198,6 @@ $(all_test_OBJ) $(all_test_I): EXTRA_CFLAGS = -DDLL_EXPORT
 
 .SECONDARY: $(all_test_OBJ)
 
-# $(simulators_OBJ): EXTRA_CFLAGS += -DHAMLIB_need_ip_mreq_hack
-
 GENERATED = include/hamlib/config.h \
             src/hamlibdatetime.h
 
@@ -1678,7 +1671,7 @@ define link_EXE
   link -out:$(strip $(1)) @link.args > link.tmp
   @cat link.tmp >> $(1:.exe=.map)
   @rm -f $(1:.exe=.exp)
-  @$(PYTHON) check-for-unused-libs.py link.tmp $(notdir $(PTHREAD_LIB) $(misc_lib))
+  @$(PYTHON) check-for-unused-libs.py link.tmp $(notdir $(misc_lib))
 endef
 
 define link_DLL
@@ -1716,11 +1709,13 @@ define create_res_file
   @echo
 endef
 
+LIBARGS = -nologo -machine:$(CPU) # -ignore:4006
+
 define create_static_lib
   @rm -f $(1)
   $(call green_msg, Creating $(1))
-  $(call create_resp_file, lib.args, $(2))
-  lib -nologo -out:$(strip $(1)) -machine:$(CPU) @lib.args
+  $(call create_resp_file, lib.args, $(LIBARGS) $(2))
+  lib -out:$(strip $(1)) @lib.args
   @echo
 endef
 
@@ -1976,23 +1971,6 @@ define hamlib_config_h
   #include <assert.h>             /* 'assert()' */
   #include <inttypes.h>           /* 'PRId64' etc. */
 
-  #if defined(HAMLIB_need_ip_mreq_hack)
-    /*
-     * Because of this POSIX crap in many 'simulators/ .c-files:
-     *
-     *  struct ip_mreq
-     *  {
-     *    int dummy;
-     *  };
-     *
-     * causes this compile error:
-     *   simulators/simelecraft.c(6): error C2011: 'ip_mreq': 'struct' type redefinition
-     *   <WinKit>\Include\10.0.22621.0\shared\ws2ipdef.h(741): note: see declaration of 'ip_mreq'
-     */
-    #undef  ip_mreq
-    #define ip_mreq  Hamlib_fake_Posix_junk_ip_mreq
-  #endif
-
   #define HAVE_SYS_TYPES_H        1
   #define HAVE_INTTYPES_H         1
   #define HAVE_WINRADIO           1
@@ -2091,7 +2069,6 @@ define hamlib_config_h
   HAMLIB_C_EXTERN int   nanosleep (const struct timespec *ts, struct timespec *remain);
   HAMLIB_C_EXTERN int   clock_gettime (int clock_id, struct timespec *ts);
   HAMLIB_C_EXTERN char *strtok_r (char *s, const char *delim, char **ptrptr);
-
 endef
 
 #
