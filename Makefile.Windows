@@ -120,11 +120,14 @@ define Usage
 endef
 
 ifeq ($(USER),gv)
-  RC_PRIVATE = "The privat build of <gvanem@yahoo.no>."
+  RC_PRIVATE  = "The privat build of <gvanem@yahoo.no>."
+  ON_APPVEYOR = 0
 else ifneq ($(APPVEYOR_PROJECT_NAME),)
-  RC_PRIVATE = "Built on Appveyor."
+  RC_PRIVATE  = "Built on Appveyor."
+  ON_APPVEYOR = 1
 else
-  RC_PRIVATE = ""
+  RC_PRIVATE  = ""
+  ON_APPVEYOR = 0
 endif
 
 OBJ_DIR = objects
@@ -156,10 +159,23 @@ ifeq ($(CC),clang-cl)
              -ferror-limit=5    \
              -Wall              \
              -DUSE_MAX_WARNINGS=$(USE_MAX_WARNINGS)
+
+  #
+  # Due to an old 'clang-cl' compiler on Appveyor
+  #
+  ifeq ($(ON_APPVEYOR),1)
+    CFLAGS += -Wno-unknown-warning-option
+  endif
+
 else
-  CFLAGS   += -W3 -diagnostics:caret
-  CXXFLAGS += -Zc:__cplusplus
   RCFLAGS  += -D_MSC_VER
+  #
+  # Due to an old 'cl' compiler on Appveyor
+  #
+  ifeq ($(ON_APPVEYOR),0)
+    CFLAGS   += -W3 -diagnostics:caret
+    CXXFLAGS += -Zc:__cplusplus
+  endif
 endif
 
 ifeq ($(USE_WSOCK_TRACE),1)
@@ -1345,8 +1361,12 @@ bin/rigmatrix.exe: $(rigmatrix_OBJ) $(C_PROG_LIBS) $(LIBGD_LIB) copy_DLLs
 	$(call link_EXE, $@, $(rigmatrix_OBJ) $(C_PROG_LIBS) $(LIBGD_LIB))
 
 copy_DLLs: | bin
+ifeq ($(COPY_DLLs),)
+	$(call green_msg, No foreign .DLLs to copy to './bin')
+else
 	$(call green_msg, Copying foreign .DLLs to './bin')
 	$(call copy_files, $(COPY_DLLs), bin/)
+endif
 
 #
 # For all other simple plain C test-programs.
@@ -1709,12 +1729,10 @@ define create_res_file
   @echo
 endef
 
-LIBARGS = -nologo -machine:$(CPU) # -ignore:4006
-
 define create_static_lib
   @rm -f $(1)
   $(call green_msg, Creating $(1))
-  $(call create_resp_file, lib.args, $(LIBARGS) $(2))
+  $(call create_resp_file, lib.args, -nologo -machine:$(CPU) $(2))
   lib -out:$(strip $(1)) @lib.args
   @echo
 endef
