@@ -40,7 +40,7 @@ USE_GNURADIO ?= 0
 # Use the Winsock tracing library:
 #   https://github.com/gvanem/wsock-trace
 #
-USE_WSOCK_TRACE ?= 1
+USE_WSOCK_TRACE ?= 0
 
 #
 # Set to 0 for no Python module.
@@ -50,10 +50,10 @@ USE_WSOCK_TRACE ?= 1
 USE_PY_BINDING ?= 3
 
 #
-# Show all warning using 'clang-cl'.
-# There are LOTS!
+# Build 'lua_module'?
+#   with either LuaJit (USE_LUAJIT=1) or Lua-5 (USE_LUAJIT=0)
 #
-USE_MAX_WARNINGS ?= 0
+USE_LUA_BINDING ?= 1
 
 #
 # Use 'astyle' in the "%.i: %.c" preprocess rules below?
@@ -91,9 +91,11 @@ PYTHON ?= py -3
 ifeq ($(USE_LUAJIT),1)
   LUA_ROOT = $(realpath $(LUAJIT_ROOT))
   LUA_LIB  = $(LUA_ROOT)/lib/luajit-$(CPU).lib
+  LUA_NAME = LuaJIT
 else
   LUA_ROOT = $(realpath $(LUA5_ROOT))
   LUA_LIB  = $(LUA_ROOT)/lib/lua54-$(CPU).lib
+  LUA_NAME = Lua5
 endif
 
 MKDIR = mkdir
@@ -141,7 +143,7 @@ ifneq ($(CC),clang-cl)
   endif
 endif
 
-CFLAGS = -nologo -MD -Zi -O2          \
+CFLAGS = -nologo -MD -Zi -O2 -W3      \
          -FI./include/hamlib/config.h \
          -I.                          \
          -I./include                  \
@@ -159,9 +161,15 @@ CXXFLAGS = -EHsc
 ifeq ($(CC),clang-cl)
   RCFLAGS += -D__clang__
   CFLAGS  += -fms-compatibility \
-             -ferror-limit=5    \
-             -Wall              \
-             -DUSE_MAX_WARNINGS=$(USE_MAX_WARNINGS)
+             -ferror-limit=5
+
+  #
+  # Add this warnings that breaks MSVC:
+  #   rigs/kenwood/kenwood.c(2850,19): warning: variable length array used [-Wvla]
+  #    2850 |     char levelbuf[expected_length + 1];
+  #         |                   ^~~~~~~~~~~~~~~~~~~
+  #
+  CFLAGS += -Wvla
 
   #
   # Due to an old 'clang-cl' compiler on Appveyor
@@ -174,7 +182,6 @@ ifeq ($(CC),clang-cl)
 
 else
   RCFLAGS += -D_MSC_VER
-  CFLAGS  += -W3
 
   #
   # Due to an old 'cl' compiler on Appveyor
@@ -206,17 +213,14 @@ Hamlib_OS_LIBS = advapi32.lib iphlpapi.lib kernel32.lib winmm.lib $(WS2_32_LIB)
 #
 # The DLL and library names:
 #
-Hamlib_DLL      = bin/Hamlib-$(ABI_VER).dll
-Hamlib_LUA_DLL  = bin/HamlibLua.dll
-Hamlib_PYD      = bin/_Hamlib.pyd
-Hamlib_IMP_LIB  = lib/Hamlib-$(ABI_VER)_imp.lib
-Hamlib_STAT_LIB = lib/Hamlib-$(ABI_VER).lib
-
-#
-# The C++ library
-#
+Hamlib_DLL       = bin/Hamlib-$(ABI_VER).dll
 Hamlibpp_DLL     = bin/Hamlib-$(ABI_VER)++.dll
+Hamlib_LUA_DLL   = bin/HamlibLua.dll
+Hamlib_PYD       = bin/_Hamlib.pyd
+Hamlib_LUA_LIB   = lib/HamlibLua.lib
 Hamlibpp_IMP_LIB = lib/Hamlib-$(ABI_VER)++_imp.lib
+Hamlib_IMP_LIB   = lib/Hamlib-$(ABI_VER)_imp.lib
+Hamlib_STAT_LIB  = lib/Hamlib-$(ABI_VER).lib
 
 #
 # The internal utility library; '$(hamlib_misc_SRC)'.
@@ -291,6 +295,9 @@ ifeq ($(USE_LIBUSB),1)
             -I$(LIBUSB_ROOT)/libusb
 
   Hamlib_EX_LIBS += $(LIBUSB_ROOT)/libusb-1.0_imp-$(CPU).lib
+
+  COPY_DLLs += $(LIBUSB_ROOT)/libusb-1.0-$(CPU).dll \
+               $(LIBUSB_ROOT)/libusb-1.0-$(CPU).pdb
 endif
 
 ifeq ($(USE_VERBOSE_DEBUG),1)
@@ -309,9 +316,7 @@ cpp_to_obj = $(addprefix $(OBJ_DIR)/, \
 c_to_i  = $(notdir $(1:.c=.i))
 cc_to_i = $(notdir $(1:.cc=.i))
 
-c_to_exe   = $(addprefix bin/, $(notdir $(1:.c=.exe)))
-cc_to_exe  = $(addprefix bin/, $(notdir $(1:.cc=.exe)))
-cpp_to_exe = $(addprefix bin/, $(notdir $(1:.cpp=.exe)))
+c_to_exe = $(addprefix bin/, $(notdir $(1:.c=.exe)))
 
 vpath %.cc c++
 
@@ -552,6 +557,10 @@ endif
 #
 TEST_PROGS += bin/testcpp.exe \
               bin/throw-test.exe
+
+ifeq ($(USER),gv)
+  TEST_PROGS += py_module lua_module
+endif
 
 #
 # All .c-files for '$(Hamlib_DLL)'.
@@ -1235,7 +1244,6 @@ GENERATED = include/hamlib/config.h \
 
 GENERATED += $(addprefix $(OBJ_DIR)/, \
                unistd.h               \
-               termios.h              \
                strings.h              \
                sys/time.h             \
                sys/ioctl.h)
@@ -1257,10 +1265,6 @@ endif
 epilogue:
 	$(call green_msg, Welcome to $(BRIGHT_WHITE)$(Hamlib_DLL) + $(Hamlibpp_DLL) $(BRIGHT_GREEN)(CC=$(CC)$(comma) CPU=$(CPU)).)
 	$(call green_msg, You could also do a $(BRIGHT_WHITE)make -f $(THIS_FILE) [doxy_docs | rigmatrix_table]\n)
-
-ifeq ($(USER),gv)
-  TEST_PROGS += py_module lua_module
-endif
 
 programs: $(GENERATED) $(TEST_PROGS)
 
@@ -1422,7 +1426,7 @@ vclean realclean: clean
 	      $(Hamlib_IMP_LIB)   \
 	      $(Hamlibpp_IMP_LIB) \
 	      $(misc_LIB)         \
-	      lib/HamlibLua.lib   \
+	      $(Hamlib_LUA_LIB)   \
 	      .depend.Windows
 
 include/hamlib/config.h: $(THIS_FILE)
@@ -1444,9 +1448,6 @@ $(OBJ_DIR)/sys/time.h: $(THIS_FILE) | $(OBJ_DIR)/sys
 
 $(OBJ_DIR)/strings.h: $(THIS_FILE) | $(OBJ_DIR)
 	$(call generate_fake, $@, #include <string.h>)
-
-$(OBJ_DIR)/termios.h: $(THIS_FILE) | $(OBJ_DIR)
-	$(call generate_fake, $@)
 
 $(OBJ_DIR)/sys/ioctl.h: $(THIS_FILE) | $(OBJ_DIR)/sys
 	$(call generate_fake, $@)
@@ -1505,8 +1506,8 @@ clean_docs:
 PY_ROOT = $(subst \,/,$(shell py -$(USE_PY_BINDING) -c "import sys; print(sys.prefix)"))
 
 ifneq ($(USE_PY_BINDING),0)
-  PY_WRAPPER_C = $(OBJ_DIR)/HamlibPy$(USE_PY_BINDING)_wrap.c
-  PY_WRAPPER_O = $(OBJ_DIR)/HamlibPy$(USE_PY_BINDING)_wrap.obj
+  PY_WRAPPER_C   = $(OBJ_DIR)/HamlibPy$(USE_PY_BINDING)_wrap.c
+  PY_WRAPPER_OBJ = $(OBJ_DIR)/HamlibPy$(USE_PY_BINDING)_wrap.obj
 
   ifeq ($(USE_PY_BINDING),2)
     PY_INIT_FUNC = init_Hamlib
@@ -1515,26 +1516,19 @@ ifneq ($(USE_PY_BINDING),0)
   endif
 endif
 
-Hamlib_PYD_deps = $(PY_WRAPPER_O)         \
+Hamlib_PYD_deps = $(PY_WRAPPER_OBJ)       \
                   $(OBJ_DIR)/HamlibPy.res \
                   $(Hamlib_IMP_LIB)
 
-PY_CFLAGS = -I$(PY_ROOT)/include -DNO_SSIZE_T -DDLL_EXPORT -DIN_HAMLIB_PYTHON
-
-ifeq ($(CC),cl)
-  PY_CFLAGS += -wd4197
-endif
+PY_CFLAGS = -I$(PY_ROOT)/include -DDLL_EXPORT -DIN_HAMLIB_PYTHON
 
 ifeq ($(USE_PY_BINDING),0)
   py_module:
 	$(error Use 'USE_PY_BINDING=[2|3]'.)
 
 else
-  py_module: $(Hamlib_PYD) $(OBJ_DIR)/Hamlib.py $(Hamlib_DLL)
-	$(COPY) $^ $(Hamlib_PYD:.pyd=.pdb) $(PY_ROOT)/Lib/site-packages
+  py_module: $(Hamlib_PYD)
 endif
-
-$(OBJ_DIR)/Hamlib.py: $(PY_WRAPPER_C)
 
 SWIG_FLAGS = -I./include -I./bindings -D_WIN32
 
@@ -1548,31 +1542,34 @@ WRAP_DEPS = bindings/Hamlib.swg    \
             bindings/amplifier.swg \
             include/hamlib/rig.h
 
-
 $(PY_WRAPPER_C): $(WRAP_DEPS)
-	$(call green_msg, Generating $@ and $(OBJ_DIR)/Hamlib.py)
+	$(call green_msg, Generating $@ and bin/Hamlib.py)
 	swig -python $(SWIG_FLAGS) -o $@ bindings/Hamlib.swg
+	$(COPY) $(OBJ_DIR)/Hamlib.py bin
+	@echo
 
-$(PY_WRAPPER_O) $(PY_WRAPPER_C:.c=.i): EXTRA_CFLAGS += $(PY_CFLAGS)
+$(PY_WRAPPER_OBJ) $(PY_WRAPPER_C:.c=.i): EXTRA_CFLAGS += $(PY_CFLAGS)
 
-ifneq ($(USE_PY_BINDING),0)
-  $(Hamlib_PYD): $(Hamlib_PYD_deps) | check-for-unused-libs.py
+$(Hamlib_PYD): $(Hamlib_PYD_deps) | check-for-unused-libs.py
 		$(call link_PYD, $@, $^, $(PY_INIT_FUNC))
-endif
 
 #
 # Lua module stuff. Only LuaJIT seems to be stable.
 #
 # The '$(Hamlib_LUA_DLL)' exports only 'luaopen_Hamliblua()'
 #
-lua_module: $(Hamlib_LUA_DLL) lua_epilogue
+ifeq ($(USE_LUA_BINDING),0)
+  lua_module:
+	$(error Use 'USE_LUA_BINDING=1'.)
 
-lua_epilogue:
+else
+  lua_module: $(Hamlib_LUA_DLL)
 	$(call green_msg, \
 	       Remember to update your $(BRIGHT_WHITE)LUA_CPATH $(BRIGHT_GREEN) \
 	       for $(BRIGHT_WHITE)$(Hamlib_LUA_DLL).                            \
 	       \n$(BRIGHT_GREEN)And your $(BRIGHT_WHITE)PATH $(BRIGHT_GREEN)for the needed $(BRIGHT_WHITE)$(Hamlib_DLL).\n)
 #	$(COPY) $(Hamlib_LUA_DLL) $(some_where_on_PATH_and_LUA_CPATH)
+endif
 
 $(OBJ_DIR)/HamlibLua_wrap.c: $(WRAP_DEPS) | $(OBJ_DIR)
 	$(call green_msg, Generating $@)
@@ -1583,24 +1580,13 @@ $(OBJ_DIR)/HamlibLua_wrap.c: $(WRAP_DEPS) | $(OBJ_DIR)
 #
 LUA_CFLAGS = -I$(LUA_ROOT)/src -DDLL_EXPORT -DIN_HAMLIB_LUA
 
-#
-# While compiling '$(OBJ_DIR)/HamlibLua_wrap.c', there are a bunching of these warnings:
-#  MSVC_obj/HamlibLua_wrap.c(3380): warning C4293: '<<': shift count negative or too big, undefined behavior
-#  MSVC_obj/HamlibLua_wrap.c(31981): warning C4197: 'volatile unsigned int': top-level volatile in cast is ignored
-#
-# Turn them off.
-#
-ifeq ($(CC),cl)
-  LUA_CFLAGS += -wd4197 -wd4293
-endif
-
 $(OBJ_DIR)/HamlibLua_wrap.obj HamlibLua_wrap.i: EXTRA_CFLAGS = $(LUA_CFLAGS)
 
 #
-# The imp-lib 'lib/HamlibLua.lib' is not needed for anything.
+# The imp-lib '$(Hamlib_LUA_LIB)' is not needed for anything.
 #
 $(Hamlib_LUA_DLL): $(OBJ_DIR)/HamlibLua_wrap.obj $(Hamlib_IMP_LIB) $(OBJ_DIR)/HamlibLua.res | check-for-unused-libs.py
-	$(call link_DLL, $@, $^ $(LUA_LIB), lib/HamlibLua.lib)
+	$(call link_DLL, $@, $^ $(LUA_LIB), $(Hamlib_LUA_LIB))
 
 rigmatrix_table: tmp/rigmatrix.html
 
@@ -1629,9 +1615,9 @@ $(OBJ_DIR)/HamlibPy.rc: $(THIS_FILE) | $(OBJ_DIR)
 	$(call generate_dll_rc, $@, $(Hamlib_PYD), "Hamlib module for Python v$(USE_PY_BINDING).x")
 
 $(OBJ_DIR)/HamlibLua.rc: $(THIS_FILE) | $(OBJ_DIR)
-	$(call generate_dll_rc, $@, $(Hamlib_LUA_DLL), "Hamlib module for LuaJIT")
+	$(call generate_dll_rc, $@, $(Hamlib_LUA_DLL), "Hamlib module for $(LUA_NAME)")
 
-$(OBJ_DIR)/%.res: %.rc include/hamlib/config.h | $(OBJ_DIR)
+$(OBJ_DIR)/%.res: %.rc | $(OBJ_DIR)
 	$(call create_res_file, $@, $<)
 
 #
@@ -1707,7 +1693,7 @@ define link_EXE
   link -out:$(strip $(1)) @link.args > link.tmp
   @cat link.tmp >> $(1:.exe=.map)
   @rm -f $(1:.exe=.exp)
-  @$(PYTHON) check-for-unused-libs.py link.tmp $(notdir $(misc_lib))
+  @$(PYTHON) check-for-unused-libs.py link.tmp
 endef
 
 define link_DLL
@@ -1841,104 +1827,24 @@ endef
 define hamlib_config_h
   /*
    * Warning control.
-   * While building with 'clang-cl' and 'USE_MAX_WARNINGS=1' there are lots of warnings!
    */
   #if defined(__clang__)
-    #if defined(USE_MAX_WARNINGS) && (USE_MAX_WARNINGS == 0)
-      #pragma clang diagnostic ignored "-Wundef"
-      #pragma clang diagnostic ignored "-Wunused-function"
-      #pragma clang diagnostic ignored "-Wunused-macros"
-      #pragma clang diagnostic ignored "-Wunused-parameter"
-      #pragma clang diagnostic ignored "-Wunused-variable"
-      #pragma clang diagnostic ignored "-Wunused-but-set-variable"
-      #pragma clang diagnostic ignored "-Wcomma"
-      #pragma clang diagnostic ignored "-Wparentheses"
-      #pragma clang diagnostic ignored "-Winitializer-overrides"
-      #pragma clang diagnostic ignored "-Wvisibility"
-      #pragma clang diagnostic ignored "-Wunknown-pragmas"
-      #pragma clang diagnostic ignored "-Wextra-semi-stmt"
-      #pragma clang diagnostic ignored "-Wdeclaration-after-statement"
-      #pragma clang diagnostic ignored "-Wimplicit-function-declaration"
-      #pragma clang diagnostic ignored "-Wconditional-uninitialized"
-      #pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
-      #pragma clang diagnostic ignored "-Wignored-attributes"
-      #pragma clang diagnostic ignored "-Wstrict-prototypes"
-      #pragma clang diagnostic ignored "-Wreserved-id-macro"
-      #pragma clang diagnostic ignored "-Wused-but-marked-unused"
-      #pragma clang diagnostic ignored "-Wshadow"
-      #pragma clang diagnostic ignored "-Wcast-align"
-      #pragma clang diagnostic ignored "-Wcast-qual"
-      #pragma clang diagnostic ignored "-Wshorten-64-to-32"
-      #pragma clang diagnostic ignored "-Wpedantic"
-      #pragma clang diagnostic ignored "-Wformat-pedantic"
-      #pragma clang diagnostic ignored "-Wformat-nonliteral"
-      #pragma clang diagnostic ignored "-Wswitch-enum"
-      #pragma clang diagnostic ignored "-Wcovered-switch-default"
-      #pragma clang diagnostic ignored "-Wsign-conversion"
-      #pragma clang diagnostic ignored "-Wreserved-user-defined-literal"
-      #pragma clang diagnostic ignored "-Wsign-compare"
-      #pragma clang diagnostic ignored "-Wdouble-promotion"
-      #pragma clang diagnostic ignored "-Wassign-enum"
-      #pragma clang diagnostic ignored "-Wunreachable-code"
-      #pragma clang diagnostic ignored "-Wnonportable-include-path"
-      #pragma clang diagnostic ignored "-Wunreachable-code-return"
-      #pragma clang diagnostic ignored "-Wunreachable-code-break"
-      #pragma clang diagnostic ignored "-Wc++98-compat-pedantic"
-      #pragma clang diagnostic ignored "-Wold-style-cast"
-      #pragma clang diagnostic ignored "-Wreserved-identifier"
-      #pragma clang diagnostic ignored "-Wcast-function-type"
-      #pragma clang diagnostic ignored "-Wmissing-field-initializers"
-      #pragma clang diagnostic ignored "-Wmissing-noreturn"
-      #pragma clang diagnostic ignored "-Wmissing-prototypes"
-      #pragma clang diagnostic ignored "-Wmissing-variable-declarations"
-      #pragma clang diagnostic ignored "-Wbad-function-cast"
-      #pragma clang diagnostic ignored "-Wredundant-parens"
-      #pragma clang diagnostic ignored "-Wtautological-unsigned-zero-compare"
-      #pragma clang diagnostic ignored "-Wnonportable-system-include-path"
-      #pragma clang diagnostic ignored "-Wimplicit-int-conversion"
-      #pragma clang diagnostic ignored "-Wfloat-conversion"
-      #pragma clang diagnostic ignored "-Wfloat-equal"
-      #pragma clang diagnostic ignored "-Wimplicit-float-conversion"
-      #pragma clang diagnostic ignored "-Wimplicit-fallthrough"
-      #pragma clang diagnostic ignored "-Wshift-count-overflow"
-      #pragma clang diagnostic ignored "-Wdocumentation"
-      #pragma clang diagnostic ignored "-Wdocumentation-unknown-command"
-      #pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
-      #pragma clang diagnostic ignored "-Wzero-as-null-pointer-constant"
-      #pragma clang diagnostic ignored "-Wdeprecated"
-      #pragma clang diagnostic ignored "-Wsuggest-override"
-      #pragma clang diagnostic ignored "-Wsuggest-destructor-override"
+    #pragma clang diagnostic ignored "-Wdeprecated-non-prototype"
+    #pragma clang diagnostic ignored "-Winitializer-overrides"
+    #pragma clang diagnostic ignored "-Wnonportable-include-path"
+    #pragma clang diagnostic ignored "-Wunused-function"
+    #pragma clang diagnostic ignored "-Wunused-variable"
+    #pragma clang diagnostic ignored "-Wunused-but-set-variable"
 
-      /*
-       * Since on AppVeyor etc. they could have an old 'clang-cl'.
-       */
-      #pragma clang diagnostic ignored "-Wunknown-warning-option"
-
-      /*
-       * This warning is rather important:
-       *
-       *   rigs/dummy/dummy.h(46,5):  warning: 'netrigctl_get_vfo_mode' redeclared without 'dllimport' attribute: previous
-       *   'dllimport' ignored [-Winconsistent-dllimport]
-       *    int netrigctl_get_vfo_mode(RIG *);
-       *        ^
-       * Hence do not add *#pragma clang diagnostic ignored "-Winconsistent-dllimport"'.
-       *
-       * And things like this that break MSVC:
-       *   rigs/kenwood/kenwood.c(2850,19): warning: variable length array used [-Wvla]
-       *    2850 |     char levelbuf[expected_length + 1];
-       *         |                   ^~~~~~~~~~~~~~~~~~~
-       */
-
-      /*
-       * And even more warnings in C++
-       */
-      #if defined(__cplusplus)
-        #pragma clang diagnostic ignored "-Wc++98-compat"
-        #pragma clang diagnostic ignored "-Wreserved-identifier"
-        #pragma clang diagnostic ignored "-Wreserved-macro-identifier"
-      #endif
-
-    #endif  /* USE_MAX_WARNINGS */
+    /*
+     * This warning is rather important:
+     *
+     *   rigs/dummy/dummy.h(46,5):  warning: 'netrigctl_get_vfo_mode' redeclared without 'dllimport' attribute: previous
+     *   'dllimport' ignored [-Winconsistent-dllimport]
+     *    int netrigctl_get_vfo_mode(RIG *);
+     *        ^
+     * Hence do not add *#pragma clang diagnostic ignored "-Winconsistent-dllimport"'.
+     */
 
   #elif defined(_MSC_VER)
     #pragma warning (disable: 4018 4090 4101 4142 4146 4244 4251 4267 4275 4305 4700 4800)
@@ -1958,6 +1864,28 @@ define hamlib_config_h
      */
     #define __GETOPT_H_
     #include "lib/getopt.h"
+  #endif
+
+  #if defined(IN_HAMLIB_PYTHON)
+    #if defined(__clang__)
+    #else
+      #pragma warning (disable: 4197)
+    #endif
+
+  #elif defined(IN_HAMLIB_LUA)
+    #if defined(__clang__)
+      #pragma clang diagnostic ignored "-Wshift-count-overflow"
+
+    #else
+      /*
+       * While compiling '$$(OBJ_DIR)/HamlibLua_wrap.c', there are a bunching of these warnings:
+       *  objects/HamlibLua_wrap.c(3380):  warning C4293: '<<': shift count negative or too big, undefined behavior
+       *  objects/HamlibLua_wrap.c(31981): warning C4197: 'volatile unsigned int': top-level volatile in cast is ignored
+       *
+       * Turn them off.
+       */
+      #pragma warning (disable: 4197 4293)
+    #endif
   #endif
 
   /*
@@ -2054,7 +1982,7 @@ define hamlib_config_h
   #define  _USE_MATH_DEFINES  /* 'M_PI' etc. */
   #endif
 
-  #if !defined(_SSIZE_T_DEFINED) && !defined(NO_SSIZE_T)
+  #if !defined(_SSIZE_T_DEFINED) && !defined(IN_HAMLIB_PYTHON)
     #include <basetsd.h>
 
     typedef SSIZE_T ssize_t;
@@ -2168,20 +2096,10 @@ define RC_COMMON
 
   #if defined(__clang__)
     #define RC_BUILDER  "clang-cl"
-
   #elif defined(_MSC_VER)
     #define RC_BUILDER  "MSVC"
-
   #else
-    #error "Who are you?"
-  #endif
-
-  #ifndef RC_DESCRIPTION
-  #error "Add a #define RC_DESCRIPTION .."
-  #endif
-
-  #ifndef RC_FILENAME
-  #error "Add a #define RC_FILENAME .."
+    #error "Unsupported compiler"
   #endif
 
   #define RC_VERSION      $(MAJOR_VER),$(MINOR_VER),0,0
@@ -2308,7 +2226,7 @@ define check_for_unused_libs_PY
   import os, sys
 
   map_file    = sys.argv[1]
-  ignore_libs = [ "oldnames.lib", "libcmt.lib" ]
+  ignore_libs = [ "oldnames.lib", "libcmt.lib", "$(notdir $(misc_LIB))" ]
 
   class State():
     IDLE   = 0
@@ -2342,29 +2260,28 @@ define check_for_unused_libs_PY
     f = open (map_file, "rt")
     lines = f.readlines()
     f.close()
-
     for l in lines:
-      l = l.strip()
-      if l == "Unused libraries:":
-         state = State.UNUSED
-         continue
-      if state == State.UNUSED:
-         if l == "":
-            break
-         if os.path.basename (l).lower() not in ignore_libs:
-            unused_libs.append (l)
+        l = l.strip()
+        if l == "Unused libraries:":
+           state = State.UNUSED
+           continue
+        if state == State.UNUSED:
+           if l == "":
+              break
+           if os.path.basename (l).lower() not in ignore_libs:
+              unused_libs.append (l)
     return unused_libs
 
-  for i in range(2, len(sys.argv)):
-      ignore_libs.append (sys.argv[i].lower())
   report (process_map(State.IDLE))
 endef
 
 #
 # Use gcc to create a '.depend.Windows'
 #
-DEP_CFLAGS  = -MM --include include/hamlib/config.h $(filter -I% -D%, $(CFLAGS))
-DEP_REPLACE = sed -e 's@\(.*\)\.o: @\n$$(OBJ_DIR)\/\1.$$(O): @'    \
+DEP_CFLAGS = -MM --include include/hamlib/config.h $(filter -I% -D%, $(CFLAGS)) \
+             -DGCC_MAKE_DEPEND
+
+DEP_REPLACE = sed -e 's@\(.*\)\.o: @\n$$(OBJ_DIR)\/\1.obj: @'      \
                   -e 's@$(OBJ_DIR)/[a-z]*\.h@@g'                   \
                   -e 's@$(OBJ_DIR)/sys/[a-z]*\.h@@g'               \
                   -e 's@$(BOOST_ROOT)@$$(BOOST_ROOT)@'             \
@@ -2377,11 +2294,12 @@ DEP_REPLACE = sed -e 's@\(.*\)\.o: @\n$$(OBJ_DIR)\/\1.$$(O): @'    \
                   -e 's@$(LIBUSRP_ROOT)@$$(LIBUSRP_ROOT)@'         \
                   -e 's@$(LIBXML2_ROOT)@$$(LIBXML2_ROOT)@'         \
                   -e 's@$(LUAJIT_ROOT)@$$(LUAJIT_ROOT)@'           \
-                  -e 's@$(LUA5_ROOT)@$$(LUA5_ROOT)@'
-
+                  -e 's@$(LUA5_ROOT)@$$(LUA5_ROOT)@'               \
+                  -e 's@src/hamlibdatetime.h@@g'                   \
+                  -e 's@include/hamlib/config.h@@g'
 
 ALL_C_SRC  = $(hamlib_C_SRC)  $(hamlib_misc_SRC) $(wildcard tests/*.c)
-ALL_CC_SRC = $(hamlib_CC_SRC) $(hamlibpp_SRC) $(hamlib_CPP_SRC)
+ALL_CC_SRC = $(hamlib_CC_SRC) $(hamlibpp_SRC)    $(hamlib_CPP_SRC)
 
 depend_c.args: FORCE
 	$(call green_msg, Creating $@)
@@ -2391,7 +2309,7 @@ depend_cc.args: FORCE
 	$(call green_msg, Creating $@)
 	$(call create_resp_file, $@, $(DEP_CFLAGS) -std=c++11 $(ALL_CC_SRC))
 
-depend: $(OBJ_DIR) $(OBJ_DIR)/sys $(GENERATED) depend_c.args depend_cc.args
+depend: $(GENERATED) depend_c.args depend_cc.args
 	$(call generate, .depend.Windows, #)
 	@echo -e '#\n# Dependencies for $$(ALL_C_SRC):\n#' >> .depend.Windows
 	gcc @depend_c.args | $(DEP_REPLACE) >> .depend.Windows
