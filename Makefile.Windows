@@ -151,7 +151,7 @@ CFLAGS = -nologo -MD -Zi -O2          \
 
 LDFLAGS  = -nologo -debug -incremental:no -verbose -machine:$(CPU) -nodefaultlib:uuid.lib
 RCFLAGS  = -nologo -I.
-CXXFLAGS = -EHsc -std:c++17
+CXXFLAGS = -EHsc
 
 ifeq ($(CC),clang-cl)
   RCFLAGS += -D__clang__
@@ -165,6 +165,8 @@ ifeq ($(CC),clang-cl)
   #
   ifeq ($(ON_APPVEYOR),1)
     CFLAGS += -Wno-unknown-warning-option
+  else
+    CXXFLAGS += -std:c++17
   endif
 
 else
@@ -174,7 +176,7 @@ else
   #
   ifeq ($(ON_APPVEYOR),0)
     CFLAGS   += -W3 -diagnostics:caret
-    CXXFLAGS += -Zc:__cplusplus
+    CXXFLAGS += -std:c++17 -Zc:__cplusplus
   endif
 endif
 
