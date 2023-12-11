@@ -174,15 +174,10 @@ void errmsg(int err, char *s, const char *func, const char *file, int line);
 
 #define TRACE   rig_debug(RIG_DEBUG_TRACE, "%s(%d) trace\n", __FILE__, __LINE__)
 
-#if defined(USE_GV_DEBUG)
-  /*
-   * Returns basename from '__FILE__'
-   */
-  const char *rig_debug_filename(const char *file);
-
-#else
-  #define rig_debug_filename(file) (strrchr(file, '/') ? strrchr(file, '/') + 1 : file)
-#endif
+/*
+ * Returns basename from '__FILE__'
+ */
+const char *rig_debug_filename(const char *file);
 
 #if 0
   //

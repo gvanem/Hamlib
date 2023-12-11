@@ -343,7 +343,6 @@ FILE *HAMLIB_API rig_set_debug_file(FILE *stream)
     return prev_stream;
 }
 
-#if defined(USE_GV_DEBUG)
 /*
  * Windows compilers can contain both '/' and '\\' in a '__FILE__' built-in!
  */
@@ -393,7 +392,5 @@ void __rig_debug (enum rig_debug_level_e debug_level, const char *file, unsigned
   }
   va_end(ap);
 }
-
-#endif
 
 /** @} */
