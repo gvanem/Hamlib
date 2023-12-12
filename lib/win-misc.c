@@ -2,10 +2,12 @@
 #include <hamlib/config.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <setjmp.h>
 #include <time.h>
 #include <windows.h>
+#include "src/misc.h"
 #include "lib/pthread.h"
 
 /*
@@ -59,7 +61,7 @@ int clock_gettime (int clock_id, struct timespec *ts)
   static LARGE_INTEGER offset;
   static double        frequencyToMicroseconds;
   static int           initialized = 0;
-  static BOOL          usePerformanceCounter = 1;
+  static bool          usePerformanceCounter = 1;
 
   if (!initialized)
   {
@@ -226,7 +228,7 @@ static int _pthread_create_wrapper (void *args)
   _pthread_once_raw (&_pthread_tls_once, _pthread_tls_init);
   TlsSetValue (_pthread_tls, tv);
 
-  if (!setjmp (tv->jb))
+  if (!setjmp(tv->jb))
   {
     /* Call function and save return value */
     tv->ret_arg = (*tv->func) (tv->ret_arg);
@@ -299,7 +301,7 @@ pthread_t pthread_self (void)
     /* Save for later */
     TlsSetValue (_pthread_tls, t);
 
-    if (setjmp (t->jb))
+    if (setjmp(t->jb))
     {
       /* Make sure we free ourselves if we are detached */
       if (!t->hnd)
@@ -355,7 +357,10 @@ int pthread_create (pthread_t *th, pthread_attr_t *attr, pthread_func_t func, vo
   _ReadWriteBarrier();
   tv->hnd = (HANDLE) _beginthreadex (NULL, ssize, (_beginthreadex_proc_type)_pthread_create_wrapper, tv, 0, NULL);
   if (!tv->hnd)
-     return (1);
+  {
+    free (tv);
+    return (1);
+  }
 
   if (tv->p_state & PTHREAD_CREATE_DETACHED)
   {
@@ -383,12 +388,17 @@ int pthread_join (pthread_t t, void **res)
 
 int pthread_cancel (pthread_t t)
 {
+  rig_debug (RIG_DEBUG_VERBOSE, "%s() called\n", __func__);
+
   if (t->p_state & PTHREAD_CANCEL_ASYNCHRONOUS)
   {
     CONTEXT ctxt;
 
     if (t->cancelled)   /* Already done? */
-       return (ESRCH);
+    {
+      rig_debug (RIG_DEBUG_VERBOSE, "  t->cancelled==1\n");
+      return (ESRCH);
+    }
 
     ctxt.ContextFlags = CONTEXT_CONTROL;
     SuspendThread (t->hnd);
@@ -416,6 +426,8 @@ int pthread_cancel (pthread_t t)
 int pthread_exit (void *res)
 {
   pthread_t t = pthread_self();
+
+  rig_debug (RIG_DEBUG_VERBOSE, "%s() called\n", __func__);
 
   t->ret_arg = res;
   longjmp (t->jb, 1);
@@ -451,4 +463,149 @@ int pthread_mutex_destroy (pthread_mutex_t *m)
   return (0);
 }
 
+#if defined(NO_PTHREAD_FOR_MCAST) && 0
+/**
+ * \brief Start multicast publisher
+ *
+ * Start multicast publisher.
+ *
+ * \param multicast_addr UDP address
+ * \param multicast_port UDP socket port
+ * \return RIG_OK or < 0 if error
+ */
+int network_multicast_publisher_start (RIG *rig, const char *multicast_addr,
+                                       int multicast_port, enum multicast_item_e items)
+{
+    struct rig_state *rs = &rig->state;
+    multicast_publisher_priv_data *mcast_publisher_priv;
+    int socket_fd;
+    int status;
 
+    ENTERFUNC;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): multicast publisher address=%s, port=%d\n", __FILE__,
+              __LINE__, multicast_addr, multicast_port);
+
+    if (multicast_addr == NULL || strcmp(multicast_addr, "0.0.0.0") == 0)
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s(%d): not starting multicast publisher\n",
+                  __FILE__, __LINE__);
+        return RIG_OK;
+    }
+
+    if (rs->multicast_publisher_priv_data != NULL)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s(%d): multicast publisher already running\n",
+                  __FILE__, __LINE__);
+        RETURNFUNC(-RIG_EINVAL);
+    }
+
+    status = network_init();
+
+    if (status != RIG_OK)
+    {
+        RETURNFUNC(status);
+    }
+
+    socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (socket_fd < 0)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: error opening new UDP socket: %s", __func__,
+                  strerror(errno));
+        RETURNFUNC(-RIG_EIO);
+    }
+
+    // Enable non-blocking mode
+    u_long mode = 1;
+    if (ioctlsocket(socket_fd, FIONBIO, &mode) == SOCKET_ERROR)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: error enabling non-blocking mode for socket: %s", __func__,
+                strerror(errno));
+        RETURNFUNC(-RIG_EIO);
+    }
+
+    if (items & RIG_MULTICAST_TRANSCEIVE)
+    {
+        rig_debug(RIG_DEBUG_VERBOSE, "%s(%d) MULTICAST_TRANSCEIVE enabled\n", __FILE__,
+                  __LINE__);
+    }
+
+    if (items & RIG_MULTICAST_SPECTRUM)
+    {
+        rig_debug(RIG_DEBUG_VERBOSE, "%s(%d) MULTICAST_SPECTRUM enabled\n", __FILE__,
+                  __LINE__);
+    }
+
+    rs->snapshot_packet_sequence_number = 0;
+    rs->multicast_publisher_run = 1;
+    rs->multicast_publisher_priv_data = calloc(1,
+                                        sizeof(multicast_publisher_priv_data));
+
+    if (rs->multicast_publisher_priv_data == NULL)
+    {
+        close(socket_fd);
+        RETURNFUNC(-RIG_ENOMEM);
+    }
+
+    mcast_publisher_priv = (multicast_publisher_priv_data *)
+                           rs->multicast_publisher_priv_data;
+    mcast_publisher_priv->args.socket_fd = socket_fd;
+    mcast_publisher_priv->args.multicast_addr = multicast_addr;
+    mcast_publisher_priv->args.multicast_port = multicast_port;
+    mcast_publisher_priv->args.rig = rig;
+
+    status = multicast_publisher_create_data_pipe(mcast_publisher_priv);
+
+    if (status < 0)
+    {
+        free(rs->multicast_publisher_priv_data);
+        rs->multicast_publisher_priv_data = NULL;
+        close(socket_fd);
+        rig_debug(RIG_DEBUG_ERR,
+                  "%s: multicast publisher data pipe creation failed, result=%d\n", __func__,
+                  status);
+        RETURNFUNC(-RIG_EINTERNAL);
+    }
+
+    RETURNFUNC(RIG_OK);
+}
+
+/**
+ * \brief Stop multicast publisher
+ *
+ * Stop multicast publisher
+ *
+ * \return RIG_OK or < 0 if error
+ */
+int network_multicast_publisher_stop(RIG *rig)
+{
+    struct rig_state *rs = &rig->state;
+    multicast_publisher_priv_data *mcast_publisher_priv;
+
+    ENTERFUNC;
+
+    rs->multicast_publisher_run = 0;
+
+    mcast_publisher_priv = (multicast_publisher_priv_data *)
+                           rs->multicast_publisher_priv_data;
+
+    if (mcast_publisher_priv == NULL)
+    {
+        RETURNFUNC(RIG_OK);
+    }
+
+    multicast_publisher_close_data_pipe(mcast_publisher_priv);
+
+    if (mcast_publisher_priv->args.socket_fd >= 0)
+    {
+        close(mcast_publisher_priv->args.socket_fd);
+        mcast_publisher_priv->args.socket_fd = -1;
+    }
+
+    free(rs->multicast_publisher_priv_data);
+    rs->multicast_publisher_priv_data = NULL;
+
+    RETURNFUNC(RIG_OK);
+}
+#endif
