@@ -4,7 +4,7 @@
 # G. Vanem <gvanem@yahoo.no> 2019 - 2023.
 #
 THIS_FILE := Makefile.Windows
-DATE      := $(shell date +%d-%B-%Y)
+TODAY     := $(shell date +%d-%B-%Y)
 ABI_VER   := 4
 comma     := ,
 MAKEFLAGS += ---warn-undefined-variables
@@ -61,6 +61,12 @@ USE_LUA_BINDING ?= 1
 USE_ASTYLE ?= 1
 
 #
+# Enable "Address Sanitation".
+# This needs an up-to-date version of 'cl'.
+#
+USE_ASAN ?= 0
+
+#
 # For some packages, one could do:
 #   'vcpkg install libgd:x86-windows --debug' or
 #   'vcpkg install libgd:x64-windows --debug'
@@ -87,6 +93,14 @@ LIBREADLINE_ROOT ?= $(VCPKG_ROOT)/installed/$(CPU)-windows-static
 # For Python stuff besides the '$(Hamlib_PYD)' target:
 #
 PYTHON ?= py -3
+
+ifeq ($(CPU),x64)
+  BITS = 64
+else ifeq ($(CPU),x86)
+  BITS = 32
+else
+  $(error CPU must be 'x86' or 'x64'.)
+endif
 
 ifeq ($(USE_LUAJIT),1)
   LUA_ROOT = $(realpath $(LUAJIT_ROOT))
@@ -115,6 +129,14 @@ define Usage
   Specify CC=cl       - use MSVC
   Specify CC=clang-cl - use clang-cl
 endef
+
+#
+# Change the 'CLANG_[32|64]' directory to suite:
+# Only important if 'USE_ASAN = 1' and 'CC = clang-cl'.
+#
+CLANG_32        ?= c:/ProgramFiles/LLVM-15-32bit
+CLANG_64        ?= c:/ProgramFiles/LLVM-15-64bit
+CLANG_MAJOR_VER ?= 15
 
 ifneq ($(APPVEYOR_PROJECT_NAME),)
   #
@@ -196,6 +218,42 @@ else
     CFLAGS   += -diagnostics:caret
     CXXFLAGS += -std:c++17 -Zc:__cplusplus
   endif
+endif
+
+#
+# ASAN build settings:
+#
+# This works best:
+#   c:\> set ASAN_OPTIONS=print_stats=1:windows_hook_legacy_allocators=1:color=always:halt_on_error=0
+#
+# Refs:
+#   https://docs.microsoft.com/en-us/cpp/sanitizers/asan?view=msvc-160
+#   https://github.com/google/sanitizers/wiki/AddressSanitizer
+#   https://github.com/google/sanitizers/wiki/AddressSanitizerFlags
+#
+ifeq ($(USE_ASAN),1)
+  CFLAGS  += -DUSE_ASAN -fsanitize=address
+  RCFLAGS += -DUSE_ASAN
+  LDFLAGS += -inferasanlibs:no
+
+  ifeq ($(CC),clang-cl)
+    $(info Detected 'CLANG_ROOT=$(realpath $(CLANG_$(BITS)))' for 'USE_ASAN=1'.)
+
+    LDFLAGS += -libpath:$(realpath $(CLANG_$(BITS)))/lib/clang/$(CLANG_MAJOR_VER)/lib/windows
+  else
+    LDFLAGS += -libpath:$(realpath $(VCToolkitInstallDir))/lib/$(CPU)
+  endif
+
+  ifeq ($(CPU),x86)
+    ASAN_LIBS = clang_rt.asan_dynamic-i386.lib \
+                clang_rt.asan_dynamic_runtime_thunk-i386.lib
+  else
+    ASAN_LIBS = clang_rt.asan_dynamic-x86_64.lib \
+                clang_rt.asan_dynamic_runtime_thunk-x86_64.lib
+  endif
+
+else
+  ASAN_LIBS =
 endif
 
 ifeq ($(USE_WSOCK_TRACE),1)
@@ -1280,10 +1338,10 @@ $(Hamlib_IMP_LIB):   $(Hamlib_DLL)
 $(Hamlibpp_IMP_LIB): $(Hamlibpp_DLL)
 
 $(Hamlib_DLL): $(OBJ_DIR)/Hamlib.def $(Hamlib_STAT_LIB) $(misc_LIB) $(Hamlib_EX_LIBS) $(OBJ_DIR)/Hamlib.res | check-for-unused-libs.py
-	$(call link_DLL, $@, -def:$^ $(Hamlib_OS_LIBS), $(Hamlib_IMP_LIB))
+	$(call link_DLL, $@, -def:$^ $(Hamlib_OS_LIBS) $(ASAN_LIBS), $(Hamlib_IMP_LIB))
 
 $(Hamlibpp_DLL): $(hamlibpp_OBJ) $(Hamlib_IMP_LIB) $(OBJ_DIR)/Hamlibpp.res | check-for-unused-libs.py
-	$(call link_DLL, $@, $^ $(Hamlibpp_EX_LIBS), $(Hamlibpp_IMP_LIB))
+	$(call link_DLL, $@, $^ $(Hamlibpp_EX_LIBS) $(ASAN_LIBS), $(Hamlibpp_IMP_LIB))
 
 #
 # For MSVC only.
@@ -1330,13 +1388,13 @@ $(CC).args: $(THIS_FILE)
 # C++ test programs:
 #
 bin/hamlibTest.exe: $(OBJ_DIR)/hamlibTest.obj $(OBJ_DIR)/hamlibTest.res $(CPP_PROG_LIBS)
-	$(call link_EXE, $@, $^ user32.lib)
+	$(call link_EXE, $@, $^ user32.lib $(ASAN_LIBS))
 
 bin/testcpp.exe: $(OBJ_DIR)/testcpp.obj $(CPP_PROG_LIBS)
-	$(call link_EXE, $@, $^)
+	$(call link_EXE, $@, $^ $(ASAN_LIBS))
 
 bin/throw-test.exe: $(OBJ_DIR)/throw-test.obj $(CPP_PROG_LIBS)
-	$(call link_EXE, $@, $^)
+	$(call link_EXE, $@, $^ $(ASAN_LIBS))
 
 #
 # Plain C test programs:
@@ -1345,40 +1403,40 @@ $(OBJ_DIR)/%.obj: tests/%.c | $(CC).args $(OBJ_DIR)
 	$(call C_compile, $@, $<)
 
 bin/ampctl.exe: $(ampctl_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ advapi32.lib user32.lib)
+	$(call link_EXE, $@, $^ advapi32.lib user32.lib $(ASAN_LIBS))
 
 bin/ampctld.exe: $(ampctld_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(WS2_32_LIB))
+	$(call link_EXE, $@, $^ $(WS2_32_LIB) $(ASAN_LIBS))
 
 bin/rigctlcom.exe: $(rigctlcom_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^)
+	$(call link_EXE, $@, $^ $(ASAN_LIBS))
 
 bin/rigctl.exe: $(rigctl_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^)
+	$(call link_EXE, $@, $^ $(ASAN_LIBS))
 
 bin/rigctld.exe: $(rigctld_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(WS2_32_LIB))
+	$(call link_EXE, $@, $^ $(WS2_32_LIB) $(ASAN_LIBS))
 
 bin/rigctlsync.exe: $(rigctlsync_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^)
+	$(call link_EXE, $@, $^ $(ASAN_LIBS))
 
 bin/rigctltcp.exe: $(rigctltcp_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(WS2_32_LIB))
+	$(call link_EXE, $@, $^ $(WS2_32_LIB) $(ASAN_LIBS))
 
 bin/rigtestmcastrx.exe: $(OBJ_DIR)/rigtestmcastrx.obj $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(WS2_32_LIB))
+	$(call link_EXE, $@, $^ $(WS2_32_LIB) $(ASAN_LIBS))
 
 bin/rigmem.exe: $(rigmem_OBJ) $(C_PROG_LIBS) $(XML2_LIB)
-	$(call link_EXE, $@, $^)
+	$(call link_EXE, $@, $^ $(ASAN_LIBS))
 
 bin/rotctl.exe: $(rotctl_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^)
+	$(call link_EXE, $@, $^ $(ASAN_LIBS))
 
 bin/rotctld.exe: $(rotctld_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(WS2_32_LIB))
+	$(call link_EXE, $@, $^ $(WS2_32_LIB) $(ASAN_LIBS))
 
 bin/rigmatrix.exe: $(rigmatrix_OBJ) $(C_PROG_LIBS) $(LIBGD_LIB) copy_DLLs
-	$(call link_EXE, $@, $(rigmatrix_OBJ) $(C_PROG_LIBS) $(LIBGD_LIB))
+	$(call link_EXE, $@, $(rigmatrix_OBJ) $(C_PROG_LIBS) $(LIBGD_LIB) $(ASAN_LIBS))
 
 copy_DLLs: | bin
 ifeq ($(COPY_DLLs),)
@@ -1393,7 +1451,7 @@ endif
 # Not all may need '$(misc_LIB)'.
 #
 bin/%.exe: $(OBJ_DIR)/%.obj $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^)
+	$(call link_EXE, $@, $^ $(ASAN_LIBS))
 
 #
 # For '$(hamlib_C_SRC)' and '$(hamlib_CC_SRC)':
@@ -1413,8 +1471,8 @@ $(OBJ_DIR)/%.obj: %.cpp | $(CC).args $(OBJ_DIR)
 $(OBJ_DIR)/%.obj: lib/%.c | $(CC).args $(OBJ_DIR)
 	$(call C_compile, $@, $<)
 
-clean: clean_docs clean_rigmatrix
-	rm -fr $(OBJ_DIR)
+clean: clean_docs clean_tmp
+	- rm -fr $(OBJ_DIR)
 	rm -f bin/*.{map,pdb,lib,exp} $(GENERATED)      \
 	      vc1*.pdb cl.args clang-cl.args            \
 	      lib.args link.args link.tmp depend_c.args \
@@ -1438,7 +1496,7 @@ include/hamlib/config.h: $(THIS_FILE)
 
 src/hamlibdatetime.h: $(THIS_FILE)
 	$(call generate_c, $@)
-	$(file >> $@, #define HAMLIBDATETIME "__DATE__")
+	$(file >> $@, #define HAMLIBDATETIME "$(TODAY)")
 
 $(OBJ_DIR)/unistd.h: $(THIS_FILE) | $(OBJ_DIR)
 	$(call generate_fake, $@, #include "lib/getopt.h")
@@ -1551,7 +1609,7 @@ $(PY_WRAPPER_C): $(WRAP_DEPS)
 $(PY_WRAPPER_OBJ) $(PY_WRAPPER_C:.c=.i): EXTRA_CFLAGS += $(PY_CFLAGS)
 
 $(Hamlib_PYD): $(Hamlib_PYD_deps) | check-for-unused-libs.py
-		$(call link_PYD, $@, $^, $(PY_INIT_FUNC))
+		$(call link_PYD, $@, $^ $(ASAN_LIBS), $(PY_INIT_FUNC))
 
 #
 # Lua module stuff. Only LuaJIT seems to be stable.
@@ -1586,8 +1644,29 @@ $(OBJ_DIR)/HamlibLua_wrap.obj HamlibLua_wrap.i: EXTRA_CFLAGS = $(LUA_CFLAGS)
 # The imp-lib '$(Hamlib_LUA_LIB)' is not needed for anything.
 #
 $(Hamlib_LUA_DLL): $(OBJ_DIR)/HamlibLua_wrap.obj $(Hamlib_IMP_LIB) $(OBJ_DIR)/HamlibLua.res | check-for-unused-libs.py
-	$(call link_DLL, $@, $^ $(LUA_LIB), $(Hamlib_LUA_LIB))
+	$(call link_DLL, $@, $^ $(LUA_LIB) $(ASAN_LIBS), $(Hamlib_LUA_LIB))
 
+#
+# Perl stuff.
+#
+perl_module: tmp/Hamlib-pl.mk tmp/Makefile.PL
+	$(call green_msg, Running 'make $<')
+	cd tmp ; $(MAKE) -f $(notdir $<)
+
+perl_test: perl_module
+	cd tmp ; $(MAKE) -f Hamlib-pl.mk test
+
+tmp/Makefile.PL: bindings/Makefile.PL | tmp
+	$(COPY) $< $@
+
+tmp/Hamlib-pl.mk: bindings/Makefile.PL $(THIS_FILE) | tmp
+	cd tmp ; \
+	perl ../$< MAKEFILE=$(notdir $@) LIB=../lib CC=$(CC) CCFLAGS=$(CFLAGS) LIBS="$(realpath $(Hamlib_STAT_LIB))"
+
+
+#
+# Create a 'tmp/rigmatrix.html' file using 'bin/rigmatrix.exe'
+#
 rigmatrix_table: tmp/rigmatrix.html
 
 ifeq ($(USE_LIBGD),1)
@@ -1602,7 +1681,7 @@ else
 	$(call red_msg, The target '$@' needs 'USE_LIBGD=1')
 endif
 
-clean_rigmatrix:
+clean_tmp:
 	rm -fr tmp
 
 $(OBJ_DIR)/Hamlib.rc: $(THIS_FILE) | $(OBJ_DIR)
@@ -1655,7 +1734,7 @@ extract_code_symbols = nm $(2) | grep $(main_symbols) | \
 #
 $(OBJ_DIR)/Hamlib.def: $(Hamlib_STAT_LIB) $(THIS_FILE) | $(OBJ_DIR)
 	$(call generate, $@, ;)
-	$(file >> $@, LIBRARY $(Hamlib_DLL))
+	$(file >> $@, LIBRARY $(notdir $(Hamlib_DLL)))
 	$(file >> $@, EXPORTS)
 	$(file >> $@,$(Hamlib_extra_symbols))
 	$(file >> $@,$(Hamlib_DATA_symbols))
@@ -1742,7 +1821,7 @@ endef
 define Warning
  $(1)
  $(1) DO NOT EDIT! This file was automatically generated
- $(1) from $(realpath $(THIS_FILE)) at $(DATE).
+ $(1) from $(realpath $(THIS_FILE)) at $(TODAY).
  $(1) Edit that file instead.
  $(1)
 endef
@@ -1942,7 +2021,8 @@ define hamlib_config_h
   #define HAVE_WSPIAPI_H          1
   #define HAVE_GETADDRINFO        1
   #define HAVE_DECL_GAI_STRERROR  1
-  #define HAVE_PTHREAD            1
+  #define HAVE_PTHREAD            1   /* Pthread is compulsary */
+//#define NO_PTHREAD_FOR_MCAST    1   /* except for the Multicast stuff in 'src/network.c' */
   #define HAVE_SELECT             1
   #define HAVE_SSLEEP             1
   #define HAVE_SLEEP              1
@@ -2021,13 +2101,13 @@ define hamlib_config_h
   #define PACKAGE_NAME       "Hamlib"
   #define PACKAGE_VERSION    "$(VERSION)"
 
-  /**
-   * Functions in 'lib/win-misc.c':
-   */
   #ifndef CLOCK_REALTIME
   #define CLOCK_REALTIME  0
   #endif
 
+  /**
+   * Functions in 'lib/win-misc.c':
+   */
   HAMLIB_C_EXTERN int   nanosleep (const struct timespec *ts, struct timespec *remain);
   HAMLIB_C_EXTERN int   clock_gettime (int clock_id, struct timespec *ts);
   HAMLIB_C_EXTERN char *strtok_r (char *s, const char *delim, char **ptrptr);
@@ -2102,6 +2182,12 @@ define RC_COMMON
     #error "Unsupported compiler"
   #endif
 
+  #if defined(USE_ASAN)
+    #define RC_ASAN  ", ASAN enabled"
+  #else
+    #define RC_ASAN  ""
+  #endif
+
   #define RC_VERSION      $(MAJOR_VER),$(MINOR_VER),0,0
   #define RC_VER_STRING  "$(VERSION).0.0 (" RC_BUILDER ", $(CPU))"
 
@@ -2120,7 +2206,7 @@ define RC_COMMON
       BLOCK "040904b0"
       BEGIN
         VALUE "CompanyName",      "https://github.com/Hamlib/Hamlib"
-        VALUE "FileDescription",  RC_DESCRIPTION
+        VALUE "FileDescription",  RC_DESCRIPTION RC_ASAN
         VALUE "FileVersion",      RC_VER_STRING
         VALUE "InternalName",     "Hamlib, ABI ver. $(ABI_VER)"
         VALUE "LegalCopyright",   "GNU General Public License v2.0"
@@ -2129,7 +2215,7 @@ define RC_COMMON
         VALUE "ProductVersion",   RC_VER_STRING
         VALUE "PrivateBuild",     $(RC_PRIVATE)
         VALUE "SpecialBuild",     ""
-        VALUE "Comments",         "Built on $(DATE)"
+        VALUE "Comments",         "Built on $(TODAY)"
       END
     END
   BLOCK "VarFileInfo"
@@ -2164,8 +2250,8 @@ define Hamlib_extra_symbols
   multicast_init
   multicast_send
   netrigctl_get_vfo_mode
-  network_multicast_publisher_start
-  network_multicast_publisher_stop
+; network_multicast_publisher_start
+; network_multicast_publisher_stop
   port_open
   print_ext_param
   qrb
