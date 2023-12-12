@@ -85,11 +85,16 @@
 #endif
 
 #ifdef _MSC_VER
-#define __MINGW32__ /* to avoid patching to much */
+#define __MINGW32__   /* to avoid patching to much */
+#endif
+
+#if defined(NO_PTHREAD_FOR_MCAST)
+#undef HAVE_PTHREAD  /* Lockless' Pthread work badly here */
 #endif
 
 #ifdef __MINGW32__
 static int wsstarted;
+#define strerror(e) get_wsa_error(NULL)
 #endif
 
 //! @cond Doxygen_Suppress
@@ -144,28 +149,49 @@ typedef struct multicast_receiver_priv_data_s
     multicast_receiver_args args;
 } multicast_receiver_priv_data;
 
+#ifdef __MINGW32__
+static char *get_error_common (int err_code, int *_err)
+{
+    static  char ebuf [512+20];
+    char *p, buf [512];
+
+    if (_err)
+       *_err = err_code;
+
+    if (FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM,
+                      NULL, err_code,
+                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                      buf, sizeof(buf), NULL))
+    {
+       p = strrchr (ebuf, '\r');
+       if (p)
+          *p = '\0';
+       snprintf(ebuf, sizeof(ebuf), "%d: %s", err_code, ebuf);
+       return (ebuf);
+    }
+    return (NULL);
+}
+
+static char *get_win_error (int *_err)
+{
+   return get_error_common (GetLastError(), _err);
+}
+
+static char *get_wsa_error (int *_err)
+{
+   return get_error_common (WSAGetLastError(), _err);
+}
+#endif
+
 static void handle_error(enum rig_debug_level_e lvl, const char *msg)
 {
     int e;
 #ifdef __MINGW32__
-    LPVOID lpMsgBuf;
+    char *err = get_wsa_error (&e);
 
-    lpMsgBuf = (LPVOID)"Unknown error";
-    e = WSAGetLastError();
-
-    if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER
-                      | FORMAT_MESSAGE_FROM_SYSTEM
-                      | FORMAT_MESSAGE_IGNORE_INSERTS,
-                      NULL,
-                      e,
-                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                      // Default language
-                      (LPTSTR)&lpMsgBuf,
-                      0,
-                      NULL))
+    if (err)
     {
-        rig_debug(lvl, "%s: Network error %d: %s\n", msg, e, (char *)lpMsgBuf);
-        LocalFree(lpMsgBuf);
+        rig_debug(lvl, "%s: Network error %d: %s\n", msg, e, err);
     }
     else
     {
@@ -487,7 +513,7 @@ static int multicast_publisher_create_data_pipe(multicast_publisher_priv_data
         rig_debug(RIG_DEBUG_ERR,
                   "%s: multicast publisher data pipe creation failed with status=%d, err=%s\n",
                   __func__,
-                  status, strerror(errno));
+                  status, get_win_error(NULL));
         return (-RIG_EINTERNAL);
     }
 
@@ -1311,7 +1337,7 @@ int network_multicast_publisher_start(RIG *rig, const char *multicast_addr,
     if (ioctlsocket(socket_fd, FIONBIO, &mode) == SOCKET_ERROR)
     {
         rig_debug(RIG_DEBUG_ERR, "%s: error enabling non-blocking mode for socket: %s", __func__,
-                strerror(errno));
+                get_wsa_error(NULL));
         RETURNFUNC(-RIG_EIO);
     }
 #else
@@ -1373,7 +1399,7 @@ int network_multicast_publisher_start(RIG *rig, const char *multicast_addr,
     if (err)
     {
         rig_debug(RIG_DEBUG_ERR, "%s(%d) pthread_create error %s\n", __FILE__, __LINE__,
-                  strerror(errno));
+                  (strerror)(errno));
         multicast_publisher_close_data_pipe(mcast_publisher_priv);
         free(mcast_publisher_priv);
         rs->multicast_publisher_priv_data = NULL;
@@ -1415,7 +1441,7 @@ int network_multicast_publisher_stop(RIG *rig)
         if (err)
         {
             rig_debug(RIG_DEBUG_ERR, "%s(%d): pthread_join error %s\n", __FILE__, __LINE__,
-                      strerror(errno));
+                      (strerror)(errno));
             // just ignore it
         }
 
@@ -1496,7 +1522,7 @@ int network_multicast_receiver_start(RIG *rig, const char *multicast_addr, int m
     if (ioctlsocket(socket_fd, FIONBIO, &mode) == SOCKET_ERROR)
     {
         rig_debug(RIG_DEBUG_ERR, "%s: error enabling non-blocking mode for socket: %s", __func__,
-                strerror(errno));
+                 get_wsa_error(NULL));
         RETURNFUNC(-RIG_EIO);
     }
 #else
@@ -1532,7 +1558,7 @@ int network_multicast_receiver_start(RIG *rig, const char *multicast_addr, int m
     if (err)
     {
         rig_debug(RIG_DEBUG_ERR, "%s(%d) pthread_create error %s\n", __FILE__, __LINE__,
-                  strerror(errno));
+                  (strerror)(errno));
         free(mcast_receiver_priv);
         rs->multicast_receiver_priv_data = NULL;
         close(socket_fd);
@@ -1584,7 +1610,7 @@ int network_multicast_receiver_stop(RIG *rig)
         if (err)
         {
             rig_debug(RIG_DEBUG_ERR, "%s(%d): pthread_join error %s\n", __FILE__, __LINE__,
-                      strerror(errno));
+                      (strerror)(errno));
             // just ignore it
         }
 
