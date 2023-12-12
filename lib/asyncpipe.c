@@ -17,6 +17,7 @@ int async_pipe_create(hamlib_async_pipe_t **pipe_out,
 
     if (pipe == NULL)
     {
+        SetLastError(ERROR_OUTOFMEMORY);
         return -RIG_ENOMEM;
     }
 
