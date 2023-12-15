@@ -56,4 +56,4 @@ test_script:
 # Try to preserve previously downloaded CI package
 #
 cache:
-  - %LLVM_MINGW%
+  - '%LLVM_MINGW%'
