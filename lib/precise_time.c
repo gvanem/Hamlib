@@ -32,7 +32,7 @@
 
 #include <unistd.h>
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_POSIX_MONOTONIC_CLOCK)
   #include <windows.h>
   static double PCFreq = 0.0;
 
