@@ -8,6 +8,11 @@ Hamlib-4.lib
 Hamlib-4_imp.lib
 HamlibLua.lib
 misc.lib
+libhamlib-4++.dll.a
+libhamlib-4.a
+libhamlib-4.dll.a
+libhamlibLua.a
+libmisc.a
 lib.args
 link.args
 link.tmp
