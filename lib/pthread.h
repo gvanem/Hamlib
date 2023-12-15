@@ -42,8 +42,12 @@
  * Moved all variables and static functions into 'lib/win-misc.c'.
  * Removed a lot of dead code, variables and macros.
  */
-#if !defined(_WIN32) && !defined(GCC_MAKE_DEPEND)
-#error "This header is for '_WIN32' only. Revise your '-I' path"
+#if defined(__MINGW32__)
+  #include_next <pthread.h>
+  #define LOCKLESS_PTHREADS
+
+#elif !defined(_MSC_VER) && !defined(GCC_MAKE_DEPEND)
+  #error "This header is for 'MSVC or clang-cl' only. Revise your '-I' path"
 #endif
 
 #ifndef LOCKLESS_PTHREADS
@@ -85,7 +89,7 @@ extern "C" {
 struct _pthread_v;
 typedef struct _pthread_v *pthread_t;
 
-typedef void* (*pthread_func_t)(void*);
+typedef void* (*pthread_func_t) (void*);
 
 typedef struct pthread_attr_t {
         unsigned  p_state;
