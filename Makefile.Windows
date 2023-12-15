@@ -209,7 +209,7 @@ else
   RCFLAGS = -nologo
 
   OS_lib_names = $(1)
-  O_out        = -Fo./$(strip $(1)
+  O_out        = -Fo./$(strip $(1))
   CPP_LIB      =
   MUNICODE     =
 endif
