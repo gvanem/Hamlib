@@ -1177,7 +1177,7 @@ int powersdr_get_parm(RIG *rig, setting_t parm, value_t *val)
     if (retval != RIG_OK) RETURNFUNC(retval);
     int band;
     int n = sscanf(buf,"ZZBS%3d", &band);
-    if (n != 1) 
+    if (n != 1)
     {
         rig_debug(RIG_DEBUG_ERR, "%s: unknown band=%s\n", __func__, buf);
         return (-RIG_EPROTO);
@@ -1198,7 +1198,7 @@ int powersdr_get_parm(RIG *rig, setting_t parm, value_t *val)
         case 999: val->cs = "BANDWWV";break;
         default:
         rig_debug(RIG_DEBUG_ERR, "%s: unknown band=%d\n", __func__, band);
-        val->cs = "BAND???";    
+        val->cs = "BAND???";
     }
     RETURNFUNC(RIG_OK);
 }
@@ -1373,12 +1373,11 @@ struct rig_caps powersdr_caps =
     .has_get_level =    POWERSDR_LEVEL_ALL,
     .has_set_level =    POWERSDR_LEVEL_SET,
     .has_get_parm =     RIG_PARM_BANDSELECT,
-    .has_set_parm =     RIG_PARM_BANDSELECT, 
+    .has_set_parm =     RIG_PARM_BANDSELECT,
     .level_gran =       {
 #include "level_gran_kenwood.h"
         [LVL_KEYSPD] = { .min = { .i = 5 }, .max = { .i = 60 }, .step = { .i = 1 } },
     },     /* FIXME: granularity */
-    .parm_gran =        { 0 },
     .parm_gran =  {
         // there  are V00 thru V13 but we don't cover them as of yet -- what rig?
         [PARM_BANDSELECT] = {.min = {.f = 0.0f}, .max = {.f = 1.0f}, .step = {.s = "BAND160M,BAND80M,BAND60M,BAND40M,BAND30M,BAND20M,BAND17M,BAND15M,BAND12M,BAND10M,BAND6M,BAND2M,BANDWWV,BANDGEN"}}

@@ -131,7 +131,7 @@ int main(int argc, char *argv[])
          */
         strcpy(plaintext, pass);
         printf("Plaintext: %s\n", plaintext);
-        printf("Plaintext length: %ld\n", strlen(plaintext));
+        printf("Plaintext length: %d\n", (int)strlen(plaintext));
 
         /*
          * Encrypt the string
