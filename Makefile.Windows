@@ -1434,10 +1434,10 @@ ifeq ($(CC),gcc)
 	$(call link_DLL, $@, $^ $(CPP_LIB), $(Hamlibpp_IMP_LIB))
 
 else
-  $(Hamlib_DLL): $(Hamlib_DEF) $(Hamlib_STAT_LIB) $(misc_LIB) $(Hamlib_EX_LIBS) $(OBJ_DIR)/Hamlib.res | check-for-unused-libs.py
+  $(Hamlib_DLL): $(Hamlib_DEF) $(Hamlib_STAT_LIB) $(misc_LIB) $(Hamlib_EX_LIBS) $(OBJ_DIR)/Hamlib.res | $(OBJ_DIR)/check-for-unused-libs.py
 	$(call link_DLL, $@, -def:$^ $(Hamlib_OS_LIBS), $(Hamlib_IMP_LIB))
 
-  $(Hamlibpp_DLL): $(hamlibpp_OBJ) $(Hamlib_IMP_LIB) $(OBJ_DIR)/Hamlibpp.res | check-for-unused-libs.py
+  $(Hamlibpp_DLL): $(hamlibpp_OBJ) $(Hamlib_IMP_LIB) $(OBJ_DIR)/Hamlibpp.res | $(OBJ_DIR)/check-for-unused-libs.py
 	$(call link_DLL, $@, $^, $(Hamlibpp_IMP_LIB))
 endif
 
@@ -1577,7 +1577,7 @@ clean: clean_docs clean_tmp
 	rm -f bin/*.{map,pdb,lib,exp} $(GENERATED)      \
 	      vc1*.pdb cl.args clang-cl.args gcc.args   \
 	      lib.args link.args link.tmp depend_c.args \
-	      depend_cc.args cpp-filter.py check-for-unused-libs.py
+	      depend_cc.args
 
 vclean realclean: clean
 	rm -fr bin
@@ -1613,31 +1613,28 @@ $(OBJ_DIR)/strings.h: $(THIS_FILE) | $(OBJ_DIR)
 $(OBJ_DIR)/sys/ioctl.h: $(THIS_FILE) | $(OBJ_DIR)/sys
 	$(call generate_fake, $@)
 
-%.i: %.c FORCE $(GENERATED) cpp-filter.py $(CC).args
+%.i: %.c FORCE $(GENERATED) $(OBJ_DIR)/cpp-filter.py $(CC).args
 	$(call cxx_preprocess, $@, $<)
 
-%.i: lib/%.c FORCE $(GENERATED) cpp-filter.py $(CC).args
+%.i: lib/%.c FORCE $(GENERATED) $(OBJ_DIR)/cpp-filter.py $(CC).args
 	$(call cxx_preprocess, $@, $<)
 
-%.i: $(OBJ_DIR)/%.c FORCE $(GENERATED) cpp-filter.py $(CC).args
+%.i: $(OBJ_DIR)/%.c FORCE $(GENERATED) $(OBJ_DIR)/cpp-filter.py $(CC).args
 	$(call cxx_preprocess, $@, $<)
 
-%.i: %.cc FORCE $(GENERATED) cpp-filter.py $(CC).args
+%.i: %.cc FORCE $(GENERATED) $(OBJ_DIR)/cpp-filter.py $(CC).args
 	$(call cxx_preprocess, $@, $<)
 
-%.i: %.cpp FORCE $(GENERATED) cpp-filter.py $(CC).args
+%.i: %.cpp FORCE $(GENERATED) $(OBJ_DIR)/cpp-filter.py $(CC).args
 	$(call cxx_preprocess, $@, $<)
 
 FORCE:
 
-cpp-filter.py: $(THIS_FILE)
-	$(call generate_py, $@)
-	$(file >> $@,$(cpp_filter_PY))
+$(OBJ_DIR)/cpp-filter.py: $(THIS_FILE) | $(OBJ_DIR)
+	$(call generate_py,$@,$(cpp_filter_PY))
 
-check-for-unused-libs.py: $(THIS_FILE)
-	$(call generate_py, $@)
-	$(file >> $@,$(check_for_unused_libs_PY))
-
+$(OBJ_DIR)/check-for-unused-libs.py: $(THIS_FILE)
+	$(call generate_py,$@,$(check_for_unused_libs_PY))
 
 #
 # Create API documentation in 'doc/html/index.html':
@@ -1648,7 +1645,7 @@ doxy_docs: doc/hamlib.cfg
 	cd html                           ; \
 	hhc index.hhp                     ; \
 	mv -f Hamlib.chm ..
-	@echo 'Doxygen done. Look in "doc/doxygen.log" for messages.'
+	$(call green_msg, Doxygen done. Look in 'doc/doxygen.log' for messages.)
 
 doc/hamlib.cfg: $(THIS_FILE)
 	$(call generate, $@, #)
@@ -1711,7 +1708,7 @@ $(PY_WRAPPER_C): $(WRAP_DEPS)
 
 $(PY_WRAPPER_OBJ) $(PY_WRAPPER_C:.c=.i): EXTRA_CFLAGS += $(PY_CFLAGS)
 
-$(Hamlib_PYD): $(Hamlib_PYD_deps) | check-for-unused-libs.py
+$(Hamlib_PYD): $(Hamlib_PYD_deps) | $(OBJ_DIR)/check-for-unused-libs.py
 		$(call link_PYD, $@, $^, $(PY_INIT_FUNC))
 
 #
@@ -1746,7 +1743,7 @@ $(OBJ_DIR)/HamlibLua_wrap.obj HamlibLua_wrap.i: EXTRA_CFLAGS = $(LUA_CFLAGS)
 #
 # The imp-lib '$(Hamlib_LUA_LIB)' is not needed for anything.
 #
-$(Hamlib_LUA_DLL): $(OBJ_DIR)/HamlibLua_wrap.obj $(Hamlib_IMP_LIB) $(OBJ_DIR)/HamlibLua.res | check-for-unused-libs.py
+$(Hamlib_LUA_DLL): $(OBJ_DIR)/HamlibLua_wrap.obj $(Hamlib_IMP_LIB) $(OBJ_DIR)/HamlibLua.res | $(OBJ_DIR)/check-for-unused-libs.py
 	$(call link_DLL, $@, $^ $(LUA_LIB), $(Hamlib_LUA_LIB))
 
 #
@@ -1959,7 +1956,7 @@ else
     link -out:$(strip $(1)) @link.args > link.tmp
     @cat link.tmp >> $(1:.exe=.map)
     @rm -f $(1:.exe=.exp)
-    @$(PYTHON) check-for-unused-libs.py link.tmp
+    @$(PYTHON) $(OBJ_DIR)/check-for-unused-libs.py link.tmp
   endef
 
   define link_DLL
@@ -1968,7 +1965,7 @@ else
     link -out:$(strip $(1)) @link.args > link.tmp
     @cat link.tmp >> $(1:.dll=.map)
     @rm -f $(3:.lib=.exp)
-    @$(PYTHON) check-for-unused-libs.py link.tmp
+    @$(PYTHON) $(OBJ_DIR)/check-for-unused-libs.py link.tmp
   endef
 
   #
@@ -1984,7 +1981,7 @@ else
     link -out:$(strip $(1)) @link.args > link.tmp
     @cat link.tmp >> $(1:.pyd=.map)
     @rm -f $(1:.pyd=.exp) $(1:.pyd=.lib)
-    @$(PYTHON) check-for-unused-libs.py link.tmp
+    @$(PYTHON) $(OBJ_DIR)/check-for-unused-libs.py link.tmp
   endef
 endif
 
@@ -2023,14 +2020,9 @@ define generate_fake
 endef
 
 define generate_py
-  $(call green_msg, Generating $(1))
-  $(file >  $(1),#!/usr/bin/env python)
-  $(file >> $(1),#)
-  $(file >> $(1),# DO NOT EDIT! This file was generated automatically)
-  $(file >> $(1),# from $(realpath $(THIS_FILE)). Edit that file instead.)
-  $(file >> $(1),#)
-  $(file >> $(1),from __future__ import print_function)
+  $(call generate,$(1),#)
   $(file >> $(1),if 1:)
+  $(file >> $(1),$(2))
 endef
 
 define generate_dll_rc
@@ -2078,7 +2070,7 @@ define cxx_preprocess
   @$(foreach f, $(EXTRA_CFLAGS), $(file >> $(1), *  $(f)))
   $(file >> $(1), *---------------------------------------------------------)
   $(file >> $(1), */)
-  $(_CC) -E @$(CC).args $(EXTRA_CFLAGS) $(2) | $(PYTHON) cpp-filter.py $(pp_filter) >> $(1)
+  $(_CC) -E @$(CC).args $(EXTRA_CFLAGS) $(2) | $(PYTHON) $(OBJ_DIR)/cpp-filter.py $(pp_filter) >> $(1)
 endef
 
 #
@@ -2176,11 +2168,6 @@ define hamlib_config_h
   #define _CRT_NONSTDC_NO_WARNINGS
   #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
-  struct timeval;    /* Forward */
-  struct timezone;   /* Forward */
-
-  HAMLIB_C_EXTERN int gettimeofday (struct timeval *, struct timezone *);
-
   #include <windows.h>
   #include <winsock2.h>           /* 'struct timeval' etc. */
   #include <ws2tcpip.h>           /* 'gai_strerror()' etc. */
@@ -2216,7 +2203,8 @@ define hamlib_config_h
   #define PRIll PRId64
 
   #if defined(__MINGW32__)
-    #define HAVE_USLEEP  1
+    #define HAVE_USLEEP     1
+    #define HAVE_SYS_TIME_H 1
 
   #else
     #define F_OK  0       /* Check for file existance */
@@ -2226,6 +2214,8 @@ define hamlib_config_h
     #define strcasecmp(s1, s2)      _stricmp (s1, s2)
     #define strncasecmp(s1, s2, n)  _strnicmp (s1, s2, n)
 
+    struct timezone;   /* Forward */
+
     /**
      * Functions in 'lib/win-misc.c':
      */
@@ -2233,6 +2223,7 @@ define hamlib_config_h
     HAMLIB_C_EXTERN int   nanosleep (const struct timespec *ts, struct timespec *remain);
     HAMLIB_C_EXTERN int   clock_gettime (int clock_id, struct timespec *ts);
     HAMLIB_C_EXTERN char *strtok_r (char *s, const char *delim, char **ptrptr);
+    HAMLIB_C_EXTERN int   gettimeofday (struct timeval *, struct timezone *);
   #endif
 
   #define sleep(s)   Sleep (1000*(s))
@@ -2254,6 +2245,10 @@ define hamlib_config_h
 
   #ifndef  _USE_MATH_DEFINES
   #define  _USE_MATH_DEFINES  /* 'M_PI' etc. */
+  #endif
+
+  #ifndef CLOCK_REALTIME
+  #define CLOCK_REALTIME  0
   #endif
 
   #if !defined(_SSIZE_T_DEFINED) && !defined(IN_HAMLIB_PYTHON)
@@ -2296,16 +2291,11 @@ define hamlib_config_h
 
   #define PACKAGE_NAME       "Hamlib"
   #define PACKAGE_VERSION    "$(VERSION)"
-
-  #ifndef CLOCK_REALTIME
-  #define CLOCK_REALTIME  0
-  #endif
-
 endef
 
 define sys_time_h
   #if defined(__MINGW32__)
-    #include_next <unistd.h>
+    #include_next <sys/time.h>
   #else
     #include <time.h>
   #endif
