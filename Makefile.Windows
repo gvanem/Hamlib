@@ -1,5 +1,5 @@
 #
-# GNU Makefile for Hamlib (MSVC / clang-cl).
+# GNU Makefile for Hamlib (MSVC / clang-cl / LLVM-MinGW).
 #
 # G. Vanem <gvanem@yahoo.no> 2019 - 2023.
 #
@@ -7,6 +7,7 @@ THIS_FILE := Makefile.Windows
 TODAY     := $(shell date +%d-%B-%Y)
 ABI_VER   := 4
 comma     := ,
+PYTHON    := py -3
 MAKEFLAGS += ---warn-undefined-variables
 
 #
@@ -20,11 +21,11 @@ VERSION   = $(MAJOR_VER).$(MINOR_VER)
 # Options:
 # Do a 'make vclean' after changing any of these.
 #
-USE_LIBGD         ?= 1
+USE_LIBGD         ?= 0
 USE_LIBINDI       ?= 0
 USE_LIBREADLINE   ?= 0
 USE_LIBUSB        ?= 1
-USE_LIBUSRP       ?= 1
+USE_LIBUSRP       ?= 0
 USE_LIBXML2       ?= 1
 USE_LUAJIT        ?= 1
 USE_MP_COMPILE    ?= 1
@@ -32,7 +33,7 @@ USE_VERBOSE_DEBUG ?= 0
 
 #
 # Add support for a 'GnuRadio' device.
-# Impossible as it is not up-to-date with current GnuRadio 3.9+ API.
+# Impossible as it is not up-to-date with current GnuRadio API.
 #
 USE_GNURADIO ?= 0
 
@@ -40,7 +41,7 @@ USE_GNURADIO ?= 0
 # Use the Winsock tracing library:
 #   https://github.com/gvanem/wsock-trace
 #
-USE_WSOCK_TRACE ?= 0
+USE_WSOCK_TRACE ?= 1
 
 #
 # Set to 0 for no Python module.
@@ -51,7 +52,7 @@ USE_PY_BINDING ?= 3
 
 #
 # Build 'lua_module'?
-#   with either LuaJit (USE_LUAJIT=1) or Lua-5 (USE_LUAJIT=0)
+#   with either LuaJit ('USE_LUAJIT = 1') or Lua-5 ('USE_LUAJIT = 0')
 #
 USE_LUA_BINDING ?= 1
 
@@ -90,14 +91,16 @@ LIBGD_ROOT       ?= $(VCPKG_ROOT)/installed/$(CPU)-windows
 LIBREADLINE_ROOT ?= $(VCPKG_ROOT)/installed/$(CPU)-windows-static
 
 #
-# For Python stuff besides the '$(Hamlib_PYD)' target:
+# No check unless 'CC = gcc'
 #
-PYTHON ?= py -3
+CHECKS =
 
 ifeq ($(CPU),x64)
-  BITS = 64
+  BITS   = 64
+  SUFFIX = x86_64
 else ifeq ($(CPU),x86)
-  BITS = 32
+  BITS   = 32
+  SUFFIX = i386
 else
   $(error CPU must be 'x86' or 'x64'.)
 endif
@@ -125,9 +128,10 @@ export CL=
 
 define Usage
 
-  Usage: "$(MAKE) -f $(THIS_FILE) CC=[cl | clang-cl] [CPU=x86 | x64] [all | clean | vclean | realclean | depend | doxy_docs | py_module | lua_module]"
+  Usage: "$(MAKE) -f $(THIS_FILE) CC=[cl | clang-cl | gcc] [CPU=x86 | x64] [all | clean | vclean | realclean | depend | doxy_docs | py_module | lua_module]"
   Specify CC=cl       - use MSVC
   Specify CC=clang-cl - use clang-cl
+  Specify CC=gcc      - use LLVM-MinGW
 endef
 
 #
@@ -157,28 +161,72 @@ else
   RC_PRIVATE = ""
 endif
 
+#
+# Foreign .DLLs needed:
+#
+COPY_DLLs =
+
 OBJ_DIR = objects
 
 ifneq ($(CC),clang-cl)
   ifneq ($(CC),cl)
-    $(error $(Usage))
+    ifneq ($(CC),gcc)
+      $(error $(Usage))
+    endif
   endif
 endif
 
-CFLAGS = -nologo -MD -Zi -O2 -W3      \
-         -FI./include/hamlib/config.h \
-         -I.                          \
-         -I./include                  \
-         -I./include/hamlib           \
-         -I./lib                      \
-         -I./src                      \
-         -I./security                 \
-         -I./tests                    \
-         -I./$(OBJ_DIR)
+ifeq ($(CC),gcc)
+  CFLAGS = -m$(BITS) -std=gnu11 -Wall \
+           --include ./include/hamlib/config.h
 
-LDFLAGS  = -nologo -debug -incremental:no -verbose -machine:$(CPU) -nodefaultlib:uuid.lib
-RCFLAGS  = -nologo -I.
-CXXFLAGS = -EHsc
+  CXXFLAGS += -std=c++17
+
+  LDFLAGS = -m$(BITS) -std=gnu11 -static-libgcc -lpthread \
+            -Wl$(comma)--verbose
+
+  #
+  # LLVM-MinGW now support .PDB-files.
+  #
+  LDFLAGS += -Wl,--pdb=
+
+  RCFLAGS = -O COFF --use-temp-file
+
+  OS_lib_names = $(addprefix -l,$(subst .lib,,$(1)))
+  O_out        = -o $(1)
+  CPP_LIB      = -lc++
+  MUNICODE     = -municode
+
+else
+  CFLAGS = -nologo -MD -Zi -O2 -W3 \
+           -FI./include/hamlib/config.h
+
+  CXXFLAGS = -EHsc
+
+  LDFLAGS = -nologo -debug -incremental:no -verbose \
+            -machine:$(CPU) -nodefaultlib:uuid.lib
+
+  RCFLAGS = -nologo
+
+  OS_lib_names = $(1)
+  O_out        = -Fo./$(strip $(1)
+  CPP_LIB      =
+  MUNICODE     =
+endif
+
+RCFLAGS += -I. -I./scripts/MSVC/2022/$(CPU)/hamlibTest
+
+CFLAGS += -I.                \
+          -I./include        \
+          -I./include/hamlib \
+          -I./lib            \
+          -I./src            \
+          -I./security       \
+          -I./tests          \
+          -I./$(OBJ_DIR)
+
+_CC = $(CC)
+_RC = rc
 
 ifeq ($(CC),clang-cl)
   RCFLAGS += -D__clang__
@@ -202,7 +250,7 @@ ifeq ($(CC),clang-cl)
     CXXFLAGS += -std:c++17
   endif
 
-else
+else ifeq ($(CC),cl)
   RCFLAGS += -D_MSC_VER
 
   #
@@ -218,6 +266,33 @@ else
     CFLAGS   += -diagnostics:caret
     CXXFLAGS += -std:c++17 -Zc:__cplusplus
   endif
+
+else
+  #
+  # Only LLVM-MinGW is supported. This one:
+  # https://github.com/mstorsjo/llvm-mingw/releases/
+  #
+  # Need to use the 'LLVM_MINGW' as prefix in case a Cygwin 'gcc' or something
+  # else is before it in the PATH.
+  #
+  LLVM_MINGW := $(realpath $(LLVM_MINGW))
+
+  CHECKS = check_llvm_mingw
+
+  _AR = $(LLVM_MINGW)/bin/ar
+  _CC = $(LLVM_MINGW)/bin/gcc
+  _RC = $(LLVM_MINGW)/bin/windres
+
+  ifeq ($(CPU),x64)
+    LLVM_BIN = $(LLVM_MINGW)/x86_64-w64-mingw32/bin
+    RCFLAGS += --target=pe-x86-64
+  else
+    LLVM_BIN = $(LLVM_MINGW)/i686-w64-mingw32/bin
+    RCFLAGS += --target=pe-i386
+  endif
+
+  RCFLAGS  += -D__LLVM_MINGW
+  CFLAGS   += -Wvla
 endif
 
 #
@@ -234,29 +309,41 @@ endif
 ifeq ($(USE_ASAN),1)
   CFLAGS  += -DUSE_ASAN -fsanitize=address
   RCFLAGS += -DUSE_ASAN
-  LDFLAGS += -inferasanlibs:no
 
-  ifeq ($(CC),clang-cl)
-    $(info Detected 'CLANG_ROOT=$(realpath $(CLANG_$(BITS)))' for 'USE_ASAN=1'.)
+  ifeq ($(CC),gcc)
+    CFLAGS += -shared-libsan
 
-    LDFLAGS += -libpath:$(realpath $(CLANG_$(BITS)))/lib/clang/$(CLANG_MAJOR_VER)/lib/windows
+   COPY_DLLs += $(addprefix $(LLVM_BIN)/, \
+                  libunwind.dll           \
+                  libc++.dll              \
+                  libclang_rt.asan_dynamic-$(SUFFIX).dll)
   else
-    LDFLAGS += -libpath:$(realpath $(VCToolkitInstallDir))/lib/$(CPU)
+    LDFLAGS += -inferasanlibs:no
+
+    ifeq ($(CC),clang-cl)
+      $(info Detected 'CLANG_ROOT=$(realpath $(CLANG_$(BITS)))' for 'USE_ASAN=1'.)
+
+      LDFLAGS += -libpath:$(realpath $(CLANG_$(BITS)))/lib/clang/$(CLANG_MAJOR_VER)/lib/windows
+    else
+      LDFLAGS += -libpath:$(realpath $(VCToolkitInstallDir))/lib/$(CPU)
+    endif
   endif
 
   ifeq ($(CPU),x86)
-    ASAN_LIBS = clang_rt.asan_dynamic-i386.lib \
-                clang_rt.asan_dynamic_runtime_thunk-i386.lib
+    ASAN_LIBS = $(call OS_lib_names, clang_rt.asan_dynamic-i386.lib \
+                                     clang_rt.asan_dynamic_runtime_thunk-i386.lib)
   else
-    ASAN_LIBS = clang_rt.asan_dynamic-x86_64.lib \
-                clang_rt.asan_dynamic_runtime_thunk-x86_64.lib
+    ASAN_LIBS = $(call OS_lib_names, clang_rt.asan_dynamic-x86_64.lib \
+                                     clang_rt.asan_dynamic_runtime_thunk-x86_64.lib)
   endif
 
 else
   ASAN_LIBS =
 endif
 
-ifeq ($(USE_WSOCK_TRACE),1)
+ifeq ($(CC),gcc)
+  WS2_32_LIB = -lws2_32
+else ifeq ($(USE_WSOCK_TRACE),1)
   WS2_32_LIB = wsock_trace-$(CPU).lib
 else
   WS2_32_LIB = ws2_32.lib
@@ -266,29 +353,30 @@ endif
 # External libraries for '$(Hamlib_DLL)':
 #
 Hamlib_EX_LIBS =
-Hamlib_OS_LIBS = advapi32.lib iphlpapi.lib kernel32.lib winmm.lib $(WS2_32_LIB)
+Hamlib_OS_LIBS = $(call OS_lib_names, advapi32.lib iphlpapi.lib kernel32.lib winmm.lib) $(WS2_32_LIB)
 
 #
-# The DLL and library names:
+# Names:
 #
-Hamlib_DLL       = bin/Hamlib-$(ABI_VER).dll
-Hamlibpp_DLL     = bin/Hamlib-$(ABI_VER)++.dll
-Hamlib_LUA_DLL   = bin/HamlibLua.dll
-Hamlib_PYD       = bin/_Hamlib.pyd
-Hamlib_LUA_LIB   = lib/HamlibLua.lib
-Hamlibpp_IMP_LIB = lib/Hamlib-$(ABI_VER)++_imp.lib
-Hamlib_IMP_LIB   = lib/Hamlib-$(ABI_VER)_imp.lib
-Hamlib_STAT_LIB  = lib/Hamlib-$(ABI_VER).lib
+Hamlib_DLL     = bin/Hamlib-$(ABI_VER).dll
+Hamlibpp_DLL   = bin/Hamlib-$(ABI_VER)++.dll
+Hamlib_LUA_DLL = bin/HamlibLua.dll
+Hamlib_PYD     = bin/_Hamlib.pyd
+Hamlib_DEF     = $(OBJ_DIR)/Hamlib.def
 
-#
-# The internal utility library; '$(hamlib_misc_SRC)'.
-#
-misc_LIB = lib/misc.lib
-
-#
-# Foreign .DLLs needed:
-#
-COPY_DLLs =
+ifeq ($(CC),gcc)
+  Hamlib_LUA_LIB   = lib/libhamlibLua.a
+  Hamlibpp_IMP_LIB = lib/libhamlib-$(ABI_VER)++.dll.a
+  Hamlib_IMP_LIB   = lib/libhamlib-$(ABI_VER).dll.a
+  Hamlib_STAT_LIB  = lib/libhamlib-$(ABI_VER).a
+  misc_LIB         = lib/libmisc.a
+else
+  Hamlib_LUA_LIB   = lib/HamlibLua.lib
+  Hamlibpp_IMP_LIB = lib/Hamlib-$(ABI_VER)++_imp.lib
+  Hamlib_IMP_LIB   = lib/Hamlib-$(ABI_VER)_imp.lib
+  Hamlib_STAT_LIB  = lib/Hamlib-$(ABI_VER).lib
+  misc_LIB         = lib/misc.lib
+endif
 
 #
 # What to build:
@@ -352,7 +440,9 @@ ifeq ($(USE_LIBUSB),1)
             -DHAVE_LIBUSB_H \
             -I$(LIBUSB_ROOT)/libusb
 
-  Hamlib_EX_LIBS += $(LIBUSB_ROOT)/libusb-1.0_imp-$(CPU).lib
+  LIBUSB_LIB = $(LIBUSB_ROOT)/libusb-1.0_imp-$(CPU).lib
+
+  Hamlib_EX_LIBS += $(LIBUSB_LIB)
 
   COPY_DLLs += $(LIBUSB_ROOT)/libusb-1.0-$(CPU).dll \
                $(LIBUSB_ROOT)/libusb-1.0-$(CPU).pdb
@@ -449,20 +539,15 @@ vpath %.c $(addprefix rotators/, \
 
 #
 # For compiling:
-#   HamlibPy2_wrap.c
-#   HamlibPy3_wrap.
-#   HamlibLua_wrap.c
-#   Hamlibpp.rc
-#   Hamlib.rc
+#   $(OBJ_DIR)/HamlibPy2_wrap.c
+#   $(OBJ_DIR)/HamlibPy3_wrap.
+#   $(OBJ_DIR)/HamlibLua_wrap.c
+#   $(OBJ_DIR)/Hamlibpp.rc
+#   $(OBJ_DIR)/HamlibTest.rc
+#   $(OBJ_DIR)/Hamlib.rc
 #
 vpath %.c  $(OBJ_DIR)
-vpath %.rc $(OBJ_DIR)
-
-#
-# For compiling 'scripts/MSVC/2022/$(CPU)/hamlibTest/hamlibTest.*
-#
-vpath %.cpp scripts/MSVC/2022/$(CPU)/hamlibTest
-vpath %.rc  scripts/MSVC/2022/$(CPU)/hamlibTest
+# vpath %.rc $(OBJ_DIR)
 
 #
 # All of these use '$(Hamlib_DLL)':
@@ -485,6 +570,7 @@ TEST_PROGS = $(addprefix bin/,    \
                rigswr.exe         \
                rigtestmcast.exe   \
                rigtestmcastrx.exe \
+               rigtestlibusb.exe  \
                rig_bench.exe      \
                rotctl.exe         \
                rotctld.exe        \
@@ -1068,7 +1154,8 @@ hamlib_C_SRC += $(addprefix amplifiers/gemini/, \
                   dx1200.c                      \
                   gemini.c)
 
-hamlib_CPP_SRC = scripts/MSVC/2022/$(CPU)/hamlibTest/hamlibTest.cpp
+vpath %.cpp      scripts/MSVC/2022/$(CPU)/hamlibTest
+hamlib_CPP_SRC = # scripts/MSVC/2022/$(CPU)/hamlibTest/hamlibTest.cpp
 
 #
 # Untested.
@@ -1133,8 +1220,11 @@ hamlib_misc_SRC = $(addprefix lib/, \
                     asyncpipe.c     \
                     cJSON.c         \
                     precise_time.c  \
-                    termios.c       \
-                    win-misc.c)
+                    termios.c)
+
+ifneq ($(CC),gcc)
+  hamlib_misc_SRC += lib/win-misc.c
+endif
 
 hamlib_misc_SRC += $(addprefix lib/, \
                      getopt_long.c   \
@@ -1246,6 +1336,9 @@ $(hamlibpp_i):    EXTRA_CFLAGS = -DIN_HAMLIB
 $(hamlibpp_OBJ)  \
 $(hamlibpp_i):   EXTRA_CFLAGS += -DDLL_EXPORT
 
+HamlibTest.i \
+$(OBJ_DIR)/HamlibTest.obj: EXTRA_CFLAGS = -DUNICODE -D_UNICODE
+
 all_test_OBJ = $(addprefix $(OBJ_DIR)/, \
                  dumpmem.obj           \
                  example.obj           \
@@ -1298,15 +1391,15 @@ $(all_test_OBJ) $(all_test_I): EXTRA_CFLAGS = -DDLL_EXPORT
 .SECONDARY: $(all_test_OBJ)
 
 GENERATED = include/hamlib/config.h \
-            src/hamlibdatetime.h
 
 GENERATED += $(addprefix $(OBJ_DIR)/, \
+               hamlibdatetime.h       \
                unistd.h               \
                strings.h              \
                sys/time.h             \
                sys/ioctl.h)
 
-all: $(GENERATED) bin install_colorama $(TARGETS) programs copy_DLLs epilogue
+all: $(CHECKS) $(GENERATED) bin install_colorama $(TARGETS) programs copy_DLLs epilogue
 
 bin tmp $(OBJ_DIR) $(OBJ_DIR)/sys:
 	- $(MKDIR) $@
@@ -1337,11 +1430,20 @@ $(Hamlib_STAT_LIB): $(hamlib_C_OBJ) $(hamlib_CC_OBJ) $(hamlib_CPP_OBJ)
 $(Hamlib_IMP_LIB):   $(Hamlib_DLL)
 $(Hamlibpp_IMP_LIB): $(Hamlibpp_DLL)
 
-$(Hamlib_DLL): $(OBJ_DIR)/Hamlib.def $(Hamlib_STAT_LIB) $(misc_LIB) $(Hamlib_EX_LIBS) $(OBJ_DIR)/Hamlib.res | check-for-unused-libs.py
-	$(call link_DLL, $@, -def:$^ $(Hamlib_OS_LIBS) $(ASAN_LIBS), $(Hamlib_IMP_LIB))
+ifeq ($(CC),gcc)
+  $(Hamlib_DLL): $(hamlib_C_OBJ) $(hamlib_CC_OBJ) $(hamlib_CPP_OBJ) $(hamlib_misc_OBJ) $(Hamlib_EX_LIBS) $(OBJ_DIR)/Hamlib.res
+	$(call link_DLL, $@, $^ $(Hamlib_OS_LIBS), $(Hamlib_IMP_LIB))
 
-$(Hamlibpp_DLL): $(hamlibpp_OBJ) $(Hamlib_IMP_LIB) $(OBJ_DIR)/Hamlibpp.res | check-for-unused-libs.py
-	$(call link_DLL, $@, $^ $(Hamlibpp_EX_LIBS) $(ASAN_LIBS), $(Hamlibpp_IMP_LIB))
+  $(Hamlibpp_DLL): $(hamlibpp_OBJ) $(Hamlib_IMP_LIB) $(OBJ_DIR)/Hamlibpp.res
+	$(call link_DLL, $@, $^ $(CPP_LIB), $(Hamlibpp_IMP_LIB))
+
+else
+  $(Hamlib_DLL): $(Hamlib_DEF) $(Hamlib_STAT_LIB) $(misc_LIB) $(Hamlib_EX_LIBS) $(OBJ_DIR)/Hamlib.res | check-for-unused-libs.py
+	$(call link_DLL, $@, -def:$^ $(Hamlib_OS_LIBS), $(Hamlib_IMP_LIB))
+
+  $(Hamlibpp_DLL): $(hamlibpp_OBJ) $(Hamlib_IMP_LIB) $(OBJ_DIR)/Hamlibpp.res | check-for-unused-libs.py
+	$(call link_DLL, $@, $^, $(Hamlibpp_IMP_LIB))
+endif
 
 #
 # For MSVC only.
@@ -1388,13 +1490,13 @@ $(CC).args: $(THIS_FILE)
 # C++ test programs:
 #
 bin/hamlibTest.exe: $(OBJ_DIR)/hamlibTest.obj $(OBJ_DIR)/hamlibTest.res $(CPP_PROG_LIBS)
-	$(call link_EXE, $@, $^ user32.lib $(ASAN_LIBS))
+	$(call link_EXE, $@, $^ $(MUNICODE) $(call OS_lib_names, user32.lib))
 
 bin/testcpp.exe: $(OBJ_DIR)/testcpp.obj $(CPP_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(ASAN_LIBS))
+	$(call link_EXE, $@, $(CPP_LIB) $^)
 
 bin/throw-test.exe: $(OBJ_DIR)/throw-test.obj $(CPP_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(ASAN_LIBS))
+	$(call link_EXE, $@, $(CPP_LIB) $^)
 
 #
 # Plain C test programs:
@@ -1403,40 +1505,43 @@ $(OBJ_DIR)/%.obj: tests/%.c | $(CC).args $(OBJ_DIR)
 	$(call C_compile, $@, $<)
 
 bin/ampctl.exe: $(ampctl_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ advapi32.lib user32.lib $(ASAN_LIBS))
+	$(call link_EXE, $@, $^ $(call OS_lib_names, advapi32.lib user32.lib))
 
 bin/ampctld.exe: $(ampctld_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(WS2_32_LIB) $(ASAN_LIBS))
+	$(call link_EXE, $@, $^ $(WS2_32_LIB))
 
 bin/rigctlcom.exe: $(rigctlcom_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(ASAN_LIBS))
+	$(call link_EXE, $@, $^)
 
 bin/rigctl.exe: $(rigctl_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(ASAN_LIBS))
+	$(call link_EXE, $@, $^ $(WS2_32_LIB))
 
 bin/rigctld.exe: $(rigctld_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(WS2_32_LIB) $(ASAN_LIBS))
+	$(call link_EXE, $@, $^ $(WS2_32_LIB))
 
 bin/rigctlsync.exe: $(rigctlsync_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(ASAN_LIBS))
+	$(call link_EXE, $@, $^)
 
 bin/rigctltcp.exe: $(rigctltcp_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(WS2_32_LIB) $(ASAN_LIBS))
+	$(call link_EXE, $@, $^ $(WS2_32_LIB))
 
 bin/rigtestmcastrx.exe: $(OBJ_DIR)/rigtestmcastrx.obj $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(WS2_32_LIB) $(ASAN_LIBS))
+	$(call link_EXE, $@, $^ $(WS2_32_LIB))
+
+bin/rigtestlibusb.exe: $(OBJ_DIR)/rigtestlibusb.obj $(C_PROG_LIBS) $(LIBUSB_LIB)
+	$(call link_EXE, $@, $^)
 
 bin/rigmem.exe: $(rigmem_OBJ) $(C_PROG_LIBS) $(XML2_LIB)
-	$(call link_EXE, $@, $^ $(ASAN_LIBS))
+	$(call link_EXE, $@, $^)
 
 bin/rotctl.exe: $(rotctl_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(ASAN_LIBS))
+	$(call link_EXE, $@, $^)
 
 bin/rotctld.exe: $(rotctld_OBJ) $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(WS2_32_LIB) $(ASAN_LIBS))
+	$(call link_EXE, $@, $^ $(WS2_32_LIB))
 
 bin/rigmatrix.exe: $(rigmatrix_OBJ) $(C_PROG_LIBS) $(LIBGD_LIB) copy_DLLs
-	$(call link_EXE, $@, $(rigmatrix_OBJ) $(C_PROG_LIBS) $(LIBGD_LIB) $(ASAN_LIBS))
+	$(call link_EXE, $@, $(rigmatrix_OBJ) $(C_PROG_LIBS) $(LIBGD_LIB))
 
 copy_DLLs: | bin
 ifeq ($(COPY_DLLs),)
@@ -1451,7 +1556,7 @@ endif
 # Not all may need '$(misc_LIB)'.
 #
 bin/%.exe: $(OBJ_DIR)/%.obj $(C_PROG_LIBS)
-	$(call link_EXE, $@, $^ $(ASAN_LIBS))
+	$(call link_EXE, $@, $^)
 
 #
 # For '$(hamlib_C_SRC)' and '$(hamlib_CC_SRC)':
@@ -1474,7 +1579,7 @@ $(OBJ_DIR)/%.obj: lib/%.c | $(CC).args $(OBJ_DIR)
 clean: clean_docs clean_tmp
 	- rm -fr $(OBJ_DIR)
 	rm -f bin/*.{map,pdb,lib,exp} $(GENERATED)      \
-	      vc1*.pdb cl.args clang-cl.args            \
+	      vc1*.pdb cl.args clang-cl.args gcc.args   \
 	      lib.args link.args link.tmp depend_c.args \
 	      depend_cc.args cpp-filter.py check-for-unused-libs.py
 
@@ -1494,12 +1599,13 @@ include/hamlib/config.h: $(THIS_FILE)
 	$(file >> $@,$(hamlib_config_h))
 	$(file >> $@,#endif /* HAMLIB_CONFIG_H */)
 
-src/hamlibdatetime.h: $(THIS_FILE)
+$(OBJ_DIR)/hamlibdatetime.h: $(THIS_FILE) | $(OBJ_DIR)
 	$(call generate_c, $@)
 	$(file >> $@, #define HAMLIBDATETIME "$(TODAY)")
 
 $(OBJ_DIR)/unistd.h: $(THIS_FILE) | $(OBJ_DIR)
-	$(call generate_fake, $@, #include "lib/getopt.h")
+	$(call generate_c, $@)
+	$(file >> $@,$(unistd_h))
 
 $(OBJ_DIR)/sys/time.h: $(THIS_FILE) | $(OBJ_DIR)/sys
 	$(call generate_fake, $@, #include <time.h>)
@@ -1609,7 +1715,7 @@ $(PY_WRAPPER_C): $(WRAP_DEPS)
 $(PY_WRAPPER_OBJ) $(PY_WRAPPER_C:.c=.i): EXTRA_CFLAGS += $(PY_CFLAGS)
 
 $(Hamlib_PYD): $(Hamlib_PYD_deps) | check-for-unused-libs.py
-		$(call link_PYD, $@, $^ $(ASAN_LIBS), $(PY_INIT_FUNC))
+		$(call link_PYD, $@, $^, $(PY_INIT_FUNC))
 
 #
 # Lua module stuff. Only LuaJIT seems to be stable.
@@ -1644,7 +1750,7 @@ $(OBJ_DIR)/HamlibLua_wrap.obj HamlibLua_wrap.i: EXTRA_CFLAGS = $(LUA_CFLAGS)
 # The imp-lib '$(Hamlib_LUA_LIB)' is not needed for anything.
 #
 $(Hamlib_LUA_DLL): $(OBJ_DIR)/HamlibLua_wrap.obj $(Hamlib_IMP_LIB) $(OBJ_DIR)/HamlibLua.res | check-for-unused-libs.py
-	$(call link_DLL, $@, $^ $(LUA_LIB) $(ASAN_LIBS), $(Hamlib_LUA_LIB))
+	$(call link_DLL, $@, $^ $(LUA_LIB), $(Hamlib_LUA_LIB))
 
 #
 # Perl stuff.
@@ -1696,7 +1802,11 @@ $(OBJ_DIR)/HamlibPy.rc: $(THIS_FILE) | $(OBJ_DIR)
 $(OBJ_DIR)/HamlibLua.rc: $(THIS_FILE) | $(OBJ_DIR)
 	$(call generate_dll_rc, $@, $(Hamlib_LUA_DLL), "Hamlib module for $(LUA_NAME)")
 
-$(OBJ_DIR)/%.res: %.rc | $(OBJ_DIR)
+$(OBJ_DIR)/hamlibTest.rc: $(THIS_FILE) | $(OBJ_DIR)
+	$(call generate_c, $@)
+	$(file >>$@, $(HamlibTest_RC))
+
+$(OBJ_DIR)/%.res: $(OBJ_DIR)/%.rc | $(OBJ_DIR)
 	$(call create_res_file, $@, $<)
 
 #
@@ -1732,7 +1842,7 @@ extract_code_symbols = nm $(2) | grep $(main_symbols) | \
 #
 # We export stuff using this generated .def-file:
 #
-$(OBJ_DIR)/Hamlib.def: $(Hamlib_STAT_LIB) $(THIS_FILE) | $(OBJ_DIR)
+$(Hamlib_DEF): $(Hamlib_STAT_LIB) $(THIS_FILE) | $(OBJ_DIR)
 	$(call generate, $@, ;)
 	$(file >> $@, LIBRARY $(notdir $(Hamlib_DLL)))
 	$(file >> $@, EXPORTS)
@@ -1753,51 +1863,133 @@ red_msg   = @echo -e "$(BRIGHT_RED)$(strip $(1))\e[0m"
 green_msg = @echo -e "$(BRIGHT_GREEN)$(strip $(1))\e[0m"
 white_msg = @echo -e "$(BRIGHT_WHITE)$(strip $(1))\e[0m"
 
-define C_compile
-  $(strip $(CC) @$(CC).args $(EXTRA_CFLAGS) -Fo./$(strip $(1)) $(2))
-  @echo
-endef
+#
+# Check for required LLVM-MinGW tools
+#
+file_exist = $(wildcard $(1))
 
-define C_compile_MP
-  $(call green_msg, Compiling $(words $(filter %.c, $(1))) files in one go...)
-  $(CC) -MP @$(CC).args -Fo./$(OBJ_DIR)\\ $(1)
-  @echo
-endef
+check_llvm_mingw:
+	$(call check_llvm_mingw)
+
+ifeq ($(call file_exist,$(_CC).exe),)
+  define check_llvm_mingw
+    $(error "$(_CC).exe" for LLVM-MinGW was not found. Edit $(THIS_FILE) manually)
+  endef
+else
+  define check_llvm_mingw
+    $(info Assuming $(_CC).exe is okay.)
+  endef
+endif
+
+ifeq ($(CC),gcc)
+  define C_compile
+    $(strip $(_CC) @$(CC).args $(EXTRA_CFLAGS) -o $(1) $(2))
+    @echo
+  endef
+
+  define create_static_lib
+    @rm -f $(1)
+    $(call green_msg, Creating $(1))
+    $(call create_resp_file, lib.args, $(2))
+    $(_AR) rs $(1) @lib.args
+    @echo
+  endef
+
+else
+  define C_compile
+    $(strip $(CC) @$(CC).args $(EXTRA_CFLAGS) -Fo./$(strip $(1)) $(2))
+    @echo
+  endef
+
+  define C_compile_MP
+    $(call green_msg, Compiling $(words $(filter %.c, $(1))) files in one go...)
+    $(CC) -MP @$(CC).args -Fo./$(OBJ_DIR)\\ $(1)
+    @echo
+  endef
+
+  define create_static_lib
+    @rm -f $(1)
+    $(call green_msg, Creating $(1))
+    $(call create_resp_file, lib.args, -nologo -machine:$(CPU) $(2))
+    lib -out:$(strip $(1)) @lib.args
+    @echo
+  endef
+endif
 
 CXX_compile = $(call C_compile, $(1), $(CXXFLAGS) $(2))
 
-define link_EXE
-  $(call green_msg, Linking $(1))
-  $(call create_resp_file, link.args, $(LDFLAGS) $(2))
-  link -out:$(strip $(1)) @link.args > link.tmp
-  @cat link.tmp >> $(1:.exe=.map)
-  @rm -f $(1:.exe=.exp)
-  @$(PYTHON) check-for-unused-libs.py link.tmp
-endef
-
-define link_DLL
-  $(call green_msg, Linking $(1))
-  $(call create_resp_file, link.args, -dll $(LDFLAGS) -implib:$(strip $(3)) $(2))
-  link -out:$(strip $(1)) @link.args > link.tmp
-  @cat link.tmp >> $(1:.dll=.map)
-  @rm -f $(3:.lib=.exp)
-  @$(PYTHON) check-for-unused-libs.py link.tmp
-endef
-
 #
-# Create a Python .PYD-module from objects.
-#   arg1, $(1): The .pyd file.
-#   arg2, $(2): The .obj file(s), extra args and libs.
-#   arg3, $(3): The name of the Python init function.
+# Macros for linking .EXE/.DLL/.PYD
 #
-define link_PYD
-  $(call green_msg, Linking $(1))
-  $(call create_resp_file, link.args, -dll $(LDFLAGS) -libpath:$(PY_ROOT)/libs -export:$(strip $(3)) $(2))
-  link -out:$(strip $(1)) @link.args > link.tmp
-  @cat link.tmp >> $(1:.pyd=.map)
-  @rm -f $(1:.pyd=.exp) $(1:.pyd=.lib)
-  @$(PYTHON) check-for-unused-libs.py link.tmp
-endef
+ifeq ($(CC),gcc)
+  define link_EXE
+    $(call green_msg, Linking $(1))
+    $(call create_resp_file, link.args, $(LDFLAGS) $(2) $(ASAN_LIBS))
+    $(_CC) -o $(1) @link.args 2> link.tmp
+    @echo
+  endef
+
+  #
+  # A more complex .DLL link macro for gcc / lld-link.
+  #
+  # Export everything since a .def-file seems impossible with 'lld-link'.
+  #
+  define link_DLL
+    $(call green_msg, Linking $(1))
+    $(call create_resp_file, link.args,                 \
+           -shared $(LDFLAGS)                           \
+           -Wl$(comma)--out-implib$(comma)$(strip $(3)) \
+           -Wl$(comma)--export-all-symbols              \
+           $(ASAN_LIBS) $(2))
+    $(_CC) -o $(1) @link.args 2> link.tmp
+    @echo
+  endef
+
+  define link_PYD
+    $(call green_msg, Linking $(1))
+    $(call create_resp_file, link.args, -shared $(LDFLAGS) \
+           $(PY_ROOT)/libs/python$(USE_PY_BINDING).lib     \
+           -Wl$(comma)--export-all-symbols                 \
+           $(ASAN_LIBS) $(2))
+    $(_CC) -o $(1) @link.args 2> link.tmp
+    @echo
+  endef
+
+else
+  define link_EXE
+    $(call green_msg, Linking $(1))
+    $(call create_resp_file, link.args, $(LDFLAGS) $(2) $(ASAN_LIBS))
+    link -out:$(strip $(1)) @link.args > link.tmp
+    @cat link.tmp >> $(1:.exe=.map)
+    @rm -f $(1:.exe=.exp)
+    @$(PYTHON) check-for-unused-libs.py link.tmp
+  endef
+
+  define link_DLL
+    $(call green_msg, Linking $(1))
+    $(call create_resp_file, link.args, -dll $(LDFLAGS) -implib:$(strip $(3)) $(ASAN_LIBS) $(2))
+    link -out:$(strip $(1)) @link.args > link.tmp
+    @cat link.tmp >> $(1:.dll=.map)
+    @rm -f $(3:.lib=.exp)
+    @$(PYTHON) check-for-unused-libs.py link.tmp
+  endef
+
+  #
+  # Create a Python .PYD-module from objects.
+  #   arg1, $(1): The .pyd file.
+  #   arg2, $(2): The .obj file(s), extra args and libs.
+  #   arg3, $(3): The name of the Python init function.
+  #
+  define link_PYD
+    $(call green_msg, Linking $(1))
+    $(call create_resp_file, link.args, -dll $(LDFLAGS) -libpath:$(PY_ROOT)/libs \
+                             -export:$(strip $(3)) $(ASAN_LIBS) $(2))
+    link -out:$(strip $(1)) @link.args > link.tmp
+    @cat link.tmp >> $(1:.pyd=.map)
+    @rm -f $(1:.pyd=.exp) $(1:.pyd=.lib)
+    @$(PYTHON) check-for-unused-libs.py link.tmp
+  endef
+endif
 
 define create_resp_file
   $(file > $(1))
@@ -1805,16 +1997,8 @@ define create_resp_file
 endef
 
 define create_res_file
-  $(call green_msg, Creating $(2))
-  rc $(RCFLAGS) -Fo./$(strip $(1) $(2))
-  @echo
-endef
-
-define create_static_lib
-  @rm -f $(1)
   $(call green_msg, Creating $(1))
-  $(call create_resp_file, lib.args, -nologo -machine:$(CPU) $(2))
-  lib -out:$(strip $(1)) @lib.args
+  $(_RC) $(RCFLAGS) $(call O_out,$(1)) $(2)
   @echo
 endef
 
@@ -1837,7 +2021,7 @@ endef
 
 define generate_fake
   $(call generate_c, $(1))
-  $(file >> $(1), // fake <$(notdir $(1))> for MSVC/clang-cl)
+  $(file >> $(1), // fake <$(notdir $(1))> for MSVC/clang-cl/LLVM-MinGW)
   $(file >> $(1), $(2))
 endef
 
@@ -1897,7 +2081,7 @@ define cxx_preprocess
   @$(foreach f, $(EXTRA_CFLAGS), $(file >> $(1), *  $(f)))
   $(file >> $(1), *---------------------------------------------------------)
   $(file >> $(1), */)
-  $(CC) -E @$(CC).args $(EXTRA_CFLAGS) $(2) | $(PYTHON) cpp-filter.py $(pp_filter) >> $(1)
+  $(_CC) -E @$(CC).args $(EXTRA_CFLAGS) $(2) | $(PYTHON) cpp-filter.py $(pp_filter) >> $(1)
 endef
 
 #
@@ -1922,7 +2106,8 @@ define hamlib_config_h
      *   'dllimport' ignored [-Winconsistent-dllimport]
      *    int netrigctl_get_vfo_mode(RIG *);
      *        ^
-     * Hence do not add *#pragma clang diagnostic ignored "-Winconsistent-dllimport"'.
+     * Hence do not add
+     *  #pragma clang diagnostic ignored "-Winconsistent-dllimport"'.
      */
 
   #elif defined(_MSC_VER)
@@ -2011,6 +2196,7 @@ define hamlib_config_h
   #include <direct.h>             /* 'getcwd()' */
   #include <assert.h>             /* 'assert()' */
   #include <inttypes.h>           /* 'PRId64' etc. */
+  #include <sys/types.h>          /* 'mode_t' etc. */
 
   #define HAVE_SYS_TYPES_H        1
   #define HAVE_INTTYPES_H         1
@@ -2022,26 +2208,34 @@ define hamlib_config_h
   #define HAVE_GETADDRINFO        1
   #define HAVE_DECL_GAI_STRERROR  1
   #define HAVE_PTHREAD            1   /* Pthread is compulsary */
-//#define NO_PTHREAD_FOR_MCAST    1   /* except for the Multicast stuff in 'src/network.c' */
   #define HAVE_SELECT             1
   #define HAVE_SSLEEP             1
   #define HAVE_SLEEP              1
 
-  #if defined(_MSC_VER) && !defined(__clang__)
+  #if defined(_MSC_VER) && !defined(__clang__) && !defined(__GNUC__)
   #define __attribute__(x)
   #endif
 
   #define PRIll PRId64
 
-  #define F_OK  0       /* Check for file existance */
-  #define X_OK  1       /* Check for execute permission. */
-  #define W_OK  2       /* Check for write permission */
+  #if !defined(__MINGW32__)
+    #define F_OK  0       /* Check for file existance */
+    #define X_OK  1       /* Check for execute permission. */
+    #define W_OK  2       /* Check for write permission */
 
-  #define strcasecmp(s1, s2)      _stricmp (s1, s2)
-  #define strncasecmp(s1, s2, n)  _strnicmp (s1, s2, n)
-  #define sleep(s)                Sleep (1000*(s))
+    #define strcasecmp(s1, s2)      _stricmp (s1, s2)
+    #define strncasecmp(s1, s2, n)  _strnicmp (s1, s2, n)
 
-  HAMLIB_C_EXTERN int usleep (unsigned long usec);
+    /**
+     * Functions in 'lib/win-misc.c':
+     */
+    HAMLIB_C_EXTERN int   usleep (unsigned long usec);
+    HAMLIB_C_EXTERN int   nanosleep (const struct timespec *ts, struct timespec *remain);
+    HAMLIB_C_EXTERN int   clock_gettime (int clock_id, struct timespec *ts);
+    HAMLIB_C_EXTERN char *strtok_r (char *s, const char *delim, char **ptrptr);
+  #endif
+
+  #define sleep(s)   Sleep (1000*(s))
 
   /**
    * Since 'WIN32_LEAN_AND_MEAN' is defined, this header is
@@ -2075,8 +2269,10 @@ define hamlib_config_h
     #define _UINT_DEFINED
   #endif
 
-  #if !defined(_MODE_T_DEFINED)
+  #if !defined(_MODE_T_) && !defined(_MODE_T_DEFINED)
     typedef unsigned short mode_t;
+
+    #define _MODE_T
     #define _MODE_T_DEFINED
   #endif
 
@@ -2105,12 +2301,14 @@ define hamlib_config_h
   #define CLOCK_REALTIME  0
   #endif
 
-  /**
-   * Functions in 'lib/win-misc.c':
-   */
-  HAMLIB_C_EXTERN int   nanosleep (const struct timespec *ts, struct timespec *remain);
-  HAMLIB_C_EXTERN int   clock_gettime (int clock_id, struct timespec *ts);
-  HAMLIB_C_EXTERN char *strtok_r (char *s, const char *delim, char **ptrptr);
+endef
+
+define unistd_h
+  #if defined(__MINGW32__)
+    #include_next <unistd.h>
+  #else
+    #include "lib/getopt.h"
+  #endif
 endef
 
 #
@@ -2174,7 +2372,9 @@ endef
 define RC_COMMON
   #include <winver.h>
 
-  #if defined(__clang__)
+  #if defined(__MINGW32__) && defined(__clang__)
+    #define RC_BUILDER  "LLVM-MinGW"
+  #elif defined(__clang__)
     #define RC_BUILDER  "clang-cl"
   #elif defined(_MSC_VER)
     #define RC_BUILDER  "MSVC"
@@ -2250,8 +2450,8 @@ define Hamlib_extra_symbols
   multicast_init
   multicast_send
   netrigctl_get_vfo_mode
-; network_multicast_publisher_start
-; network_multicast_publisher_stop
+  network_multicast_publisher_start
+  network_multicast_publisher_stop
   port_open
   print_ext_param
   qrb
@@ -2279,6 +2479,57 @@ define Hamlib_DATA_symbols
   ;
   ; Exported functions:
   ;
+endef
+
+#
+# A simplified version of 'scripts/MSVC/2022/$(CPU)/hamlibTest/hamlibTest.rc'
+# in plain ASCII.
+#
+define HamlibTest_RC
+  #include <windows.h>
+  #include "Resource.h"
+
+  LANGUAGE 9, 1
+
+  IDI_HAMLIBTEST ICON  "hamlibTest.ico"
+  IDI_SMALL      ICON  "small.ico"
+
+  IDC_HAMLIBTEST MENU
+  BEGIN
+    POPUP "&File"
+    BEGIN
+      MENUITEM "E&xit",       IDM_EXIT
+    END
+    POPUP "&Help"
+    BEGIN
+      MENUITEM "&About ...",  IDM_ABOUT
+    END
+  END
+
+  #if 0
+    /*
+     * LLVM's windres does not like this:
+     *  llvm-rc: Error in ACCELERATORS statement (ID 109):
+     *  Accelerator ID 104: Can only apply ALT, SHIFT or CONTROL to VIRTKEY accelerators
+     */
+
+    IDC_HAMLIBTEST ACCELERATORS
+    BEGIN
+      "?",  IDM_ABOUT,  ASCII,  ALT
+      "/",  IDM_ABOUT,  ASCII,  ALT
+    END
+  #endif
+
+  IDD_ABOUTBOX DIALOGEX 0, 0, 170, 62
+  STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+  CAPTION "About hamlibTest"
+  FONT 8, "MS Shell Dlg"
+  BEGIN
+    ICON           IDR_MAINFRAME,IDC_STATIC,14,14,21,20
+    LTEXT          "hamlibTest, Version 1.0",IDC_STATIC,42,14,114,8,SS_NOPREFIX
+    LTEXT          "Copyright (c) 2022",IDC_STATIC,42,26,114,8
+    DEFPUSHBUTTON  "OK",IDOK,113,41,50,14,WS_GROUP
+  END
 endef
 
 define cpp_filter_PY
@@ -2381,7 +2632,7 @@ DEP_REPLACE = sed -e 's@\(.*\)\.o: @\n$$(OBJ_DIR)\/\1.obj: @'      \
                   -e 's@$(LIBXML2_ROOT)@$$(LIBXML2_ROOT)@'         \
                   -e 's@$(LUAJIT_ROOT)@$$(LUAJIT_ROOT)@'           \
                   -e 's@$(LUA5_ROOT)@$$(LUA5_ROOT)@'               \
-                  -e 's@src/hamlibdatetime.h@@g'                   \
+                  -e 's@$(OBJ_DIR)/hamlibdatetime.h@@g'            \
                   -e 's@include/hamlib/config.h@@g'
 
 ALL_C_SRC  = $(hamlib_C_SRC)  $(hamlib_misc_SRC) $(wildcard tests/*.c)

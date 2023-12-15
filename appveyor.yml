@@ -2,6 +2,7 @@ environment:
   matrix:
     - BUILDER: msvc
     - BUILDER: clang
+    - BUILDER: mingw
 
 install:
   #
@@ -18,11 +19,19 @@ install:
   - cmd: if %BUILDER%. == clang. call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x64
   - cmd: set PATH=c:\Program Files (x86)\LLVM\bin;%PATH%
 
+  #
+  # Download LLVM-MinGW from Github first:
+  #
+  - if %BUILDER%. == mingw. (curl -O https://github.com/mstorsjo/llvm-mingw/releases/download/20231128/llvm-mingw-20231128-ucrt-x86_64.zip & 7z x -y llvm-mingw-20231128-ucrt-x86_64.zip > NUL)
+
 build_script:
   - set MAKE=make -f Makefile.Windows CPU=x64
   - set OPT=USE_LIBUSB=0 USE_LIBUSRP=0 USE_WSOCK_TRACE=0 USE_LIBXML2=0 USE_LIBGD=0 USE_LIBREADLINE=0 USE_PY_BINDING=0 USE_LUA_BINDING=0 USE_GNURADIO=0
+  - set LLVM_MINGW=%APPVEYOR_BUILD_FOLDER%\llvm-mingw-20231128-ucrt-x86_64
+
   - if %BUILDER%. == msvc.  %MAKE% %OPT% CC=cl
   - if %BUILDER%. == clang. %MAKE% %OPT% CC=clang-cl
+  - if %BUILDER%. == mingw. %MAKE% %OPT% CC=gcc
 
   #
   # Not yet possible; need to add Lua as a submodule etc.
@@ -41,3 +50,8 @@ test_script:
   - echo ---------------------------------------------------------------------------------------------------
   - bin\ampctl.exe --list
 
+#
+# Try to preserve previously downloaded CI package
+#
+cache:
+  - '%LLVM_MINGW%'
