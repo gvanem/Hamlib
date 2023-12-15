@@ -177,7 +177,7 @@ void errmsg(int err, char *s, const char *func, const char *file, int line);
 /*
  * Returns basename from '__FILE__'
  */
-const char *rig_debug_filename(const char *file);
+extern HAMLIB_EXPORT (const char *) rig_debug_filename(const char *file);
 
 #if 0
   //
