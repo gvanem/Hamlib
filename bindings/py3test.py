@@ -4,11 +4,20 @@ import sys, os
 
 # Change this path to match your "make install" path
 if sys.platform == "win32":
-  bin_path = os.path.dirname(__file__) + '/../bin'
+  bin_path = os.path.dirname(__file__) + "/../bin"
+  bin_path = bin_path.replace ("\\", "/")
   print ("adding '%s' to PYTHONPATH" % bin_path)
+
+  if 1:
+     asan_path = (os.getenv("VCToolkitInstallDir", "") + "/bin/Hostx64/x64").replace ("\\", "/")
+     print ("adding '%s' to PYTHONPATH" % asan_path)
+
+     asan_path = (os.getenv("LLVM_MINGW", "") + "/bin").replace ("\\", "/")
+     print ("adding '%s' to PYTHONPATH" % asan_path)
+
   sys.path.append(bin_path)
 else:
-  sys.path.append('/usr/local/lib/python3.10/site-packages')
+  sys.path.append("/usr/local/lib/python3.10/site-packages")
 
 ## Uncomment to run this script from an in-tree build (or adjust to the
 ## build directory) without installing the bindings.
@@ -22,7 +31,7 @@ def rig_message_cb (debug_level, *args):
   # print (format, *args)
   return None
 
-def StartUp(verbose):
+def StartUp(verbose=False):
     """Simple script to test the Hamlib.py module with Python3."""
 
     Hamlib.rig_set_debug ([Hamlib.RIG_DEBUG_NONE, Hamlib.RIG_DEBUG_VERBOSE][verbose])
@@ -99,9 +108,11 @@ def StartUp(verbose):
     # Can't seem to get get_vfo_info to work
     #(freq, width, mode, split) = my_rig.get_vfo_info(Hamlib.RIG_VFO_A,freq,width,mode,split)
     #print("Rig vfo_info:\t\tfreq=%s, mode=%s, width=%s, split=%s" % (freq, mode, width, split))
-    print("\nSending Morse, '73'")
 
-    my_rig.send_morse(Hamlib.RIG_VFO_A, "73")
+    if 0:
+       print("\nSending Morse, '73'")
+       my_rig.send_morse(Hamlib.RIG_VFO_A, "73")
+
     my_rig.close()
 
     print("\nSome static functions:")
@@ -139,4 +150,5 @@ def StartUp(verbose):
     print ("RIG_FUNC_BIT63:                0x%016x" % Hamlib.RIG_FUNC_BIT63)
 
 if __name__ == '__main__':
-    StartUp([0,1]["-v" in sys.argv])
+    # StartUp([0,1]["-v" in sys.argv])
+    StartUp (True)
