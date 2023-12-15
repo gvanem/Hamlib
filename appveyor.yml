@@ -43,6 +43,8 @@ test_script:
   #
   # List all supported Radios, Rotators and Amplifiers
   #
+  - cmd: set PATH=%PATH%;%LLVM_MINGW%\bin
+
   - echo ---------------------------------------------------------------------------------------------------
   - bin\rigctl.exe --list
   - echo ---------------------------------------------------------------------------------------------------
@@ -54,4 +56,4 @@ test_script:
 # Try to preserve previously downloaded CI package
 #
 cache:
-  - '%LLVM_MINGW%'
+  - %LLVM_MINGW%
