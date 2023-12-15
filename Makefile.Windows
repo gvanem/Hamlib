@@ -24,10 +24,10 @@ VERSION   = $(MAJOR_VER).$(MINOR_VER)
 USE_LIBGD         ?= 0
 USE_LIBINDI       ?= 0
 USE_LIBREADLINE   ?= 0
-USE_LIBUSB        ?= 1
+USE_LIBUSB        ?= 0
 USE_LIBUSRP       ?= 0
-USE_LIBXML2       ?= 1
-USE_LUAJIT        ?= 1
+USE_LIBXML2       ?= 0
+USE_LUAJIT        ?= 0
 USE_MP_COMPILE    ?= 1
 USE_VERBOSE_DEBUG ?= 0
 
@@ -89,11 +89,6 @@ LIBUSRP_ROOT     ?= f:/gv/dx-radio/Osmocom-SDR/libusrp/host
 LIBINDI_ROOT     ?= f:/ProgramFiler/Stellarium/src/src/external/libindi
 LIBGD_ROOT       ?= $(VCPKG_ROOT)/installed/$(CPU)-windows
 LIBREADLINE_ROOT ?= $(VCPKG_ROOT)/installed/$(CPU)-windows-static
-
-#
-# No check unless 'CC = gcc'
-#
-CHECKS =
 
 ifeq ($(CPU),x64)
   BITS   = 64
@@ -177,6 +172,8 @@ ifneq ($(CC),clang-cl)
 endif
 
 ifeq ($(CC),gcc)
+  CHECKS = check_llvm_mingw
+
   CFLAGS = -m$(BITS) -std=gnu11 -Wall \
            --include ./include/hamlib/config.h
 
@@ -198,6 +195,7 @@ ifeq ($(CC),gcc)
   MUNICODE     = -municode
 
 else
+  CHECKS =
   CFLAGS = -nologo -MD -Zi -O2 -W3 \
            -FI./include/hamlib/config.h
 
@@ -276,8 +274,6 @@ else
   # else is before it in the PATH.
   #
   LLVM_MINGW := $(realpath $(LLVM_MINGW))
-
-  CHECKS = check_llvm_mingw
 
   _AR = $(LLVM_MINGW)/bin/ar
   _CC = $(LLVM_MINGW)/bin/gcc
@@ -1396,8 +1392,8 @@ GENERATED += $(addprefix $(OBJ_DIR)/, \
                hamlibdatetime.h       \
                unistd.h               \
                strings.h              \
-               sys/time.h             \
-               sys/ioctl.h)
+               sys/ioctl.h            \
+               sys/time.h)
 
 all: $(CHECKS) $(GENERATED) bin install_colorama $(TARGETS) programs copy_DLLs epilogue
 
@@ -1608,7 +1604,8 @@ $(OBJ_DIR)/unistd.h: $(THIS_FILE) | $(OBJ_DIR)
 	$(file >> $@,$(unistd_h))
 
 $(OBJ_DIR)/sys/time.h: $(THIS_FILE) | $(OBJ_DIR)/sys
-	$(call generate_fake, $@, #include <time.h>)
+	$(call generate_c, $@)
+	$(file >> $@,$(sys_time_h))
 
 $(OBJ_DIR)/strings.h: $(THIS_FILE) | $(OBJ_DIR)
 	$(call generate_fake, $@, #include <string.h>)
@@ -2218,7 +2215,10 @@ define hamlib_config_h
 
   #define PRIll PRId64
 
-  #if !defined(__MINGW32__)
+  #if defined(__MINGW32__)
+    #define HAVE_USLEEP  1
+
+  #else
     #define F_OK  0       /* Check for file existance */
     #define X_OK  1       /* Check for execute permission. */
     #define W_OK  2       /* Check for write permission */
@@ -2301,6 +2301,14 @@ define hamlib_config_h
   #define CLOCK_REALTIME  0
   #endif
 
+endef
+
+define sys_time_h
+  #if defined(__MINGW32__)
+    #include_next <unistd.h>
+  #else
+    #include <time.h>
+  #endif
 endef
 
 define unistd_h
