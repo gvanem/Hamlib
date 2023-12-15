@@ -22,7 +22,7 @@ install:
   #
   # Download LLVM-MinGW from Github first:
   #
-  - if %BUILDER%. == mingw. (curl -O https://github.com/mstorsjo/llvm-mingw/releases/download/20231128/llvm-mingw-20231128-ucrt-x86_64.zip & 7z x -y llvm-mingw-20231128-ucrt-x86_64.zip > NUL)
+  - if %BUILDER%. == mingw. (curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/20231128/llvm-mingw-20231128-ucrt-x86_64.zip & 7z x -y -bd llvm-mingw-20231128-ucrt-x86_64.zip)
 
 build_script:
   - set MAKE=make -f Makefile.Windows CPU=x64
