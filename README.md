@@ -1,7 +1,7 @@
 Hamlib
 ======
 
-[![Build Status](https://ci.appveyor.com/api/projects/status/github/gvanem/Hamlib?branch=master&svg=true)](https://ci.appveyor.com/project/gvanem/gvanem)
+[![Build Status](https://ci.appveyor.com/api/projects/status/github/gvanem/Hamlib?branch=master&svg=true)](https://ci.appveyor.com/project/gvanem/Hamlib)
 
 (C) Frank Singleton 2000 (vk3fcs@ix.netcom.com)
 (C) Stephane Fillod 2000-2011
