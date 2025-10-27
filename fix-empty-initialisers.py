@@ -69,6 +69,7 @@ files = [ "src/conf.c",
           "rigs/aor/ar8600.c",
           "rigs/aor/sr2200.c",
           "rigs/anytone/d578.c",
+          "rigs/commradio/ctx10.c",
           "rigs/dorji/dra818.c",
           "rigs/drake/r8.c",
           "rigs/drake/r8a.c",
@@ -261,8 +262,9 @@ files = [ "src/conf.c",
           "rotators/rotorez/rotorez.c"
         ]
 
+fixed_files = 0
+
 for f in files:
-  fixed_files = 0
   try:
     fixed_files += fix_file (f)
   except UnicodeDecodeError:
