@@ -59,4 +59,4 @@ test_script:
 # Try to preserve previously downloaded CI package
 #
 cache:
-  - '%LLVM_MINGW%'
+  - '%%APPVEYOR_BUILD_FOLDER%\llvm-mingw-20251021-msvcrt-x86_64%'
