@@ -23,6 +23,9 @@
 #define _NUM_STDIO_H 1
 
 #include <locale.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
 
 /*
  * This header file is internal to Hamlib and its backends,

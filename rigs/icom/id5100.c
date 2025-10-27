@@ -71,18 +71,18 @@ enum
 
 #define ID5100_PARM_ALL RIG_PARM_NONE
 
-int id5100_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo);
+static int id5100_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo);
 
-int id5100_set_vfo(RIG *rig, vfo_t vfo)
+static int id5100_set_vfo(RIG *rig, vfo_t vfo)
 {
-    struct rig_state *rs = &rig->state;
+    struct rig_state *rs = STATE(rig);
     struct icom_priv_data *priv = (struct icom_priv_data *) rs->priv;
     unsigned char ackbuf[MAXFRAMELEN];
     int ack_len = sizeof(ackbuf), retval;
 
     ENTERFUNC;
 
-    if (vfo == RIG_VFO_CURR) { vfo = rig->state.current_vfo; }
+    if (vfo == RIG_VFO_CURR) { vfo = rs->current_vfo; }
 
     // if user requests VFOA/B we automatically turn of dual watch mode
     // if user requests  Main/Sub we automatically turn on dual watch mode
@@ -100,7 +100,7 @@ int id5100_set_vfo(RIG *rig, vfo_t vfo)
             if (RIG_OK != (retval = icom_set_func(rig, RIG_VFO_CURR, RIG_FUNC_DUAL_WATCH,
                                                   0)))
             {
-                RETURNFUNC2(retval);
+                RETURNFUNC(retval);
             }
 
             priv->dual_watch = 0;
@@ -116,7 +116,7 @@ int id5100_set_vfo(RIG *rig, vfo_t vfo)
             if (RIG_OK != (retval = icom_set_func(rig, RIG_VFO_CURR, RIG_FUNC_DUAL_WATCH,
                                                   1)))
             {
-                RETURNFUNC2(retval);
+                RETURNFUNC(retval);
             }
 
             priv->dual_watch = 1;
@@ -127,38 +127,38 @@ int id5100_set_vfo(RIG *rig, vfo_t vfo)
 
     int myvfo = S_MAIN;
     priv->dual_watch_main_sub = MAIN_ON_LEFT;
-    rig->state.current_vfo = RIG_VFO_A;
+    rs->current_vfo = RIG_VFO_A;
 
     if (vfo == RIG_VFO_B || vfo == RIG_VFO_SUB)
     {
         myvfo = S_SUB;
         priv->dual_watch_main_sub = MAIN_ON_RIGHT;
-        rig->state.current_vfo = vfo;
+        rs->current_vfo = vfo;
     }
 
     if (RIG_OK != (retval = icom_transaction(rig, C_SET_VFO, myvfo, NULL, 0, ackbuf,
                             &ack_len)))
     {
-        RETURNFUNC2(retval);
+        RETURNFUNC(retval);
     }
 
-    return retval;
+    RETURNFUNC(retval);
 }
 
 
-int id5100_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
+static int id5100_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     int cmd = C_SET_FREQ;
     int subcmd = -1;
     unsigned char freqbuf[MAXFRAMELEN];
     int freq_len = 5;
     int retval;
-    struct rig_state *rs = &rig->state;
+    struct rig_state *rs = STATE(rig);
     //struct icom_priv_data *priv = (struct icom_priv_data *) rs->priv;
 
-    vfo_t currvfo = rig->state.current_vfo;
+    vfo_t currvfo = rs->current_vfo;
 
-    if (vfo == RIG_VFO_CURR) { vfo = rig->state.current_vfo; }
+    if (vfo == RIG_VFO_CURR) { vfo = rs->current_vfo; }
 
     if (rs->dual_watch == 0 && (vfo == RIG_VFO_MAIN || vfo == RIG_VFO_SUB)) { id5100_set_split_vfo(rig, RIG_VFO_SUB, 1, RIG_VFO_MAIN); }
 
@@ -207,15 +207,15 @@ static int id5100_get_freq2(RIG *rig, vfo_t vfo, freq_t *freq)
     return RIG_OK;
 }
 
-int id5100_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
+static int id5100_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
-    struct rig_state *rs = &rig->state;
+    struct rig_state *rs = STATE(rig);
     struct icom_priv_data *priv = (struct icom_priv_data *) rs->priv;
     int retval;
 
-    vfo_t currvfo = rig->state.current_vfo;
+    vfo_t currvfo = rs->current_vfo;
 
-    if (rs->dual_watch == 1 && rig->state.current_vfo != RIG_VFO_SUB) { id5100_set_split_vfo(rig, RIG_VFO_SUB, 0, RIG_VFO_MAIN); }
+    if (rs->dual_watch == 1 && rs->current_vfo != RIG_VFO_SUB) { id5100_set_split_vfo(rig, RIG_VFO_SUB, 0, RIG_VFO_MAIN); }
 
     if (rs->dual_watch) // dual watch is different
     {
@@ -246,7 +246,8 @@ int id5100_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
         {
             rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): Sub on left\n", __func__, __LINE__);
 
-            if ((currvfo == RIG_VFO_B || currvfo == RIG_VFO_SUB) && (vfo == RIG_VFO_B || vfo == RIG_VFO_SUB))
+            if ((currvfo == RIG_VFO_B || currvfo == RIG_VFO_SUB) && (vfo == RIG_VFO_B
+                    || vfo == RIG_VFO_SUB))
             {
                 rig_debug(RIG_DEBUG_ERR, "%s: Method#3\n", __func__);
                 id5100_set_vfo(rig, RIG_VFO_MAIN);
@@ -285,7 +286,7 @@ int id5100_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): Sub/A vfo=%s\n", __func__, __LINE__,
               rig_strvfo(vfo));
-        *freq = rig->state.cache.freqSubA;
+        *freq = CACHE(rig)->freqSubA;
         int cache_ms_freq, cache_ms_mode, cache_ms_width;
         pbwidth_t width;
         freq_t tfreq;
@@ -297,7 +298,7 @@ int id5100_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
     {
         rig_debug(RIG_DEBUG_VERBOSE, "%s: Dual watch is off\n", __func__);
     }
-    if (vfo == RIG_VFO_CURR) { vfo = rig->state.current_vfo; }
+    if (vfo == RIG_VFO_CURR) { vfo = rs->current_vfo; }
 if (vfo == RIG_VFO_MAIN && priv->dual_watch_main_sub == MAIN_ON_LEFT)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): Main/A vfo=%s\n", __func__, __LINE__,
@@ -354,7 +355,7 @@ if (vfo == RIG_VFO_MAIN && priv->dual_watch_main_sub == MAIN_ON_LEFT)
  */
 #define ID5100_STR_CAL  UNKNOWN_IC_STR_CAL
 
-int id5100_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
+static int id5100_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
     int retval;
     unsigned char modebuf;
@@ -388,7 +389,7 @@ int id5100_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     return retval;
 }
 
-int id5100_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
+static int id5100_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
 {
     int retval;
     int mode_len;
@@ -419,9 +420,9 @@ int id5100_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
     return RIG_OK;
 }
 
-int id5100_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
+static int id5100_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
 {
-    struct rig_state *rs = &rig->state;
+    struct rig_state *rs = STATE(rig);
     struct icom_priv_data *priv = (struct icom_priv_data *) rs->priv;
     int retval;
 
@@ -461,7 +462,7 @@ int id5100_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t tx_vfo)
 }
 
 
-int id5100_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
+static int id5100_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
 {
     int freq_len = 5;
     int retval;
@@ -482,17 +483,17 @@ int id5100_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
     RETURNFUNC(retval);
 }
 
-int id5100_get_split_freq(RIG *rig, vfo_t vfo, freq_t *tx_freq)
+static int id5100_get_split_freq(RIG *rig, vfo_t vfo, freq_t *tx_freq)
 {
     int retval;
-    //struct rig_state *rs = &rig->state;
+    //struct rig_state *rs = STATE(rig);
     //struct icom_priv_data *priv = (struct icom_priv_data *) rs->priv;
     //vfo_t currvfo;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): vfo=%s\n", __func__, __LINE__,
               rig_strvfo(vfo));
 #if 0
-    currvfo = rig->state.current_vfo;
+    currvfo = rs->current_vfo;
 
     if (priv->dual_watch_main_sub == MAIN_ON_LEFT && (currvfo == RIG_VFO_MAIN
             || currvfo == RIG_VFO_A) && vfo == RIG_VFO_TX)
@@ -529,7 +530,7 @@ struct rig_caps id5100_caps =
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".9",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_MOBILE,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,

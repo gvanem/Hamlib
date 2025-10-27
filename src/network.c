@@ -32,7 +32,7 @@
 /* Forcing WINVER in MinGW yanks in getaddrinfo(), but locks out Win95/Win98 */
 /* #define WINVER 0x0501 */
 
-#include <hamlib/config.h>
+#include "hamlib/config.h"
 
 #include <stdlib.h>
 #include <stdio.h>   /* Standard input/output definitions */
@@ -73,7 +73,9 @@
 #  endif
 #endif
 
-#include <hamlib/rig.h>
+#include "hamlib/rig.h"
+#include "hamlib/port.h"
+#include "hamlib/rig_state.h"
 #include "network.h"
 #include "misc.h"
 #include "asyncpipe.h"
@@ -88,13 +90,13 @@
 #define __MINGW32__   /* to avoid patching to much */
 #endif
 
-#if defined(NO_PTHREAD_FOR_MCAST)
-#undef HAVE_PTHREAD  /* Lockless' Pthread work badly here */
-#endif
-
 #ifdef __MINGW32__
-static int wsstarted;
-#define strerror(e) get_wsa_error(NULL)
+  #include <windows.h>
+  #include <iphlpapi.h>
+
+  static int wsstarted;
+  static int is_networked(char *address, int address_length);
+  #define strerror(e) get_wsa_error(NULL)
 #endif
 
 //! @cond Doxygen_Suppress
@@ -127,6 +129,8 @@ typedef struct multicast_publisher_args_s
     int data_write_fd;
     int data_read_fd;
 #endif
+
+    pthread_mutex_t write_lock;
 } multicast_publisher_args;
 
 typedef struct multicast_publisher_priv_data_s
@@ -149,7 +153,7 @@ typedef struct multicast_receiver_priv_data_s
     multicast_receiver_args args;
 } multicast_receiver_priv_data;
 
-#ifdef __MINGW32__
+#if defined(__MINGW32__)
 static char *get_error_common (int err_code, int *_err)
 {
     static  char ebuf [512+20];
@@ -187,11 +191,24 @@ static void handle_error(enum rig_debug_level_e lvl, const char *msg)
 {
     int e;
 #ifdef __MINGW32__
-    char *err = get_wsa_error (&e);
+    LPVOID lpMsgBuf;
 
-    if (err)
+    lpMsgBuf = (LPVOID)"Unknown error";
+    e = WSAGetLastError();
+
+    if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER
+                      | FORMAT_MESSAGE_FROM_SYSTEM
+                      | FORMAT_MESSAGE_IGNORE_INSERTS,
+                      NULL,
+                      e,
+                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                      // Default language
+                      (LPTSTR)&lpMsgBuf,
+                      0,
+                      NULL))
     {
-        rig_debug(lvl, "%s: Network error %d: %s\n", msg, e, err);
+        rig_debug(lvl, "%s: Network error %d: %s\n", msg, e, (char *)lpMsgBuf);
+        LocalFree(lpMsgBuf);
     }
     else
     {
@@ -204,7 +221,10 @@ static void handle_error(enum rig_debug_level_e lvl, const char *msg)
 #endif
 }
 
-int network_init()
+#undef  TRACE
+#define TRACE rig_debug(RIG_DEBUG_ERR, "TRACE %s(%d)\n", __func__,__LINE__);
+
+static int network_init()
 {
     int retval = -RIG_EINTERNAL;
 #ifdef __MINGW32__
@@ -230,6 +250,7 @@ int network_init()
     {
         retval = RIG_OK;
     }
+
 #else
     retval = RIG_OK;
 
@@ -238,9 +259,9 @@ int network_init()
 }
 
 /**
- * \brief Open network port using rig.state data
+ * \brief Open network port using STATE(rig) data
  *
- * Open Open network port using rig.state data.
+ * Open network port using STATE(rig) data.
  * NB: The signal PIPE will be ignored for the whole application.
  *
  * \param rp Port data structure (must spec port id eg hostname:port)
@@ -275,10 +296,12 @@ int network_open(hamlib_port_t *rp, int default_port)
     if (rp->type.rig == RIG_PORT_UDP_NETWORK)
     {
         hints.ai_socktype = SOCK_DGRAM;
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: UDP connect\n", __func__);
     }
     else
     {
         hints.ai_socktype = SOCK_STREAM;
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: TCP connect\n", __func__);
     }
 
     if (rp->pathname[0] == ':' && rp->pathname[1] != ':')
@@ -368,11 +391,7 @@ int network_open(hamlib_port_t *rp, int default_port)
                  rp->pathname);
         handle_error(RIG_DEBUG_WARN, msg);
 
-#ifdef __MINGW32__
         closesocket(fd);
-#else
-        close(fd);
-#endif
     }
     while ((res = res->ai_next) != NULL);
 
@@ -398,6 +417,41 @@ int network_open(hamlib_port_t *rp, int default_port)
 }
 
 
+// flush and keep what gets flushed based on stopset
+// Used by SmartSDR backend for example
+// return # of bytes read
+int network_flush2(hamlib_port_t *rp, unsigned char *stopset, char *buf,
+                   int buf_len)
+{
+#ifdef __MINGW32__
+    ULONG len;
+#else
+    uint len;
+#endif
+
+#ifdef __MINGW32__
+    int ret = ioctlsocket(rp->fd, FIONREAD, &len);
+#else
+    int ret = ioctl(rp->fd, FIONREAD, &len);
+#endif
+
+    if (ret != 0)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: ioctl err '%s'\n", __func__, strerror(errno));
+        return 0;
+    }
+
+    if (len > 0)
+    {
+        buf[0] = 0;
+
+        if (len > buf_len) { len = buf_len - 1; }
+
+        read_string(rp, (unsigned char *)buf, len + 1, (char *)stopset, 1, 0, 1);
+    }
+
+    return len;
+}
 /**
  * \brief Clears any data in the read buffer of the socket
  *
@@ -468,17 +522,12 @@ int network_close(hamlib_port_t *rp)
 
     if (rp->fd > 0)
     {
-#ifdef __MINGW32__
         ret = closesocket(rp->fd);
-#else
-        ret = close(rp->fd);
-#endif
         rig_debug(RIG_DEBUG_VERBOSE, "%s: close socket ret=%d\n", __func__, ret);
         rp->fd = 0;
     }
 
 #ifdef __MINGW32__
-
     if (wsstarted)
     {
         ret = WSACleanup();
@@ -491,12 +540,13 @@ int network_close(hamlib_port_t *rp)
 }
 //! @endcond
 
-extern void sync_callback(int lock);
+//TODO See defn in rig.c
+//extern void sync_callback(int lock);
 
-#ifdef HAVE_PTHREAD
 //! @cond Doxygen_Suppress
 
 #define MULTICAST_DATA_PIPE_TIMEOUT_MILLIS 1000
+#define MULTICAST_DATA_PIPE_TIMEOUT_USEC 100000
 
 #if defined(WIN32) && defined(HAVE_WINDOWS_H)
 
@@ -562,8 +612,7 @@ static int multicast_publisher_read_data(multicast_publisher_args
 {
     ssize_t result;
 
-    result = async_pipe_wait_for_data(mcast_publisher_args->data_pipe,
-                                      MULTICAST_DATA_PIPE_TIMEOUT_MILLIS);
+    result = async_pipe_wait_for_data(mcast_publisher_args->data_pipe, 100);
 
     if (result < 0)
     {
@@ -686,9 +735,13 @@ static int multicast_publisher_read_data(const multicast_publisher_args
     struct timeval timeout;
     ssize_t result;
     int retval;
+    int retries = 2;
+    size_t offset = 0;
+    size_t length_left = length;
 
-    timeout.tv_sec = MULTICAST_DATA_PIPE_TIMEOUT_MILLIS / 1000;
-    timeout.tv_usec = 0;
+retry:
+    timeout.tv_sec = 0;
+    timeout.tv_usec = MULTICAST_DATA_PIPE_TIMEOUT_USEC;
 
     FD_ZERO(&rfds);
     FD_SET(fd, &rfds);
@@ -721,7 +774,7 @@ static int multicast_publisher_read_data(const multicast_publisher_args
         return -RIG_EIO;
     }
 
-    result = read(fd, data, length);
+    result = read(fd, data + offset, length_left);
 
     if (result < 0)
     {
@@ -735,11 +788,25 @@ static int multicast_publisher_read_data(const multicast_publisher_args
         return (-RIG_EIO);
     }
 
-    if (result != length)
+    offset += result;
+    length_left -= result;
+
+    if (length_left > 0)
     {
+        if (retries > 0)
+        {
+            // Execution of this routine may time out between writes to pipe, retry to get more data
+            rig_debug(RIG_DEBUG_VERBOSE,
+                      "%s: could not read from multicast publisher data pipe, expected %ld bytes, read %ld bytes, retrying...\n",
+                      __func__, (long) length, (long) offset);
+            retries--;
+            goto retry;
+        }
+
         rig_debug(RIG_DEBUG_ERR,
-                  "%s: could not read from multicast publisher data pipe, expected %ld bytes, read %ld bytes\n",
-                  __func__, (long) length, (long) result);
+                  "%s: could not read from multicast publisher data pipe even after retries, expected %ld bytes, read %ld bytes\n",
+                  __func__, (long) length, (long) offset);
+
         return (-RIG_EIO);
     }
 
@@ -748,10 +815,26 @@ static int multicast_publisher_read_data(const multicast_publisher_args
 
 #endif
 
+static void multicast_publisher_write_lock(RIG *rig)
+{
+    struct rig_state *rs = STATE(rig);
+    multicast_publisher_priv_data *priv_data = (multicast_publisher_priv_data *)
+            rs->multicast_publisher_priv_data;
+    pthread_mutex_lock(&priv_data->args.write_lock);
+}
+
+static void multicast_publisher_write_unlock(RIG *rig)
+{
+    struct rig_state *rs = STATE(rig);
+    multicast_publisher_priv_data *priv_data = (multicast_publisher_priv_data *)
+            rs->multicast_publisher_priv_data;
+    pthread_mutex_unlock(&priv_data->args.write_lock);
+}
+
 static int multicast_publisher_write_packet_header(RIG *rig,
         multicast_publisher_data_packet *packet)
 {
-    struct rig_state *rs = &rig->state;
+    struct rig_state *rs = STATE(rig);
     multicast_publisher_priv_data *mcast_publisher_priv;
     multicast_publisher_args *mcast_publisher_args;
     ssize_t result;
@@ -778,10 +861,10 @@ static int multicast_publisher_write_packet_header(RIG *rig,
     return RIG_OK;
 }
 
-// cppcheck-suppress unusedFunction
 int network_publish_rig_poll_data(RIG *rig)
 {
-    const struct rig_state *rs = &rig->state;
+    const struct rig_state *rs = STATE(rig);
+    int result;
     multicast_publisher_data_packet packet =
     {
         .type = MULTICAST_PUBLISHER_DATA_PACKET_TYPE_POLL,
@@ -795,13 +878,16 @@ int network_publish_rig_poll_data(RIG *rig)
         return RIG_OK;
     }
 
-    return multicast_publisher_write_packet_header(rig, &packet);
+    multicast_publisher_write_lock(rig);
+    result = multicast_publisher_write_packet_header(rig, &packet);
+    multicast_publisher_write_unlock(rig);
+    return result;
 }
 
-// cppcheck-suppress unusedFunction
 int network_publish_rig_transceive_data(RIG *rig)
 {
-    const struct rig_state *rs = &rig->state;
+    const struct rig_state *rs = STATE(rig);
+    int result;
     multicast_publisher_data_packet packet =
     {
         .type = MULTICAST_PUBLISHER_DATA_PACKET_TYPE_TRANSCEIVE,
@@ -815,13 +901,16 @@ int network_publish_rig_transceive_data(RIG *rig)
         return RIG_OK;
     }
 
-    return multicast_publisher_write_packet_header(rig, &packet);
+    multicast_publisher_write_lock(rig);
+    result = multicast_publisher_write_packet_header(rig, &packet);
+    multicast_publisher_write_unlock(rig);
+    return result;
 }
 
 int network_publish_rig_spectrum_data(RIG *rig, struct rig_spectrum_line *line)
 {
     int result;
-    struct rig_state *rs = &rig->state;
+    struct rig_state *rs = STATE(rig);
     multicast_publisher_priv_data *mcast_publisher_priv;
     multicast_publisher_args *mcast_publisher_args;
     multicast_publisher_data_packet packet =
@@ -837,10 +926,14 @@ int network_publish_rig_spectrum_data(RIG *rig, struct rig_spectrum_line *line)
         return RIG_OK;
     }
 
+    // Acquire write lock to write all data in one go to the pipe
+    multicast_publisher_write_lock(rig);
+
     result = multicast_publisher_write_packet_header(rig, &packet);
 
     if (result != RIG_OK)
     {
+        multicast_publisher_write_unlock(rig);
         RETURNFUNC2(result);
     }
 
@@ -853,11 +946,14 @@ int network_publish_rig_spectrum_data(RIG *rig, struct rig_spectrum_line *line)
 
     if (result != RIG_OK)
     {
+        multicast_publisher_write_unlock(rig);
         RETURNFUNC2(result);
     }
 
     result = multicast_publisher_write_data(
                  mcast_publisher_args, line->spectrum_data_length, line->spectrum_data);
+
+    multicast_publisher_write_unlock(rig);
 
     if (result != RIG_OK)
     {
@@ -933,17 +1029,23 @@ static int multicast_publisher_read_packet(multicast_publisher_args
     return (RIG_OK);
 }
 
-void *multicast_publisher(void *arg)
+static void *multicast_publisher(void *arg)
 {
     unsigned char spectrum_data[HAMLIB_MAX_SPECTRUM_DATA];
     char snapshot_buffer[HAMLIB_MAX_SNAPSHOT_PACKET_SIZE];
+#ifdef __MINGW32__
+    char ip4[32];
+#endif
 
     struct multicast_publisher_args_s *args = (struct multicast_publisher_args_s *)
             arg;
     RIG *rig = args->rig;
-    struct rig_state *rs = &rig->state;
+    struct rig_state *rs = STATE(rig);
     struct rig_spectrum_line spectrum_line;
     uint8_t packet_type = MULTICAST_PUBLISHER_DATA_PACKET_TYPE_SPECTRUM;
+    multicast_publisher_priv_data *mcast_publisher_priv =
+        (multicast_publisher_priv_data *)
+        rs->multicast_publisher_priv_data;
 
     struct sockaddr_in dest_addr;
     int socket_fd = args->socket_fd;
@@ -951,6 +1053,16 @@ void *multicast_publisher(void *arg)
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): Starting multicast publisher\n", __FILE__,
               __LINE__);
+
+#ifdef __MINGW32__
+    if (!is_networked(ip4, sizeof(ip4)))
+    {
+        rig_debug(RIG_DEBUG_WARN, "%s: no IPV4 network detected...multicast disabled\n",
+                  __func__);
+        return NULL;
+    }
+
+#endif
 
     snapshot_init();
 
@@ -961,12 +1073,13 @@ void *multicast_publisher(void *arg)
 
     rs->multicast_publisher_run = 1;
 
-    while (rs->multicast_publisher_run == 1)
+    while (rs->multicast_publisher_run)
     {
         int result;
 
         result = multicast_publisher_read_packet(args, &packet_type, &spectrum_line,
                  spectrum_data);
+
         if (result != RIG_OK)
         {
             if (result == -RIG_ETIMEOUT)
@@ -976,6 +1089,7 @@ void *multicast_publisher(void *arg)
 
             // TODO: how to detect closing of pipe, indicate with error code
             // TODO: error handling, flush pipe in case of error?
+            hl_usleep(100 * 1000);
             continue;
         }
 
@@ -1004,20 +1118,121 @@ void *multicast_publisher(void *arg)
 
         if (send_result < 0)
         {
-            rig_debug(RIG_DEBUG_ERR, "%s: error sending UDP packet: %s\n", __func__,
-                      strerror(errno));
+            static int flag = 0;
+
+            if (errno != 0 || flag == 0)
+            {
+                rig_debug(RIG_DEBUG_ERR,
+                          "%s: error sending UDP packet: %s, send result=%d\n", __func__,
+                          strerror(errno), (int)send_result);
+                flag = 1;
+            }
         }
     }
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): Stopping multicast publisher\n", __FILE__,
+    rs->multicast_publisher_run = 0;
+    mcast_publisher_priv->thread_id = 0;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): Stopped multicast publisher\n", __FILE__,
               __LINE__);
     return NULL;
 }
 
 
 #ifdef __MINGW32__
-#include <winsock2.h>
-#include <iphlpapi.h>
+
+static int is_networked(char *address, int address_length)
+{
+    int count = 0;
+
+    DWORD dwSize = 0;
+    DWORD dwRetVal = 0;
+    ULONG flags = GAA_FLAG_INCLUDE_PREFIX;
+    PIP_ADAPTER_ADDRESSES pAddresses = NULL;
+    PIP_ADAPTER_ADDRESSES pCurrAddresses = NULL;
+    PIP_ADAPTER_UNICAST_ADDRESS pUnicast = NULL;
+    char ipString[INET6_ADDRSTRLEN]; // large enough for both IPv4 and IPv6
+    address[0] = 0;
+
+    // First call to determine actual memory size needed
+    GetAdaptersAddresses(AF_UNSPEC, flags, NULL, NULL, &dwSize);
+    pAddresses = (IP_ADAPTER_ADDRESSES *)malloc(dwSize);
+
+    // Second call to get the actual data
+    dwRetVal = GetAdaptersAddresses(AF_UNSPEC, flags, NULL, pAddresses, &dwSize);
+
+    if (dwRetVal == NO_ERROR)
+    {
+        for (pCurrAddresses = pAddresses; pCurrAddresses != NULL;
+                pCurrAddresses = pCurrAddresses->Next)
+        {
+//            if (pCurrAddresses->IfType == IF_TYPE_IEEE80211) // Wireless adapter
+            {
+                char friendlyName[256];
+                wcstombs(friendlyName, pCurrAddresses->FriendlyName, sizeof(friendlyName));
+                rig_debug(RIG_DEBUG_VERBOSE, "%s: network IfType = %d, name=%s\n", __func__,
+                          (int)pCurrAddresses->IfType, friendlyName);
+
+                for (pUnicast = pCurrAddresses->FirstUnicastAddress; pUnicast != NULL;
+                        pUnicast = pUnicast->Next)
+                {
+                    void *addr = NULL;
+
+                    if (pUnicast->Address.lpSockaddr->sa_family == AF_INET) // IPv4 address
+                    {
+                        struct sockaddr_in *sa_in = (struct sockaddr_in *)pUnicast->Address.lpSockaddr;
+                        addr = &(sa_in->sin_addr);
+                    }
+
+#if 0 // going to skip IPV6 for now -- should never need it on a local network
+                    else if (pUnicast->Address.lpSockaddr->sa_family == AF_INET6) // IPv6 address
+                    {
+                        struct sockaddr_in6 *sa_in6 = (struct sockaddr_in6 *)
+                                                      pUnicast->Address.lpSockaddr;
+                        addr = &(sa_in6->sin6_addr);
+                    }
+
+#endif
+
+                    // Convert IP address to string and ignore bad ones
+                    if (addr)
+                    {
+
+                        if (inet_ntop(pUnicast->Address.lpSockaddr->sa_family, addr, ipString,
+                                      sizeof(ipString)) != NULL)
+                        {
+                            // Use IP address if not 169.x.x.x
+                            if (strncmp(ipString, "169", 3) != 0)
+                            {
+                                count++;
+
+                                if (count > 1)
+                                {
+                                    rig_debug(RIG_DEBUG_VERBOSE,
+                                              "%s: more than 1 address found...multicast may not work\n", __func__);
+                                }
+
+                                rig_debug(RIG_DEBUG_VERBOSE, "%s: Address: %s\n", ipString, ipString);
+                                strncpy(address, ipString, address_length);
+                            }
+                        }
+                    }
+                }
+
+                free(pAddresses);
+                return 1; // Wireless and addresses printed
+            }
+        }
+    }
+
+    if (pAddresses)
+    {
+        free(pAddresses);
+    }
+
+    return 0; // Not wireless or no addresses found
+}
+
 int is_wireless()
 {
     DWORD dwSize = 0;
@@ -1065,19 +1280,59 @@ int is_wireless()
     return 0;
 }
 #else
-#ifndef __APPLE__
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <linux/wireless.h>
 #include <ifaddrs.h>
 
+static int is_networked(char *ipv4, int ipv4_length)
+{
+    struct ifaddrs *interfaces, *iface;
+    char addr_str[INET_ADDRSTRLEN];
+
+    // Get a list of all network interfaces
+    if (getifaddrs(&interfaces) == -1)
+    {
+        perror("getifaddrs");
+        exit(EXIT_FAILURE);
+    }
+
+    // Iterate through the list of interfaces
+    for (iface = interfaces; iface != NULL; iface = iface->ifa_next)
+    {
+        if (iface->ifa_addr
+                && iface->ifa_addr->sa_family == AF_INET)   // Check it is IP4
+        {
+            // Convert the linked list of interfaces to a human readable string
+            struct sockaddr_in *sa = (struct sockaddr_in *) iface->ifa_addr;
+            inet_ntop(AF_INET, &(sa->sin_addr), addr_str, INET_ADDRSTRLEN);
+
+            if (strncmp(addr_str, "127", 3) == 0 && ipv4[0] == 0)
+            {
+                strncpy(ipv4, addr_str, ipv4_length);
+                rig_debug(RIG_DEBUG_VERBOSE, "%s: Can use %s\n", __func__, ipv4);
+            }
+            else if (strncmp(addr_str, "127", 3) != 0)
+            {
+                strncpy(ipv4, addr_str, ipv4_length);
+                rig_debug(RIG_DEBUG_VERBOSE, "%s: Will use %s\n", __func__, ipv4);
+            }
+        }
+    }
+
+    freeifaddrs(interfaces); // Free the linked list
+    return strlen(ipv4) > 0 ;
+}
+
+
+#ifdef __linux__
+#include <linux/wireless.h>
 int is_wireless_linux(const char *ifname)
 {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     struct iwreq pwrq;
     memset(&pwrq, 0, sizeof(pwrq));
-    strncpy(pwrq.ifr_name, ifname, IFNAMSIZ-1);
+    strncpy(pwrq.ifr_name, ifname, IFNAMSIZ - 1);
 
     if (ioctl(sock, SIOCGIWNAME, &pwrq) != -1)
     {
@@ -1118,87 +1373,129 @@ int is_wireless()
 #endif
 #endif
 
-void *multicast_receiver(void *arg)
+static void *multicast_receiver(void *arg)
 {
     char data[4096];
+    char ip4[INET6_ADDRSTRLEN] = "";
 
     struct multicast_receiver_args_s *args = (struct multicast_receiver_args_s *)
             arg;
     RIG *rig = args->rig;
-    struct rig_state *rs = &rig->state;
+    struct rig_state *rs = STATE(rig);
+    multicast_receiver_priv_data *mcast_receiver_priv =
+        (multicast_receiver_priv_data *)
+        rs->multicast_receiver_priv_data;
 
     struct sockaddr_in dest_addr;
     int socket_fd = args->socket_fd;
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): Starting multicast receiver\n", __FILE__,
-            __LINE__);
+              __LINE__);
+
+    if (!is_networked(ip4, sizeof(ip4)))
+    {
+        rig_debug(RIG_DEBUG_WARN,
+                  "%s: no network detected...disabling multicast receive\n", __func__);
+        return NULL;
+    }
 
     int optval = 1;
-#ifdef __MINGW32__
-    if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, (PCHAR)&optval, sizeof(optval)) < 0)
-#else
-    if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0)
-#endif
+
+    if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, SOCKOPT_CAST(&optval),
+                   sizeof(optval)) < 0)
     {
         rig_debug(RIG_DEBUG_ERR, "%s: error enabling UDP address reuse: %s\n", __func__,
-                strerror(errno));
+                  strerror(errno));
         return NULL;
     }
 
     // Windows does not have SO_REUSEPORT. However, SO_REUSEADDR works in a similar way.
 #if defined(SO_REUSEPORT)
-    if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval)) < 0)
+
+    if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEPORT, &optval,
+                   sizeof(optval)) < 0)
     {
         rig_debug(RIG_DEBUG_ERR, "%s: error enabling UDP port reuse: %s\n", __func__,
-                strerror(errno));
+                  strerror(errno));
         return NULL;
     }
+
+
 #endif
 
     memset(&dest_addr, 0, sizeof(dest_addr));
     dest_addr.sin_family = AF_INET;
+
 #ifdef __MINGW32__
-    // Windows cannot bind to multicast group addresses for some unknown reason
+    //
+    // Windows wireless cannot bind to multicast group addresses for some unknown reason
+    // Update: it's not wireless causing the error we see but we'll leave the detection in place
+    //
     if (is_wireless())
     {
-        rig_debug(RIG_DEBUG_VERBOSE, "%s: no wireless detect so INADDR_ANY is being used\n", __func__);
+        rig_debug(RIG_DEBUG_VERBOSE,
+                  "%s: wireless detected\n", __func__);
+
+//      dest_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
     }
     else
     {
-        rig_debug(RIG_DEBUG_VERBOSE, "%s: wireless detected so localhost is being used\n", __func__);
-        dest_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+        rig_debug(RIG_DEBUG_VERBOSE,
+                  "%s: no wireless detected so INADDR_ANY is being used\n", __func__);
     }
+
 #else
     dest_addr.sin_addr.s_addr = inet_addr(args->multicast_addr);
 #endif
+
     dest_addr.sin_port = htons(args->multicast_port);
 
     if (bind(socket_fd, (struct sockaddr *) &dest_addr, sizeof(dest_addr)) < 0)
     {
-        rig_debug(RIG_DEBUG_ERR, "%s: error binding UDP socket to %s:%d: %s\n", __func__,
-                args->multicast_addr, args->multicast_port, strerror(errno));
+        rig_debug(RIG_DEBUG_ERR, "%s: error binding UDP socket to %s:%d: %s\n",
+                  __func__,
+                  args->multicast_addr, args->multicast_port, strerror(errno));
         return NULL;
     }
 
     struct ip_mreq mreq;
+
     memset(&mreq, 0, sizeof(mreq));
+
     mreq.imr_multiaddr.s_addr = inet_addr(args->multicast_addr);
-    mreq.imr_interface.s_addr = htonl(INADDR_ANY);
 
 #ifdef __MINGW32__
-    if (setsockopt(socket_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (PCHAR)&mreq, sizeof(mreq)) < 0)
-#else
-    if (setsockopt(socket_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
+    // we're not worrying about IPV6 right now as that will likely never occur on home network
+    if (strlen(ip4) > 0)
+    {
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: multicast binding to %s\n", __func__, ip4);
+        mreq.imr_interface.s_addr = inet_addr(ip4);
+    }
+    else
 #endif
     {
-        rig_debug(RIG_DEBUG_ERR, "%s: error joining multicast group %s:%d: %s\n", __func__,
-                args->multicast_addr, args->multicast_port, strerror(errno));
-        return NULL;
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: multicast binding to INADDR_ANY\n", __func__);
+        mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+    }
+
+    if (setsockopt(socket_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, SOCKOPT_CAST(&mreq),
+                   sizeof(mreq)) < 0)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: error joining multicast group %s:%d: %s\n",
+                  __func__,
+                  args->multicast_addr, args->multicast_port, strerror(errno));
+
+        if (errno != 0)
+        {
+            return NULL;
+        }
+
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: errno==0 so trying to continue\n", __func__);
     }
 
     rs->multicast_receiver_run = 1;
 
-    while (rs->multicast_receiver_run == 1)
+    while (rs->multicast_receiver_run)
     {
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
@@ -1207,15 +1504,15 @@ void *multicast_receiver(void *arg)
         int select_result;
         ssize_t result;
 
-        timeout.tv_sec = 1;
-        timeout.tv_usec = 0;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = MULTICAST_DATA_PIPE_TIMEOUT_USEC;
         FD_ZERO(&rfds);
         FD_SET(socket_fd, &rfds);
         efds = rfds;
 
         select_result = select(socket_fd + 1, &rfds, NULL, &efds, &timeout);
 
-        if (rs->multicast_receiver_run == 0)
+        if (!rs->multicast_receiver_run)
         {
             rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): pselect signal\n", __func__, __LINE__);
             break;
@@ -1224,17 +1521,17 @@ void *multicast_receiver(void *arg)
         if (select_result == 0)
         {
             // Select timed out
-//            rig_debug(RIG_DEBUG_ERR, "%s: select timeout\n", __FILE__);
+            //rig_debug(RIG_DEBUG_ERR, "%s: select timeout\n", __FILE__);
             continue;
         }
 
         if (select_result <= 0)
         {
             rig_debug(RIG_DEBUG_ERR,
-                    "%s((%d): select() failed when reading UDP multicast socket data: %s\n",
-                    __func__,
-                    __LINE__,
-                    strerror(errno));
+                      "%s((%d): select() failed when reading UDP multicast socket data: %s\n",
+                      __func__,
+                      __LINE__,
+                      strerror(errno));
 
             break;
         }
@@ -1242,11 +1539,13 @@ void *multicast_receiver(void *arg)
         if ((result = FD_ISSET(socket_fd, &efds)))
         {
             rig_debug(RIG_DEBUG_ERR,
-                    "%s(%d): fd error when reading UDP multicast socket data: (%d)=%s\n", __func__, __LINE__, (int)result, strerror(errno));
+                      "%s(%d): fd error when reading UDP multicast socket data: (%d)=%s\n", __func__,
+                      __LINE__, (int)result, strerror(errno));
             break;
         }
 
-        result = recvfrom(socket_fd, data, sizeof(data), 0, (struct sockaddr *) &client_addr, &client_len);
+        result = recvfrom(socket_fd, data, sizeof(data), 0,
+                          (struct sockaddr *) &client_addr, &client_len);
 
         if (result <= 0)
         {
@@ -1256,22 +1555,28 @@ void *multicast_receiver(void *arg)
                 {
                     continue;
                 }
-                rig_debug(RIG_DEBUG_ERR, "%s: error receiving from UDP socket %s:%d: %s\n", __func__,
-                        args->multicast_addr, args->multicast_port, strerror(errno));
+
+                rig_debug(RIG_DEBUG_ERR, "%s: error receiving from UDP socket %s:%d: %s\n",
+                          __func__,
+                          args->multicast_addr, args->multicast_port, strerror(errno));
             }
+
             break;
         }
 
         // TODO: handle commands from multicast clients
-        rig_debug(RIG_DEBUG_VERBOSE, "%s: received %ld bytes of data: %.*s\n", __func__, (long) result, (int) result, data);
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: received %ld bytes of data: %.*s\n", __func__,
+                  (long) result, (int) result, data);
 
         // TODO: if a new snapshot needs to be sent, call network_publish_rig_poll_data() and the publisher routine will send out a snapshot
         // TODO: new logic in publisher needs to be written for other types of responses
     }
-    rs->multicast_receiver_run = 0;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): Stopping multicast receiver\n", __FILE__,
-            __LINE__);
+    rs->multicast_receiver_run = 0;
+    mcast_receiver_priv->thread_id = 0;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): Stopped multicast receiver\n", __FILE__,
+              __LINE__);
     return NULL;
 }
 
@@ -1289,38 +1594,53 @@ void *multicast_receiver(void *arg)
 int network_multicast_publisher_start(RIG *rig, const char *multicast_addr,
                                       int multicast_port, enum multicast_item_e items)
 {
-    struct rig_state *rs = &rig->state;
+    struct rig_state *rs = STATE(rig);
     multicast_publisher_priv_data *mcast_publisher_priv;
     int socket_fd;
     int status;
+    int mutex_status;
+#ifdef __MINGW32__
+    char ip4[32];
+#endif
 
     ENTERFUNC;
 
-    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): multicast publisher address=%s, port=%d\n", __FILE__,
+    if (rs->multicast_publisher_priv_data != NULL)
+    {
+        rig_debug(RIG_DEBUG_WARN, "%s(%d): multicast publisher already running\n",
+                  __FILE__, __LINE__);
+        RETURNFUNC(-RIG_EINVAL);
+    }
+
+    rig_debug(RIG_DEBUG_VERBOSE,
+              "%s(%d): multicast publisher address=%s, port=%d\n", __FILE__,
               __LINE__,
               multicast_addr, multicast_port);
+
+#ifdef __MINGW32__
+    if (!is_networked(ip4, sizeof(ip4)))
+    {
+        rig_debug(RIG_DEBUG_WARN, "%s: No network found...multicast disabled\n",
+                  __func__);
+        RETURNFUNC(RIG_OK);
+    }
+#endif
 
     if (multicast_addr == NULL || strcmp(multicast_addr, "0.0.0.0") == 0)
     {
         rig_debug(RIG_DEBUG_TRACE, "%s(%d): not starting multicast publisher\n",
                   __FILE__, __LINE__);
-        return RIG_OK;
-    }
-
-    if (rs->multicast_publisher_priv_data != NULL)
-    {
-        rig_debug(RIG_DEBUG_ERR, "%s(%d): multicast publisher already running\n",
-                  __FILE__,
-                  __LINE__);
-        RETURNFUNC(-RIG_EINVAL);
+        RETURNFUNC(RIG_OK);
     }
 
     status = network_init();
 
+#ifdef __MINGW32__ // always RIG_OK if not Windows
     if (status != RIG_OK)
     {
         RETURNFUNC(status);
     }
+#endif
 
     socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -1333,18 +1653,21 @@ int network_multicast_publisher_start(RIG *rig, const char *multicast_addr,
 
     // Enable non-blocking mode
     u_long mode = 1;
+
 #ifdef __MINGW32__
     if (ioctlsocket(socket_fd, FIONBIO, &mode) == SOCKET_ERROR)
     {
-        rig_debug(RIG_DEBUG_ERR, "%s: error enabling non-blocking mode for socket: %s", __func__,
-                get_wsa_error(NULL));
+        rig_debug(RIG_DEBUG_ERR, "%s: error enabling non-blocking mode for socket: %s",
+                  __func__,
+                  strerror(errno));
         RETURNFUNC(-RIG_EIO);
     }
 #else
     if (ioctl(socket_fd, FIONBIO, &mode) < 0)
     {
-        rig_debug(RIG_DEBUG_ERR, "%s: error enabling non-blocking mode for socket: %s", __func__,
-                strerror(errno));
+        rig_debug(RIG_DEBUG_ERR, "%s: error enabling non-blocking mode for socket: %s",
+                  __func__,
+                  strerror(errno));
         RETURNFUNC(-RIG_EIO);
     }
 #endif
@@ -1362,7 +1685,7 @@ int network_multicast_publisher_start(RIG *rig, const char *multicast_addr,
     }
 
     rs->snapshot_packet_sequence_number = 0;
-    rs->multicast_publisher_run = 1;
+    rs->multicast_publisher_run = 0;
     rs->multicast_publisher_priv_data = calloc(1,
                                         sizeof(multicast_publisher_priv_data));
 
@@ -1379,9 +1702,11 @@ int network_multicast_publisher_start(RIG *rig, const char *multicast_addr,
     mcast_publisher_priv->args.multicast_port = multicast_port;
     mcast_publisher_priv->args.rig = rig;
 
+    mutex_status = pthread_mutex_init(&mcast_publisher_priv->args.write_lock, NULL);
+
     status = multicast_publisher_create_data_pipe(mcast_publisher_priv);
 
-    if (status < 0)
+    if (status < 0 || mutex_status != 0)
     {
         free(rs->multicast_publisher_priv_data);
         rs->multicast_publisher_priv_data = NULL;
@@ -1399,7 +1724,7 @@ int network_multicast_publisher_start(RIG *rig, const char *multicast_addr,
     if (err)
     {
         rig_debug(RIG_DEBUG_ERR, "%s(%d) pthread_create error %s\n", __FILE__, __LINE__,
-                  (strerror)(errno));
+                  strerror(errno));
         multicast_publisher_close_data_pipe(mcast_publisher_priv);
         free(mcast_publisher_priv);
         rs->multicast_publisher_priv_data = NULL;
@@ -1419,7 +1744,7 @@ int network_multicast_publisher_start(RIG *rig, const char *multicast_addr,
  */
 int network_multicast_publisher_stop(RIG *rig)
 {
-    struct rig_state *rs = &rig->state;
+    struct rig_state *rs = STATE(rig);
     multicast_publisher_priv_data *mcast_publisher_priv;
 
     ENTERFUNC;
@@ -1441,7 +1766,7 @@ int network_multicast_publisher_stop(RIG *rig)
         if (err)
         {
             rig_debug(RIG_DEBUG_ERR, "%s(%d): pthread_join error %s\n", __FILE__, __LINE__,
-                      (strerror)(errno));
+                      strerror(errno));
             // just ignore it
         }
 
@@ -1455,6 +1780,8 @@ int network_multicast_publisher_stop(RIG *rig)
         close(mcast_publisher_priv->args.socket_fd);
         mcast_publisher_priv->args.socket_fd = -1;
     }
+
+    pthread_mutex_destroy(&mcast_publisher_priv->args.write_lock);
 
     free(rs->multicast_publisher_priv_data);
     rs->multicast_publisher_priv_data = NULL;
@@ -1472,25 +1799,15 @@ int network_multicast_publisher_stop(RIG *rig)
  * \param multicast_port UDP socket port
  * \return RIG_OK or < 0 if error
  */
-int network_multicast_receiver_start(RIG *rig, const char *multicast_addr, int multicast_port)
+int network_multicast_receiver_start(RIG *rig, const char *multicast_addr,
+                                     int multicast_port)
 {
-    struct rig_state *rs = &rig->state;
+    struct rig_state *rs = STATE(rig);
     multicast_receiver_priv_data *mcast_receiver_priv;
     int socket_fd;
     int status;
 
     ENTERFUNC;
-
-    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): multicast receiver address=%s, port=%d\n", __FILE__,
-              __LINE__,
-              multicast_addr, multicast_port);
-
-    if (multicast_addr == NULL || strcmp(multicast_addr, "0.0.0.0") == 0)
-    {
-        rig_debug(RIG_DEBUG_TRACE, "%s(%d): not starting multicast receiver\n",
-                  __FILE__, __LINE__);
-        return RIG_OK;
-    }
 
     if (rs->multicast_receiver_priv_data != NULL)
     {
@@ -1498,6 +1815,18 @@ int network_multicast_receiver_start(RIG *rig, const char *multicast_addr, int m
                   __FILE__,
                   __LINE__);
         RETURNFUNC(-RIG_EINVAL);
+    }
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d): multicast receiver address=%s, port=%d\n",
+              __FILE__,
+              __LINE__,
+              multicast_addr, multicast_port);
+
+    if (multicast_addr == NULL || strcmp(multicast_addr, "0.0.0.0") == 0)
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s(%d): not starting multicast receiver\n",
+                  __FILE__, __LINE__);
+        RETURNFUNC(RIG_OK);
     }
 
     status = network_init();
@@ -1521,20 +1850,22 @@ int network_multicast_receiver_start(RIG *rig, const char *multicast_addr, int m
 #ifdef __MINGW32__
     if (ioctlsocket(socket_fd, FIONBIO, &mode) == SOCKET_ERROR)
     {
-        rig_debug(RIG_DEBUG_ERR, "%s: error enabling non-blocking mode for socket: %s", __func__,
-                 get_wsa_error(NULL));
+        rig_debug(RIG_DEBUG_ERR, "%s: error enabling non-blocking mode for socket: %s",
+                  __func__,
+                  strerror(errno));
         RETURNFUNC(-RIG_EIO);
     }
 #else
     if (ioctl(socket_fd, FIONBIO, &mode) < 0)
     {
-        rig_debug(RIG_DEBUG_ERR, "%s: error enabling non-blocking mode for socket: %s", __func__,
-                strerror(errno));
+        rig_debug(RIG_DEBUG_ERR, "%s: error enabling non-blocking mode for socket: %s",
+                  __func__,
+                  strerror(errno));
         RETURNFUNC(-RIG_EIO);
     }
 #endif
 
-    rs->multicast_receiver_run = 1;
+    rs->multicast_receiver_run = 0;
     rs->multicast_receiver_priv_data = calloc(1,
                                        sizeof(multicast_receiver_priv_data));
 
@@ -1545,7 +1876,7 @@ int network_multicast_receiver_start(RIG *rig, const char *multicast_addr, int m
     }
 
     mcast_receiver_priv = (multicast_receiver_priv_data *)
-                           rs->multicast_receiver_priv_data;
+                          rs->multicast_receiver_priv_data;
     mcast_receiver_priv->args.socket_fd = socket_fd;
     mcast_receiver_priv->args.multicast_addr = multicast_addr;
     mcast_receiver_priv->args.multicast_port = multicast_port;
@@ -1558,7 +1889,7 @@ int network_multicast_receiver_start(RIG *rig, const char *multicast_addr, int m
     if (err)
     {
         rig_debug(RIG_DEBUG_ERR, "%s(%d) pthread_create error %s\n", __FILE__, __LINE__,
-                  (strerror)(errno));
+                  strerror(errno));
         free(mcast_receiver_priv);
         rs->multicast_receiver_priv_data = NULL;
         close(socket_fd);
@@ -1577,7 +1908,7 @@ int network_multicast_receiver_start(RIG *rig, const char *multicast_addr, int m
  */
 int network_multicast_receiver_stop(RIG *rig)
 {
-    struct rig_state *rs = &rig->state;
+    struct rig_state *rs = STATE(rig);
     multicast_receiver_priv_data *mcast_receiver_priv;
 
     ENTERFUNC;
@@ -1585,7 +1916,7 @@ int network_multicast_receiver_stop(RIG *rig)
     rs->multicast_receiver_run = 0;
 
     mcast_receiver_priv = (multicast_receiver_priv_data *)
-                           rs->multicast_receiver_priv_data;
+                          rs->multicast_receiver_priv_data;
 
     if (mcast_receiver_priv == NULL)
     {
@@ -1595,11 +1926,7 @@ int network_multicast_receiver_stop(RIG *rig)
     // Close the socket first to stop the routine
     if (mcast_receiver_priv->args.socket_fd >= 0)
     {
-#ifdef __MINGW32__
-        shutdown(mcast_receiver_priv->args.socket_fd, SD_BOTH);
-#else
         shutdown(mcast_receiver_priv->args.socket_fd, SHUT_RDWR);
-#endif
         close(mcast_receiver_priv->args.socket_fd);
     }
 
@@ -1610,7 +1937,7 @@ int network_multicast_receiver_stop(RIG *rig)
         if (err)
         {
             rig_debug(RIG_DEBUG_ERR, "%s(%d): pthread_join error %s\n", __FILE__, __LINE__,
-                      (strerror)(errno));
+                      strerror(errno));
             // just ignore it
         }
 
@@ -1628,5 +1955,4 @@ int network_multicast_receiver_stop(RIG *rig)
     RETURNFUNC(RIG_OK);
 }
 
-#endif
 /** @} */

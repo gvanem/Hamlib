@@ -7,12 +7,9 @@
 #include <setjmp.h>
 #include <time.h>
 #include <windows.h>
+
 #include "src/misc.h"
 #include "lib/pthread.h"
-
-#if defined(__MINGW32__)
-#error "This file is not needed for MinGW"
-#endif
 
 /*
  * Internals for the Lockless Inc. version of Pthreads.
@@ -20,6 +17,18 @@
 static volatile long  _pthread_cancelling;
 static DWORD          _pthread_tls;
 static long           _pthread_tls_once;
+
+/*
+ * stpcpy() - copy a string returning a pointer to its end.
+ * MinGW needs this function too.
+ */
+char *stpcpy (char *dest, const char *src)
+{
+  strcpy (dest, src);
+  return strchr (dest, '\0');
+}
+
+#if !defined(__MINGW32__)  /* rest of file */
 
 typedef struct _pthread_v {
         void             *ret_arg;
@@ -198,7 +207,7 @@ static void _pthread_tls_init (void)
 {
   _pthread_tls = TlsAlloc();
   if (_pthread_tls == TLS_OUT_OF_INDEXES)  /* Cannot continue if out of indexes */
-    abort();
+     abort();
 }
 
 static int _pthread_once_raw (long *o, void (*func) (void))
@@ -466,3 +475,16 @@ int pthread_mutex_destroy (pthread_mutex_t *m)
   DeleteCriticalSection (m);
   return (0);
 }
+
+int pthread_mutexattr_init (pthread_mutexattr_t *a)
+{
+  *a = 0;
+  return (0);
+}
+
+int pthread_mutexattr_destroy (pthread_mutexattr_t *a)
+{
+  (void) a;
+  return (0);
+}
+#endif  /* __MINGW32__ */

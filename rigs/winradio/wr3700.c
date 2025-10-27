@@ -21,7 +21,7 @@
 
 #include <stdlib.h>
 
-#include <hamlib/rig.h>
+#include "hamlib/rig.h"
 #include "winradio.h"
 
 
@@ -44,7 +44,7 @@ struct rig_caps wr3700_caps =
     .mfg_name =       "Winradio",
     .version =        BACKEND_VER ".0",
     .copyright =   "LGPL",
-    .status =         RIG_STATUS_ALPHA,
+    .status =         RIG_STATUS_BETA,
     .rig_type =       RIG_TYPE_PCRECEIVER,
     .port_type =      RIG_PORT_DEVICE,
     .targetable_vfo =      0,

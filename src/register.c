@@ -26,17 +26,15 @@
  * doc todo: Let's explain what's going on here!
  */
 
-#include <hamlib/config.h>
+#include "hamlib/config.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <sys/types.h>
 
-#include <register.h>
+#include "register.h"
 
-#include <hamlib/rig.h>
-#include "misc.h"
+#include "hamlib/rig.h"
 
 //! @cond Doxygen_Suppress
 #ifndef PATH_MAX
@@ -60,6 +58,7 @@
  */
 DEFINE_INITRIG_BACKEND(dummy);
 DEFINE_INITRIG_BACKEND(yaesu);
+DEFINE_INITRIG_BACKEND(guohetec);
 DEFINE_INITRIG_BACKEND(kenwood);
 DEFINE_INITRIG_BACKEND(icom);
 DEFINE_INITRIG_BACKEND(icmarine);
@@ -90,6 +89,8 @@ DEFINE_INITRIG_BACKEND(codan);
 DEFINE_INITRIG_BACKEND(gomspace);
 DEFINE_INITRIG_BACKEND(mds);
 DEFINE_INITRIG_BACKEND(anytone);
+DEFINE_INITRIG_BACKEND(motorola);
+DEFINE_INITRIG_BACKEND(commradio);
 //! @endcond
 
 #ifdef HAVE_WINRADIO
@@ -117,6 +118,7 @@ static struct
 {
     { RIG_DUMMY, RIG_BACKEND_DUMMY, RIG_FUNCNAMA(dummy) },
     { RIG_YAESU, RIG_BACKEND_YAESU, RIG_FUNCNAM(yaesu) },
+    { RIG_GUOHETEC, RIG_BACKEND_GUOHETEC, RIG_FUNCNAM(guohetec) },
     { RIG_KENWOOD, RIG_BACKEND_KENWOOD, RIG_FUNCNAM(kenwood) },
     { RIG_ICOM, RIG_BACKEND_ICOM, RIG_FUNCNAM(icom) },
     { RIG_ICMARINE, RIG_BACKEND_ICMARINE, RIG_FUNCNAMA(icmarine) },
@@ -147,9 +149,11 @@ static struct
     { RIG_BARRETT, RIG_BACKEND_BARRETT, RIG_FUNCNAMA(barrett) },
     { RIG_ELAD, RIG_BACKEND_ELAD, RIG_FUNCNAMA(elad) },
     { RIG_CODAN, RIG_BACKEND_CODAN, RIG_FUNCNAMA(codan) },
-    { RIG_GOMSPACE, RIG_BACKEND_GOMSPACE, RIG_FUNCNAM(gomspace) },
+    { RIG_GOMSPACE, RIG_BACKEND_GOMSPACE, RIG_FUNCNAMA(gomspace) },
     { RIG_MDS, RIG_BACKEND_MDS, RIG_FUNCNAMA(mds) },
     { RIG_ANYTONE, RIG_BACKEND_ANYTONE, RIG_FUNCNAMA(anytone) },
+    { RIG_MOTOROLA, RIG_BACKEND_MOTOROLA, RIG_FUNCNAMA(motorola) },
+    { RIG_COMMRADIO, RIG_BACKEND_COMMRADIO, RIG_FUNCNAMA(commradio) },
     { 0, NULL }, /* end */
 };
 
@@ -228,7 +232,6 @@ int HAMLIB_API rig_register(struct rig_caps *caps)
     p->next = rig_hash_table[hval];
     rig_hash_table[hval] = p;
 
-    //RETURNFUNC(RIG_OK);
     return RIG_OK;
 }
 //! @endcond
@@ -291,7 +294,7 @@ int HAMLIB_API rig_check_backend(rig_model_t rig_model)
     const struct rig_caps *caps;
     int be_idx;
     int retval;
-    int i, n;
+//    int i;
 
     /* already loaded ? */
     caps = rig_get_caps(rig_model);
@@ -301,13 +304,14 @@ int HAMLIB_API rig_check_backend(rig_model_t rig_model)
         return RIG_OK;
     }
 
+#if 0 // this stopped a 2nd rig_init call with a valid model to fail -- reversing
+
     // hmmm...no caps so did we already load the rigs?
     for (n = 0, i = 0; i < RIGLSTHASHSZ; i++)
     {
         if (rig_hash_table[i]) { ++n; }
     }
 
-#if 0 // this stopped a 2nd rig_init call with a valid model to fail -- reversing
 
     if (n > 1)
     {
@@ -389,7 +393,7 @@ int HAMLIB_API rig_unregister(rig_model_t rig_model)
  * executes cfunc on all the elements stored in the rig hash list
  */
 //! @cond Doxygen_Suppress
-int HAMLIB_API rig_list_foreach(int (*cfunc)(struct rig_caps *,
+int HAMLIB_API rig_list_foreach(int (*cfunc)(const struct rig_caps *,
                                 rig_ptr_t),
                                 rig_ptr_t data)
 {

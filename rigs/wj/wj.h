@@ -22,7 +22,7 @@
 #ifndef _WJ_H
 #define _WJ_H 1
 
-#include <hamlib/rig.h>
+#include "hamlib/rig.h"
 #include "token.h"
 
 #define BACKEND_VER "20040912"
@@ -42,8 +42,8 @@ struct wj_priv_data {
 	value_t rawstr;
 };
 
-int wj_set_conf(RIG *rig, token_t token, const char *val);
-int wj_get_conf(RIG *rig, token_t token, char *val);
+int wj_set_conf(RIG *rig, hamlib_token_t token, const char *val);
+int wj_get_conf(RIG *rig, hamlib_token_t token, char *val);
 int wj_init(RIG *rig);
 int wj_cleanup(RIG *rig);
 int wj_set_freq(RIG *rig, vfo_t vfo, freq_t freq);

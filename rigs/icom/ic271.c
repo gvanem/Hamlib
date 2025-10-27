@@ -56,7 +56,7 @@ struct rig_caps ic271_caps =
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_NONE,
@@ -117,7 +117,7 @@ struct rig_caps ic271_caps =
     },
 
     .tuning_steps =     {
-        {IC271_MODES, 10}, /* TBC: does this rig supports settin tuning step? */
+        {IC271_MODES, 10}, /* TBC: does this rig supports setting tuning step? */
         RIG_TS_END,
     },
     /* mode/filter list, remember: order matters! */

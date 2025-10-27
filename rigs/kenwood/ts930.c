@@ -19,7 +19,7 @@
  *
  */
 
-#include <hamlib/rig.h>
+#include "hamlib/rig.h"
 #include <bandplan.h>
 #include "kenwood.h"
 
@@ -44,7 +44,6 @@ static struct kenwood_priv_caps  ts930_priv_caps  =
 /*
  * ts930 rig capabilities.
  * Notice that some rigs share the same functions.
- * Also this struct is READONLY!
  *
  * part of infos comes from .http = //www.kenwood.net/
  */
@@ -55,7 +54,7 @@ struct rig_caps ts930_caps =
     .mfg_name =  "Kenwood",
     .version =  BACKEND_VER ".1",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -79,8 +78,10 @@ struct rig_caps ts930_caps =
     .has_set_parm =  RIG_PARM_NONE,    /* FIXME: parms */
     .level_gran =
     {
+#define NO_LVL_ATT
 #include "level_gran_kenwood.h"
-     [LVL_ATT] = { .min = { .i = 0 }, .max = { .i = 18 }, .step = { .i = 6 } },
+#undef NO_LVL_ATT
+        [LVL_ATT] = { .min = { .i = 0 }, .max = { .i = 18 }, .step = { .i = 6 } },
     },
     .parm_gran =  { 0 },
     .preamp =   { RIG_DBLST_END, }, /* FIXME: preamp list */

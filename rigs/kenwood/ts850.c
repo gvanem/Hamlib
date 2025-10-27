@@ -23,7 +23,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#include <hamlib/rig.h>
+#include "hamlib/rig.h"
 #include <cal.h>
 #include "kenwood.h"
 
@@ -62,6 +62,7 @@
 static struct kenwood_priv_caps  ts850_priv_caps  =
 {
     .cmdtrm =  EOM_KEN,
+    .tone_table_base = 1,
 };
 
 /* forward definitions */
@@ -94,7 +95,6 @@ static const struct confparams ts850_ext_parms[] =
 /*
 * ts850 rig capabilities.
 * Notice that some rigs share the same functions.
-* Also this struct is READONLY!
 */
 struct rig_caps ts850_caps =
 {
@@ -127,7 +127,9 @@ struct rig_caps ts850_caps =
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran =
     {
+#define NO_LVL_CWPITCH
 #include "level_gran_kenwood.h"
+#undef NO_LVL_CWPITCH
         [LVL_CWPITCH] = { .min = { .i = 400 }, .max = { .i = 1000 }, .step = { .i = 50 } },
     },
     .parm_gran =  { 0 },

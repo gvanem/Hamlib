@@ -22,8 +22,8 @@
 #ifndef _USRP_IMPL_H
 #define _USRP_IMPL_H 1
 
-#include <hamlib/rig.h>
-#include <token.h>
+#include "hamlib/rig.h"
+#include "token.h"
 
 __BEGIN_DECLS
 
@@ -36,8 +36,8 @@ int usrp_open(RIG *rig);
 int usrp_close(RIG *rig);
 int usrp_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
 int usrp_get_freq(RIG *rig, vfo_t vfo, freq_t *freq);
-int usrp_set_conf(RIG *rig, token_t token, const char *val);
-int usrp_get_conf(RIG *rig, token_t token, char *val);
+int usrp_set_conf(RIG *rig, hamlib_token_t token, const char *val);
+int usrp_get_conf(RIG *rig, hamlib_token_t token, char *val);
 
 const char * usrp_get_info(RIG *rig);
 

@@ -22,7 +22,7 @@
 #ifndef _BANDPLAN_H
 #define _BANDPLAN_H 1
 
-#include <hamlib/rig.h>
+#include "hamlib/rig.h"
 
 /*
  * This header file is internal to Hamlib and its backends,
@@ -329,18 +329,18 @@
 
 #define FRQ_RNG_6m(r,m,lp,hp,v,a) \
     FRQ_RNG_6m_REGION##r((m), (lp), (hp), (v), (a)) \
-
+ 
 #define FRQ_RNG_4m(r,m,lp,hp,v,a) \
     FRQ_RNG_4m_REGION##r((m), (lp), (hp), (v), (a)) \
 
 #define FRQ_RNG_2m(r,m,lp,hp,v,a) \
     FRQ_RNG_2m_REGION##r((m), (lp), (hp), (v), (a)) \
-
+ 
 #define FRQ_RNG_70cm(r,m,lp,hp,v,a) \
     FRQ_RNG_70cm_REGION##r((m), (lp), (hp), (v), (a)) \
 
 #define FRQ_RNG_23cm(r,m,lp,hp,v,a) \
     FRQ_RNG_23cm_REGION##r((m), (lp), (hp), (v), (a)) \
-
+ 
 
 #endif  /* _BANDPLAN_H */

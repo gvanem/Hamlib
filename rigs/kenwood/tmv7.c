@@ -23,7 +23,7 @@
 #include <stdio.h>
 #include <string.h>  /* String function definitions */
 
-#include <hamlib/rig.h>
+#include "hamlib/rig.h"
 #include "kenwood.h"
 #include "th.h"
 #include "misc.h"
@@ -183,7 +183,7 @@ struct rig_caps tmv7_caps =
         RIG_FLT_END
     },
 
-    .str_cal = { 4, { {0, -60 }, {1, -30,}, {5, 0}, {7, 20}}}, /* rought guess */
+    .str_cal = { 4, { {0, -60 }, {1, -30,}, {5, 0}, {7, 20}}}, /* rough guess */
 
     .priv = (void *)& tmv7_priv_caps,
     .rig_init = kenwood_init,
@@ -567,7 +567,7 @@ int tmv7_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 
     chan->freq = freq;
     chan->vfo = RIG_VFO_MEM;
-    chan->tuning_step = rig->state.tuning_steps[step].ts;
+    chan->tuning_step = STATE(rig)->tuning_steps[step].ts;
 
     if (freq < MHz(138))
     {
@@ -672,8 +672,8 @@ int tmv7_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 
     freq = (long)chan->freq;
 
-    for (step = 0; rig->state.tuning_steps[step].ts != 0; step++)
-        if (chan->tuning_step == rig->state.tuning_steps[step].ts) { break; }
+    for (step = 0; STATE(rig)->tuning_steps[step].ts != 0; step++)
+        if (chan->tuning_step == STATE(rig)->tuning_steps[step].ts) { break; }
 
     switch (chan->rptr_shift)
     {

@@ -1,31 +1,17 @@
 // using virtual serial ports on Windows is to be developed yet
 // Needs a lot of improvement to work on all Icoms
-// gcc -g -Wall -o simicom simicom.c -lhamlib
-// On mingw in the hamlib src directory
-// gcc -static -I../include -g -Wall -o simicom simicom.c -L../../build/src/.libs -lhamlib -lwsock32 -lws2_32
 #define _XOPEN_SOURCE 700
 // since we are POSIX here we need this
-#if 0
-struct ip_mreq
-{
-    int dummy;
-};
-#endif
-
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <errno.h>
-#include <sys/time.h>
-#include <hamlib/rig.h>
-#include "../src/misc.h"
-#include <termios.h>
-#include <unistd.h>
+#include <sys/types.h>
 
+#include "hamlib/rig.h"
+#include "misc.h"
+#include "sim.h"
 
-#define BUFSIZE 256
 #define X25
 
 int civ_731_mode = 0;
@@ -53,13 +39,7 @@ int keyspd = 130; // 130=20WPM
 int ipp = 0;
 int tx_inhibit = 0;
 int dpp = 0;
-
-void dumphex(const unsigned char *buf, int n)
-{
-    for (int i = 0; i < n; ++i) { printf("%02x ", buf[i]); }
-
-    printf("\n");
-}
+int dualwatch = 0;
 
 int
 frameGet(int fd, unsigned char *buf)
@@ -67,8 +47,6 @@ frameGet(int fd, unsigned char *buf)
     int i = 0;
     memset(buf, 0, BUFSIZE);
     unsigned char c;
-
-again:
 
     while (read(fd, &c, 1) > 0)
     {
@@ -93,7 +71,7 @@ again:
             }
 
             i = 0;
-            goto again;
+            continue;
         }
     }
 
@@ -121,6 +99,10 @@ void frameParse(int fd, unsigned char *frame, int len)
         dumphex(frame, len);
         return;
     }
+
+    int tmp = frame[2];
+    frame[2] = frame[3];
+    frame[3] = tmp;
 
     switch (frame[4])
     {
@@ -201,13 +183,24 @@ void frameParse(int fd, unsigned char *frame, int len)
 
         switch (frame[5])
         {
-        case 0x00: current_vfo = RIG_VFO_A; break;
+        case 0xd0: current_vfo = RIG_VFO_A; break;
 
-        case 0x01: current_vfo = RIG_VFO_B; break;
+        case 0xd1: current_vfo = RIG_VFO_B; break;
 
-        case 0xd0: current_vfo = RIG_VFO_MAIN; break;
-
-        case 0xd1: current_vfo = RIG_VFO_SUB; break;
+        case 0xc2:
+            if (frame[6] == 0xfd)
+            {
+                frame[6] = dualwatch;
+                frame[7] = 0xfd;
+                n = write(fd,frame,8);
+            }
+            else
+            {
+                dualwatch = frame[6];
+                frame[4]=0xfb;
+                frame[5]=0xfd;
+                n = write(fd,frame,6);
+            }
         }
 
         printf("set_vfo to %s\n", rig_strvfo(current_vfo));
@@ -398,42 +391,58 @@ void frameParse(int fd, unsigned char *frame, int len)
                 frame[6] = satmode;
                 frame[7] = 0xfd;
                 n = write(fd, frame, 8);
+
                 if (n <= 0) { fprintf(stderr, "%s(%d) write error %s\n", __func__, __LINE__, strerror(errno)); }
             }
 
             break;
+
         case 0x65:
             if (frame[6] == 0xfd)
+            {
                 ipp = frame[6];
+            }
             else
             {
                 frame[6] = ipp;
-                frame[7]=0xfd;
+                frame[7] = 0xfd;
                 n = write(fd, frame, 8);
+
                 if (n <= 0) { fprintf(stderr, "%s(%d) write error %s\n", __func__, __LINE__, strerror(errno)); }
             }
+
             break;
+
         case 0x66:
             if (frame[6] == 0xfd)
+            {
                 tx_inhibit = frame[6];
+            }
             else
             {
                 frame[6] = tx_inhibit;
-                frame[7]=0xfd;
+                frame[7] = 0xfd;
                 n = write(fd, frame, 8);
+
                 if (n <= 0) { fprintf(stderr, "%s(%d) write error %s\n", __func__, __LINE__, strerror(errno)); }
             }
+
             break;
+
         case 0x67:
             if (frame[6] == 0xfd)
+            {
                 dpp = frame[6];
+            }
             else
             {
                 frame[6] = dpp;
-                frame[7]=0xfd;
+                frame[7] = 0xfd;
                 n = write(fd, frame, 8);
+
                 if (n <= 0) { fprintf(stderr, "%s(%d) write error %s\n", __func__, __LINE__, strerror(errno)); }
             }
+
             break;
         }
 
@@ -703,44 +712,6 @@ void frameParse(int fd, unsigned char *frame, int len)
 
 }
 
-#if defined(WIN32) || defined(_WIN32)
-int openPort(char *comport) // doesn't matter for using pts devices
-{
-    int fd;
-    fd = open(comport, O_RDWR);
-
-    if (fd < 0)
-    {
-        perror(comport);
-    }
-
-    return fd;
-}
-
-#else
-int openPort(char *comport) // doesn't matter for using pts devices
-{
-    int fd = posix_openpt(O_RDWR);
-    char *name = ptsname(fd);
-
-    if (name == NULL)
-    {
-        perror("pstname");
-        return -1;
-    }
-
-    printf("name=%s\n", name);
-
-    if (fd == -1 || grantpt(fd) == -1 || unlockpt(fd) == -1)
-    {
-        perror("posix_openpt");
-        return -1;
-    }
-
-    return fd;
-}
-#endif
-
 void rigStatus()
 {
     char vfoa = current_vfo == RIG_VFO_A ? '*' : ' ';
@@ -757,7 +728,7 @@ void rigStatus()
 
 int main(int argc, char **argv)
 {
-    unsigned char buf[256];
+    unsigned char buf[BUFSIZE];
     int fd = openPort(argv[1]);
 
     printf("%s: %s\n", argv[0], rig_version());
@@ -780,10 +751,11 @@ int main(int argc, char **argv)
     while (1)
     {
         int len = frameGet(fd, buf);
-printf("#1 ========================================");
+        printf("#1 ========================================\n");
+
         if (len <= 0)
         {
-printf("#2 ========================================");
+            printf("#2 ========================================");
             close(fd);
             fd = openPort(argv[1]);
         }
@@ -797,9 +769,9 @@ printf("#2 ========================================");
             hl_usleep(100 * 1000);
         }
 
-printf("#3 ========================================");
+        printf("#3 ========================================");
         rigStatus();
-printf("#3 ========================================");
+        printf("#3 ========================================");
     }
 
     return 0;

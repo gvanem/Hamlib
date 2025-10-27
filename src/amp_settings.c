@@ -39,10 +39,11 @@
  * This Hamlib interface is a frontend implementing wrapper functions.
  */
 
-#include <hamlib/config.h>
+#include "hamlib/config.h"
 
-#include <hamlib/rig.h>
-#include <hamlib/amplifier.h>
+#include "hamlib/rig.h"
+#include "hamlib/amp_state.h"
+#include "hamlib/amplifier.h"
 
 
 /**
@@ -75,7 +76,7 @@ setting_t HAMLIB_API amp_has_set_level(AMP *amp, setting_t level)
         return 0;
     }
 
-    return (amp->state.has_set_level & level);
+    return (AMPSTATE(amp)->has_set_level & level);
 }
 
 /**
@@ -108,7 +109,7 @@ setting_t HAMLIB_API amp_has_get_level(AMP *amp, setting_t level)
         return 0;
     }
 
-    return (amp->state.has_get_level & level);
+    return (AMPSTATE(amp)->has_get_level & level);
 }
 
 /*! @} */

@@ -24,7 +24,7 @@
 #include <stddef.h>
 
 #include "hamlib/rotator.h"
-#include "serial.h"
+#include "iofunc.h"
 #include "register.h"
 
 #include "rot_ioptron.h"
@@ -39,7 +39,7 @@
  *
  * cmdstr - Command to be sent to the rig.
  * data - Buffer for reply string.
- * resp_len - in: Expected length of response. It is the caller's responsibily to
+ * resp_len - in: Expected length of response. It is the caller's responsibility to
  *            provide a buffer at least 1 byte larger than this for null terminator.
  *
  *  COMMANDS  note: as of 12/2018 a mixture of V2 and V3
@@ -63,19 +63,17 @@
 static int
 ioptron_transaction(ROT *rot, const char *cmdstr, char *data, size_t resp_len)
 {
-    struct rot_state *rs;
+    hamlib_port_t *rotp = ROTPORT(rot);
     int retval = 0;
     int retry_read;
 
-    rs = &rot->state;
-
-    for (retry_read = 0; retry_read <= rot->state.rotport.retry; retry_read++)
+    for (retry_read = 0; retry_read <= rotp->retry; retry_read++)
     {
-        rig_flush(&rs->rotport);
+        rig_flush(rotp);
 
         if (cmdstr)
         {
-            retval = write_block(&rs->rotport, (unsigned char *) cmdstr, strlen(cmdstr));
+            retval = write_block(rotp, (unsigned char *) cmdstr, strlen(cmdstr));
 
             if (retval != RIG_OK)
             {
@@ -84,8 +82,9 @@ ioptron_transaction(ROT *rot, const char *cmdstr, char *data, size_t resp_len)
         }
 
         /** the answer */
-        memset(data, 0, resp_len+1);
-        retval = read_block(&rs->rotport, (unsigned char *) data, resp_len);
+        memset(data, 0, resp_len + 1);
+        retval = read_block(rotp, (unsigned char *) data, resp_len);
+
         /** if expected number of bytes received, return OK status */
         if (retval == resp_len)
         {
@@ -93,8 +92,9 @@ ioptron_transaction(ROT *rot, const char *cmdstr, char *data, size_t resp_len)
         }
     }
 
-    /** if got here, retry loop failed */    
-    rig_debug(RIG_DEBUG_ERR, "%s: unexpected response, len %d: '%s'\n", __func__, retval, data);
+    /** if got here, retry loop failed */
+    rig_debug(RIG_DEBUG_ERR, "%s: unexpected response, len %d: '%s'\n", __func__,
+              retval, data);
 
     return -RIG_EPROTO;
 }
@@ -129,10 +129,11 @@ ioptron_open(ROT *rot)
     const char *info;
     int retval;
     char retbuf[10];
-    
+
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
     info = ioptron_get_info(rot);
+
     /* ioptron_get_info returns "MountInfo xxxx", check model number from string */
     /* string of 4 numeric digits is likely model number */
     if ((strlen(&info[10]) != 4) || (strspn(&info[10], "1234567890") != 4))
@@ -156,7 +157,7 @@ ioptron_open(ROT *rot)
     {
         return  -RIG_EPROTO;
     }
-    
+
     return RIG_OK;
 }
 
@@ -230,7 +231,7 @@ ioptron_stop(ROT *rot)
 }
 
 /** sets mount position, requires 4 steps
- * set azmiuth
+ * set azimuth
  * set altitude
  * goto set
  * stop tracking - mount starts tracking after goto
@@ -246,7 +247,7 @@ ioptron_set_position(ROT *rot, azimuth_t az, elevation_t el)
     elevation_t curr_el;
 
     rig_debug(RIG_DEBUG_TRACE, "%s called: %f %f\n", __func__, az, el);
-    
+
     /* units .01 arc sec */
     faz = az * 360000;
     fel = el * 360000;
@@ -269,13 +270,15 @@ ioptron_set_position(ROT *rot, azimuth_t az, elevation_t el)
     {
         /* make sure stopped */
         retval = ioptron_stop(rot);
+
         if (retval != RIG_OK)
         {
             return  -RIG_EPROTO;
         }
-    
+
         /* get current position */
         retval = ioptron_get_position(rot, &curr_az, &curr_el);
+
         if (retval != RIG_OK)
         {
             return  -RIG_EPROTO;
@@ -290,8 +293,8 @@ ioptron_set_position(ROT *rot, azimuth_t az, elevation_t el)
             faz = 129599999; /* needs double precision float */
         }
     }
-    
-    /* set azmiuth, returns '1" if OK */
+
+    /* set azimuth, returns '1" if OK */
     SNPRINTF(cmdstr, sizeof(cmdstr), ":Sz%09.0f#", faz);
     retval = ioptron_transaction(rot, cmdstr, retbuf, 1);
 

@@ -44,13 +44,12 @@
  */
 #if defined(__MINGW32__)
   #include_next <pthread.h>
-  #define LOCKLESS_PTHREADS
 
-#elif !defined(_MSC_VER) && !defined(GCC_MAKE_DEPEND)
+#elif !defined(_MSC_VER)
   #error "This header is for 'MSVC or clang-cl' only. Revise your '-I' path"
 #endif
 
-#ifndef LOCKLESS_PTHREADS
+#if !defined(LOCKLESS_PTHREADS) && defined(_MSC_VER)
 #define LOCKLESS_PTHREADS
 
 #include <windows.h>
@@ -69,7 +68,8 @@ extern "C" {
  * \def PTHREAD_MUTEX_INITIALIZER
  * This value matches the layout of `CRITICAL_SECTION`.
  * I.e. `_RTL_CRITICAL_SECTION`:
- * \code
+ *
+ * ```
  * typedef struct _RTL_CRITICAL_SECTION {
  *     PRTL_CRITICAL_SECTION_DEBUG DebugInfo;
  *     //
@@ -78,11 +78,11 @@ extern "C" {
  *     //
  *     LONG      LockCount;
  *     LONG      RecursionCount;
- *     HANDLE    OwningThread;    // from the thread's ClientId->UniqueThread
+ *     HANDLE    OwningThread;     // from the thread's ClientId->UniqueThread
  *     HANDLE    LockSemaphore;
  *     ULONG_PTR SpinCount;        // force size on 64-bit systems when packed
  * } RTL_CRITICAL_SECTION, *PRTL_CRITICAL_SECTION;
- * \endcode
+ * ```
  */
 #define PTHREAD_MUTEX_INITIALIZER    { (void*)-1, -1, 0, 0, 0, 0 }
 
@@ -111,9 +111,12 @@ int       pthread_mutex_init          (pthread_mutex_t *m, pthread_mutexattr_t *
 int       pthread_mutex_destroy       (pthread_mutex_t *m);
 int       pthread_mutex_lock          (pthread_mutex_t *m);
 int       pthread_mutex_unlock        (pthread_mutex_t *m);
+int       pthread_mutex_trylock       (pthread_mutex_t *m);
+int       pthread_mutexattr_init      (pthread_mutexattr_t *a);
+int       pthread_mutexattr_destroy   (pthread_mutexattr_t *a);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* LOCKLESS_PTHREADS */
+#endif /* !LOCKLESS_PTHREADS && _MSC_VER */

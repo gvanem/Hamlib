@@ -20,6 +20,7 @@
 // along with fldigi.  If not, see <http://www.gnu.org/licenses/>.
 // ---------------------------------------------------------------------
 
+#include "hamlib/config.h"
 #include <errno.h>
 #include <time.h>
 #include <sys/time.h>
@@ -49,7 +50,7 @@
 
 static int showme = 0;
 
-#if _POSIX_TIMERS > 0 && defined(_POSIX_MONOTONIC_CLOCK)
+#if (_POSIX_TIMERS > 0) && defined(_POSIX_MONOTONIC_CLOCK)
   // If we have it, use clock_gettime and CLOCK_MONOTONIC.
 
   #include <time.h>
@@ -59,9 +60,12 @@ static int showme = 0;
     if (showme) {
        showme = 0;
     }
+
     struct timespec time;
+
     // Note: Make sure to link with -lrt to define clock_gettime.
     clock_gettime(CLOCK_MONOTONIC, &time);
+
     return ((double) time.tv_sec) + ((double) time.tv_nsec / (NANOS_PER_SECF));
   }
 
@@ -108,14 +112,16 @@ static int showme = 0;
             __pragma (data_seg())                                              \
             static void __cdecl func args
   #else
-    #error "Unsupported _WIN32compiler"
+    #error "Unsupported '_WIN32' compiler"
   #endif
 
   init_ctor (init_pcfreq, (void))
   {
     LARGE_INTEGER li;
     int has_qpc = QueryPerformanceFrequency(&li);
-    assert(has_qpc);
+
+    assert (has_qpc);
+
     PCFreq = ((double) li.QuadPart) / 1000.0;
   }
 

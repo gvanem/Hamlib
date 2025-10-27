@@ -22,8 +22,8 @@
 #ifndef _SPRINTFLST_H
 #define _SPRINTFLST_H 1
 
-#include <hamlib/rig.h>
-#include <hamlib/rotator.h>
+#include "hamlib/rig.h"
+#include "hamlib/rotator.h"
 
 #define SPRINTF_MAX_SIZE 2048
 
@@ -51,6 +51,7 @@ extern HAMLIB_EXPORT( int ) rot_sprintf_status(char *str, int len, rot_status_t 
 extern HAMLIB_EXPORT( int ) rig_sprintf_spectrum_modes(char *str, int nlen, const enum rig_spectrum_mode_e *modes);
 extern HAMLIB_EXPORT( int ) rig_sprintf_spectrum_spans(char *str, int nlen, const freq_t *spans);
 extern HAMLIB_EXPORT( int )  rig_sprintf_spectrum_avg_modes(char *str, int nlen, const struct rig_spectrum_avg_mode *avg_modes);
+extern HAMLIB_EXPORT( int )  rig_sprintf_tuning_steps(char *str, int nlen, const struct tuning_step_list *tuning_step_list);
 extern HAMLIB_EXPORT( char *) get_rig_conf_type(enum rig_conf_e type);
 extern HAMLIB_EXPORT( int ) print_ext_param(const struct confparams *cfp, rig_ptr_t ptr);
 

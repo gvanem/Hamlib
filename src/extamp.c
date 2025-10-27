@@ -40,16 +40,12 @@
  * `amplifiers/elecraft/kpa.c` for an example.
  */
 
-#include <hamlib/config.h>
+#include "hamlib/config.h"
 
-#include <stdarg.h>
 #include <stdio.h>   /* Standard input/output definitions */
 #include <string.h>  /* String function definitions */
 
-#include <hamlib/amplifier.h>
-
-#include "token.h"
-
+#include "hamlib/amplifier.h"
 
 /**
  * \brief Executes \a cfunc on all the elements stored in the amp_caps::extlevels
@@ -63,10 +59,10 @@
  * not strictly positive.
  *
  * \returns A zero value which means a normal end of iteration, or a
- * **negative value** which means an abnormal end,
+ * **negative value** which means an abnormal end.
  *
  * \retval RIG_OK All extension levels elements successfully processed.
- * \retval RIG_EINVAL \a amp or \a cfunc is NULL or inconsistent.
+ * \retval -RIG_EINVAL \a amp or \a cfunc is NULL or inconsistent.
  */
 int HAMLIB_API amp_ext_level_foreach(AMP *amp,
                                      int (*cfunc)(AMP *,
@@ -117,7 +113,7 @@ int HAMLIB_API amp_ext_level_foreach(AMP *amp,
  * **negative value** which means an abnormal end.
  *
  * \retval RIG_OK All extension parameters elements successfully processed.
- * \retval RIG_EINVAL \a amp or \a cfunc is NULL or inconsistent.
+ * \retval -RIG_EINVAL \a amp or \a cfunc is NULL or inconsistent.
  */
 int HAMLIB_API amp_ext_parm_foreach(AMP *amp,
                                     int (*cfunc)(AMP *,
@@ -217,7 +213,8 @@ const struct confparams *HAMLIB_API amp_ext_lookup(AMP *amp, const char *name)
  * \return A pointer to the containing #confparams structure member or NULL if
  * nothing found or if \a amp is NULL or inconsistent.
  */
-const struct confparams *HAMLIB_API amp_ext_lookup_tok(AMP *amp, token_t token)
+const struct confparams *HAMLIB_API amp_ext_lookup_tok(AMP *amp,
+        hamlib_token_t token)
 {
     const struct confparams *cfp;
 
@@ -258,11 +255,11 @@ const struct confparams *HAMLIB_API amp_ext_lookup_tok(AMP *amp, token_t token)
  * \note As this function calls amp_ext_lookup(), it can be considered a
  * higher level API.
  *
- * \return The token ID or RIG_CONF_END if there is a lookup failure.
+ * \return The token ID or #RIG_CONF_END if there is a lookup failure.
  *
  * \sa amp_ext_lookup()
  */
-token_t HAMLIB_API amp_ext_token_lookup(AMP *amp, const char *name)
+hamlib_token_t HAMLIB_API amp_ext_token_lookup(AMP *amp, const char *name)
 {
     const struct confparams *cfp;
 

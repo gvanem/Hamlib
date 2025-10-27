@@ -18,42 +18,36 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #ifndef _MISC_H
 #define _MISC_H 1
 
-#include <hamlib/rig.h>
-#include <hamlib/config.h>
-
+#include "hamlib/rig.h"
 
 /*
  */
-#ifdef HAVE_PTHREAD
-  #include <pthread.h>
-  #define set_transaction_active(rig)    do {                                                     \
-                                           pthread_mutex_lock(&rig->state.mutex_set_transaction); \
-                                           (rig)->state.transaction_active = 1;                   \
-                                         } while (0)
+#include <pthread.h>
 
-  #define set_transaction_inactive(rig)  do {                                                       \
-                                           (rig)->state.transaction_active = 0;                     \
-                                           pthread_mutex_unlock(&rig->state.mutex_set_transaction); \
-                                         } while (0)
+#define set_transaction_active(rig)    do {                                                      \
+                                         pthread_mutex_lock(&STATE(rig)->mutex_set_transaction); \
+                                         STATE(rig)->transaction_active = 1;                     \
+                                       } while (0)
 
-#else
-  #define set_transaction_active(rig)    (rig)->state.transaction_active = 1
-  #define set_transaction_inactive(rig)  (rig)->state.transaction_active = 0
-#endif
+#define set_transaction_inactive(rig)  do {                                                       \
+                                         STATE(rig)->transaction_active = 0;                       \
+                                         pthread_mutex_unlock(&STATE(rig)->mutex_set_transaction); \
+                                       } while (0)
 
 __BEGIN_DECLS
 
 // a function to return just a string of spaces for indenting rig debug lines
-HAMLIB_EXPORT (const char *) spaces();
+extern HAMLIB_EXPORT (const char *) spaces(int len);
+
 /*
  * Do a hex dump of the unsigned char array.
  */
-
-void dump_hex(const unsigned char ptr[], size_t size);
+extern HAMLIB_EXPORT(void) dump_hex(const unsigned char ptr[], size_t size);
 
 /*
  * BCD conversion routines.
@@ -130,7 +124,7 @@ extern HAMLIB_EXPORT(vfo_t)     vfo_fixup2a(RIG *rig, vfo_t vfo, split_t split, 
 
 extern HAMLIB_EXPORT(int)       parse_hoststr(char *hoststr, int hoststr_len, char host[256], char port[6]);
 
-extern HAMLIB_EXPORT(uint32_t)  CRC32_function(uint8_t *buf, uint32_t len);
+extern HAMLIB_EXPORT(uint32_t)  CRC32_function(const uint8_t *buf, uint32_t len);
 extern HAMLIB_EXPORT(char *)    date_strget(char *buf, int buflen, int localtime);
 
 #ifdef PRId64
@@ -179,25 +173,12 @@ void errmsg(int err, char *s, const char *func, const char *file, int line);
  */
 extern HAMLIB_EXPORT (const char *) rig_debug_filename(const char *file);
 
-#if 0
-  //
-  // Use this instead of snprintf for automatic detection of buffer limit
-  //
-  #define SNPRINTF(s, n, ...) do {                                              \
-                                snprintf (s, n, ##__VA_ARGS__);                 \
-                                if (strlen(s) > n - 1)                          \
-                                   fprintf (stderr,                             \
-                                     "****** %s(%d): buffer overflow ******\n", \
-                                     __func__, __LINE__);                       \
-                              } while (0)
-#endif
-
 #define ERRMSG(err, s) errmsg(err,  s, __func__, rig_debug_filename(__FILE__), __LINE__)
 
 #define ENTERFUNC  do {                                                           \
-                     ++rig->state.depth;                                          \
-                     rig_debug(RIG_DEBUG_VERBOSE, "%.*s%d:%s(%d):%s entered\n",   \
-                               rig->state.depth, spaces(), rig->state.depth,      \
+                     ++STATE(rig)->depth;                                         \
+                     rig_debug(RIG_DEBUG_VERBOSE, "%s%d:%s(%d):%s entered\n",     \
+                               spaces(STATE(rig)->depth), STATE(rig)->depth,      \
                                rig_debug_filename(__FILE__), __LINE__, __func__); \
                    } while (0)
 
@@ -217,12 +198,12 @@ extern HAMLIB_EXPORT (const char *) rig_debug_filename(const char *file);
 #define RETURNFUNC(rc) do { \
                          int rctmp = rc;                                              \
                          rig_debug (RIG_DEBUG_VERBOSE,                                \
-                                    "%.*s%d:%s(%d):%s returning(%ld) %s\n",           \
-                                    rig->state.depth, spaces(), rig->state.depth,     \
+                                    "%s%d:%s(%d):%s returning(%ld) %s\n",             \
+                                    spaces(STATE(rig)->depth), STATE(rig)->depth,     \
                                     rig_debug_filename(__FILE__), __LINE__, __func__, \
                                     (long int) (rctmp),                               \
                                     rctmp < 0 ? rigerror2(rctmp) : "");               \
-                         --rig->state.depth;                                          \
+                         --STATE(rig)->depth;                                         \
                          return (rctmp);                                              \
                        } while (0)
 
@@ -237,25 +218,25 @@ extern HAMLIB_EXPORT (const char *) rig_debug_filename(const char *file);
                         } while (0)
 
 #define CACHE_RESET do {\
-    elapsed_ms(&rig->state.cache.time_freqMainA, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_freqMainB, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_freqSubA, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_freqSubB, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_vfo, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_modeMainA, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_modeMainB, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_modeMainC, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_modeSubA, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_modeSubB, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_modeSubC, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_widthMainA, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_widthMainB, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_widthMainC, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_widthSubA, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_widthSubB, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_widthSubC, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_ptt, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_split, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&CACHE(rig)->time_freqMainA, HAMLIB_ELAPSED_INVALIDATE);  \
+    elapsed_ms(&CACHE(rig)->time_freqMainB, HAMLIB_ELAPSED_INVALIDATE);  \
+    elapsed_ms(&CACHE(rig)->time_freqSubA, HAMLIB_ELAPSED_INVALIDATE);   \
+    elapsed_ms(&CACHE(rig)->time_freqSubB, HAMLIB_ELAPSED_INVALIDATE);   \
+    elapsed_ms(&CACHE(rig)->time_vfo, HAMLIB_ELAPSED_INVALIDATE);        \
+    elapsed_ms(&CACHE(rig)->time_modeMainA, HAMLIB_ELAPSED_INVALIDATE);  \
+    elapsed_ms(&CACHE(rig)->time_modeMainB, HAMLIB_ELAPSED_INVALIDATE);  \
+    elapsed_ms(&CACHE(rig)->time_modeMainC, HAMLIB_ELAPSED_INVALIDATE);  \
+    elapsed_ms(&CACHE(rig)->time_modeSubA, HAMLIB_ELAPSED_INVALIDATE);   \
+    elapsed_ms(&CACHE(rig)->time_modeSubB, HAMLIB_ELAPSED_INVALIDATE);   \
+    elapsed_ms(&CACHE(rig)->time_modeSubC, HAMLIB_ELAPSED_INVALIDATE);   \
+    elapsed_ms(&CACHE(rig)->time_widthMainA, HAMLIB_ELAPSED_INVALIDATE); \
+    elapsed_ms(&CACHE(rig)->time_widthMainB, HAMLIB_ELAPSED_INVALIDATE); \
+    elapsed_ms(&CACHE(rig)->time_widthMainC, HAMLIB_ELAPSED_INVALIDATE); \
+    elapsed_ms(&CACHE(rig)->time_widthSubA, HAMLIB_ELAPSED_INVALIDATE);  \
+    elapsed_ms(&CACHE(rig)->time_widthSubB, HAMLIB_ELAPSED_INVALIDATE);  \
+    elapsed_ms(&CACHE(rig)->time_widthSubC, HAMLIB_ELAPSED_INVALIDATE);  \
+    elapsed_ms(&CACHE(rig)->time_ptt, HAMLIB_ELAPSED_INVALIDATE);        \
+    elapsed_ms(&CACHE(rig)->time_split, HAMLIB_ELAPSED_INVALIDATE);      \
   } while (0)
 
 
@@ -271,10 +252,14 @@ extern HAMLIB_EXPORT(int) rig_settings_load_all(char *settings_file);
 
 extern int check_level_param(RIG *rig, setting_t level, value_t val, gran_t **gran);
 
+extern int queue_deferred_config(deferred_config_header_t *head, hamlib_token_t token, const char *val);
+
 // Takes rig-specific band result and maps it the bandlist int the rig's backend
 extern HAMLIB_EXPORT(hamlib_band_t) rig_get_band(RIG *rig, freq_t freq, int band);
 extern HAMLIB_EXPORT(const char*)   rig_get_band_str(RIG *rig, hamlib_band_t band, int which);
 extern HAMLIB_EXPORT(int)           rig_get_band_rig(RIG *rig, freq_t freq, const char *band);
+
+extern HAMLIB_EXPORT(int) rig_test_2038(RIG *rig);
 
 __END_DECLS
 

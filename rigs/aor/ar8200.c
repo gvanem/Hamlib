@@ -21,7 +21,7 @@
 
 #include <stdlib.h>
 
-#include <hamlib/rig.h>
+#include "hamlib/rig.h"
 #include "aor.h"
 
 
@@ -91,7 +91,7 @@ struct rig_caps ar8200_caps =
     .mfg_name =  "AOR",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_SCANNER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -170,7 +170,7 @@ struct rig_caps ar8200_caps =
         {RIG_MODE_AM, kHz(3)},
         {RIG_MODE_FM | RIG_MODE_AM, kHz(12)},
         {RIG_MODE_FM, kHz(9)},
-        {RIG_MODE_WFM, kHz(230)}, /* 50kHz at -3dB, 380kHz at -20dB */
+        {RIG_MODE_WFM, kHz(230)}, /* 50 kHz at -3dB, 380 kHz at -20dB */
         RIG_FLT_END,
     },
 

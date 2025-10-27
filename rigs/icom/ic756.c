@@ -21,7 +21,7 @@
 
 #include <string.h>  /* String function definitions */
 
-#include <hamlib/rig.h>
+#include "hamlib/rig.h"
 #include "idx_builtin.h"
 
 #include "icom.h"
@@ -329,7 +329,11 @@ struct rig_caps ic756pro_caps =
     .has_set_parm =  RIG_PARM_NONE, /* FIXME: parms */
     .level_gran =
     {
+#define NO_LVL_KEYSPD
+#define NO_LVL_CWPITCH
 #include "level_gran_icom.h"
+#undef NO_LVL_KEYSPD
+#undef NO_LVL_CWPITCH
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
     },
@@ -471,6 +475,7 @@ static const struct icom_priv_caps ic756pro2_priv_caps =
         { .level = RIG_AGC_LAST, .icom_level = -1 },
     },
     .extcmds = ic756pro_cmdparms,   /* Custom op parameters */
+    .data_mode_supported = 1
 };
 
 /*
@@ -520,15 +525,15 @@ static const struct confparams ic756pro2_ext_parms[] =
 #define S_MEM_BEEP      0x520   /* Button confirmation */
 #define S_MEM_SQL_CTL       0x522   /* RF/SQL ctl set 0=auto; 1 = sql; 2 = RF+SQL */
 #define S_MEM_QSPLT     0x524   /* enable quick split mode */
-#define S_MEM_TRCV      0x532   /* CI-V trancieve mode */
+#define S_MEM_TRCV      0x532   /* CI-V transceive mode */
 #define S_MEM_LANG      0x536   /* 0=English 1=Japanese for voice announcer */
 #define S_MEM_SCN_SPD       0x556   /* 0 = low; 1 = high */
-#define S_MEM_RTTY_FL_PB    0x561   /* 0=250 Hz, 1=300' 2 = 350, 3 = 500, 4 = 1 KHz */
+#define S_MEM_RTTY_FL_PB    0x561   /* 0=250 Hz, 1=300' 2 = 350, 3 = 500, 4 = 1 kHz */
 #define S_MEM_RTTY_TWNPK    0x562   /* rtty twin peak filter off/on */
 
 
-static int ic756pro2_set_ext_parm(RIG *rig, token_t token, value_t val);
-static int ic756pro2_get_ext_parm(RIG *rig, token_t token, value_t *val);
+static int ic756pro2_set_ext_parm(RIG *rig, hamlib_token_t token, value_t val);
+static int ic756pro2_get_ext_parm(RIG *rig, hamlib_token_t token, value_t *val);
 
 #define IC756PROII_ALL_RX_MODES (RIG_MODE_AM|RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_FM)
 #define IC756PROII_1HZ_TS_MODES IC756PROII_ALL_RX_MODES
@@ -569,7 +574,11 @@ struct rig_caps ic756pro2_caps =
     .has_set_parm =  RIG_PARM_NONE, /* FIXME: parms */
     .level_gran =
     {
+#define NO_LVL_KEYSPD
+#define NO_LVL_CWPITCH
 #include "level_gran_icom.h"
+#undef NO_LVL_KEYSPD
+#undef NO_LVL_CWPITCH
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
     },
@@ -651,8 +660,8 @@ struct rig_caps ic756pro2_caps =
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
-    .set_mode =  icom_set_mode_with_data,
-    .get_mode =  icom_get_mode_with_data,
+    .set_mode =  icom_set_mode,
+    .get_mode =  icom_get_mode,
     .set_vfo =  icom_set_vfo,
 //    .get_vfo =  icom_get_vfo,
     .set_ant =  icom_set_ant,
@@ -696,9 +705,9 @@ struct rig_caps ic756pro2_caps =
 
 
 /*
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  */
-static int ic756pro2_set_ext_parm(RIG *rig, token_t token, value_t val)
+static int ic756pro2_set_ext_parm(RIG *rig, hamlib_token_t token, value_t val)
 {
     unsigned char epbuf[MAXFRAMELEN], ackbuf[MAXFRAMELEN];
     int ack_len, ep_len, val_len;
@@ -776,10 +785,10 @@ static int ic756pro2_set_ext_parm(RIG *rig, token_t token, value_t val)
 }
 
 /*
- * Assumes rig!=NULL, rig->state.priv!=NULL
+ * Assumes rig!=NULL, STATE(rig)->priv!=NULL
  *  and val points to a buffer big enough to hold the conf value.
  */
-static int ic756pro2_get_ext_parm(RIG *rig, token_t token, value_t *val)
+static int ic756pro2_get_ext_parm(RIG *rig, hamlib_token_t token, value_t *val)
 {
     const struct confparams *cfp;
 
@@ -902,6 +911,7 @@ static const struct icom_priv_caps ic756pro3_priv_caps =
         { .level = RIG_AGC_LAST, .icom_level = -1 },
     },
     .extcmds = ic756pro_cmdparms,   /* Custom op parameters */
+    .data_mode_supported = 1
 };
 
 
@@ -1003,7 +1013,11 @@ struct rig_caps ic756pro3_caps =
     .has_set_parm =  RIG_PARM_SET(IC756PROII_PARMS),
     .level_gran =
     {
+#define NO_LVL_KEYSPD
+#define NO_LVL_CWPITCH
 #include "level_gran_icom.h"
+#undef NO_LVL_KEYSPD
+#undef NO_LVL_CWPITCH
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
     },
@@ -1102,8 +1116,8 @@ struct rig_caps ic756pro3_caps =
 
     .set_freq =  icom_set_freq,
     .get_freq =  icom_get_freq,
-    .set_mode =  icom_set_mode_with_data,
-    .get_mode =  icom_get_mode_with_data,
+    .set_mode =  icom_set_mode,
+    .get_mode =  icom_get_mode,
     .set_vfo =  icom_set_vfo,
 //    .get_vfo =  icom_get_vfo,
     .set_ant =  icom_set_ant,

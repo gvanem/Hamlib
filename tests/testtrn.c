@@ -7,14 +7,14 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include <hamlib/rig.h>
+#include "hamlib/rig.h"
 
-#include <hamlib/config.h>
+#include "hamlib/config.h"
 
 #define SERIAL_PORT "/dev/ttyS0"
 
 
-int myfreq_event(RIG *rig, vfo_t vfo, freq_t freq, rig_ptr_t arg)
+static int myfreq_event(RIG *rig, vfo_t vfo, freq_t freq, rig_ptr_t arg)
 {
     int *count_ptr = (int *) arg;
 
@@ -52,7 +52,7 @@ int main(int argc, const  char *argv[])
         exit(1);    /* whoops! something went wrong (mem alloc?) */
     }
 
-    strncpy(my_rig->state.rigport.pathname, SERIAL_PORT, HAMLIB_FILPATHLEN - 1);
+    rig_set_conf(my_rig, rig_token_lookup(my_rig, "rig_pathname"), SERIAL_PORT);
 
     if (rig_open(my_rig))
     {

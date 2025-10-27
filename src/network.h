@@ -22,19 +22,32 @@
 #ifndef _NETWORK_H
 #define _NETWORK_H 1
 
-#include <hamlib/rig.h>
+#include "hamlib/rig.h"
 #include "iofunc.h"
 
 __BEGIN_DECLS
+
+#if defined(_WIN32)
+  #include <winsock2.h>
+
+  #define SOCKOPT_CAST(ptr)  (char*)(ptr)
+  #undef  SHUT_RDWR
+  #define SHUT_RDWR SD_BOTH
+#else
+  #define SOCKOPT_CAST(ptr)  ptr
+  #define closesocket(s)     close(s)
+#endif
 
 /* Hamlib internal use, see rig.c */
 int network_open(hamlib_port_t *p, int default_port);
 int network_close(hamlib_port_t *rp);
 void network_flush(hamlib_port_t *rp);
+int network_flush2(hamlib_port_t *rp, unsigned char *stopset, char *buf, int buf_len);
 int network_publish_rig_poll_data(RIG *rig);
 int network_publish_rig_transceive_data(RIG *rig);
 int network_publish_rig_spectrum_data(RIG *rig, struct rig_spectrum_line *line);
 int network_publish_rig_status_change(RIG *rig, int32_t status);
+
 HAMLIB_EXPORT(int) network_multicast_publisher_start(RIG *rig, const char *multicast_addr, int multicast_port, enum multicast_item_e items);
 HAMLIB_EXPORT(int) network_multicast_publisher_stop(RIG *rig);
 HAMLIB_EXPORT(int) network_multicast_receiver_start(RIG *rig, const char *multicast_addr, int multicast_port);
