@@ -1,17 +1,19 @@
 Hamlib
 ======
 
-(C) Frank Singleton 2000 (vk3fcs@ix.netcom.com)  
-(C) Stephane Fillod 2000-2011  
-(C) The Hamlib Group 2000-2025  
+[![Build Status](https://ci.appveyor.com/api/projects/status/github/gvanem/Hamlib?branch=master&svg=true)](https://ci.appveyor.com/project/gvanem/gvanem)
+
+(C) Frank Singleton 2000 (vk3fcs@ix.netcom.com)
+(C) Stephane Fillod 2000-2011
+(C) The Hamlib Group 2000-2025
 
 
 The purpose of this project is to provide stable, flexible, shared libraries
 that enable quicker development of amateur radio equipment control
 applications.
 
-The master repository is https://github.com/Hamlib/Hamlib  
-The backup repository is https://sourceforge.net/projects/hamlib/  
+The master repository is https://github.com/Hamlib/Hamlib
+The backup repository is https://sourceforge.net/projects/hamlib/
 
 Daily snapshots are available at https://hamlib.sourceforge.net/snapshots/
 
