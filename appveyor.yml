@@ -1,8 +1,8 @@
 environment:
   matrix:
-    - BUILDER: mingw
     - BUILDER: msvc
     - BUILDER: clang
+    - BUILDER: mingw
 
 install:
   #
