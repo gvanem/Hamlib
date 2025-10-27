@@ -27,7 +27,7 @@ install:
 build_script:
   - set MAKE=make -f Makefile.Windows CPU=x64
   - set OPT=USE_LIBUSB=0 USE_LIBUSRP=0 USE_WSOCK_TRACE=0 USE_LIBXML2=0 USE_LIBGD=0 USE_LIBREADLINE=0 USE_PY_BINDING=0 USE_LUA_BINDING=0 USE_GNURADIO=0
-  - set LLVM_MINGW=%APPVEYOR_BUILD_FOLDER%\llvm-mingw-20251021-ucrt-x86_64
+  - set LLVM_MINGW=%APPVEYOR_BUILD_FOLDER%\llvm-mingw-20251021-msvcrt-x86_64
 
   - if %BUILDER%. == msvc.  %MAKE% %OPT% CC=cl
   - if %BUILDER%. == clang. %MAKE% %OPT% CC=clang-cl
