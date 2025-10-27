@@ -1908,6 +1908,9 @@ file_exist = $(wildcard $(1))
 
 check_llvm_mingw:
 	$(call check_llvm_mingw)
+ifeq ($(ON_APPVEYOR),1)
+	$(call green_msg, ON_APPVEYOR=1: LLVM_MINGW=$(BRIGHT_WHITE)$(LLVM_MINGW))
+endif
 
 ifeq ($(call file_exist,$(_CC).exe),)
   define check_llvm_mingw
