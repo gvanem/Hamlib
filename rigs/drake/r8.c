@@ -97,7 +97,7 @@ struct rig_caps r8_caps =
         [LVL_ATT] = { .min = { .i = 0 }, .max = { .i = 10 } },
         [LVL_PREAMP] = { .min = { .i = 0 }, .max = { .i = 10 } },
     },
-    .parm_gran =  {},
+    .parm_gran =  { 0 },
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
     .preamp =   { 10, RIG_DBLST_END },

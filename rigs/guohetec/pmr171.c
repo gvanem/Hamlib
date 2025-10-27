@@ -183,7 +183,7 @@ struct rig_caps pmr171_caps =
     .has_get_parm =        RIG_PARM_NONE,
     .has_set_parm =        RIG_PARM_NONE,
 
-    .parm_gran =           {},
+    .parm_gran =           { 0 },
     .ctcss_list =          common_ctcss_list,
     .dcs_list =            common_dcs_list,   /* only 104 out of 106 supported */
     .preamp =              { RIG_DBLST_END, },
