@@ -962,7 +962,7 @@ struct rig_caps gqrx_caps =
         [LVL_AF] = { .min = { .f = -80.0 }, .max = { .f = 50.0 } },
         [LVL_SQL] = { .min = { .f = -150.0 }, .max = { .f = 1.0 } },
     },
-    .parm_gran =  {},
+    .parm_gran =  { 0 },
     .ctcss_list =  NULL,
     .dcs_list =  NULL,
     .max_rit =  Hz(0),
