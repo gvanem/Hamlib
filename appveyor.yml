@@ -20,7 +20,10 @@ install:
   - cmd: set PATH=c:\Program Files (x86)\LLVM\bin;%PATH%
 
   #
-  # Download LLVM-MinGW from Github first:
+  # Download LLVM-MinGW from Github first.
+  #
+  # TODO: check if '%LLVM_MINGW%\bin\gcc.exe' exist first.
+  # I.e. preserved by the below 'cache:' statement
   #
   - if %BUILDER%. == mingw. (curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/20251021/llvm-mingw-20251021-msvcrt-x86_64.zip & 7z x -y -bd llvm-mingw-20251021-msvcrt-x86_64.zip)
 
